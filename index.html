@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<link rel="icon" href="/favicon.ico?v=2" type="image/x-icon">
+<link rel="shortcut icon" href="/favicon.ico?v=2" type="image/x-icon">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ElectricCAD Easy — потребитель: блок нагрузки под входом</title>
+  <style>
+    /* ---------- СТИЛИ (без изменений) ---------- */
+    :root{
+      --bg0:#0b0f14;
+      --bg1:#0f1520;
+      --bg2:#121a27;
+      --panel:#0f1622cc;
+      --stroke:#223047;
+      --stroke2:#2a3c58;
+      --text:#e6edf7;
+      --muted:#a8b3c7;
+      --muted2:#7e8aa3;
+      --good:#4ade80;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --shadow: 0 18px 50px rgba(0,0,0,.55);
+      --shadow2: 0 10px 22px rgba(0,0,0,.35);
+      --radius:14px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{ box-sizing:border-box; user-select:none; }
+    html,body{ height:100%; margin:0; padding:0; }
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 700px at 50% -200px, rgba(88,132,255,.25), transparent 60%),
+        radial-gradient(900px 600px at 120% 30%, rgba(0,230,167,.13), transparent 60%),
+        radial-gradient(900px 600px at -10% 70%, rgba(255,138,0,.10), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:var(--text);
+      font-family:var(--sans);
+      overflow:hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+    button, input, select, textarea { font-family:inherit; }
+    .app{
+      height:100%;
+      display:grid;
+      grid-template-columns: 320px 1fr 360px;
+      gap:12px;
+      padding:12px;
+    }
+    .panel{
+      background: linear-gradient(180deg, rgba(18,26,39,.92), rgba(13,19,30,.86));
+      border:1px solid rgba(60,85,126,.35);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      backdrop-filter: blur(10px);
+    }
+    .panelHeader{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 12px;
+      border-bottom:1px solid rgba(60,85,126,.28);
+      background: linear-gradient(180deg, rgba(15,22,34,.92), rgba(15,22,34,.55));
+    }
+    .panelHeader .title{
+      font-weight:700;
+      letter-spacing:.2px;
+      font-size:14px;
+    }
+    .panelHeader .pill{
+      margin-left:auto;
+      font-family:var(--mono);
+      color:var(--muted);
+      font-size:12px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(60,85,126,.35);
+      background: rgba(10,14,22,.55);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 190px;
+    }
+    .scroll{
+      overflow:auto;
+      padding:12px;
+      min-height:0;
+    }
+    .btnRow{ display:flex; gap:8px; flex-wrap:wrap; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(60,85,126,.38);
+      background: rgba(14,20,32,.75);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+      font-size:13px;
+    }
+    .btn:hover{ background: rgba(20,29,45,.85); border-color: rgba(97,132,190,.55); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(88,132,255,.28), rgba(88,132,255,.12));
+      border-color: rgba(88,132,255,.55);
+    }
+    .btn.danger{
+      background: linear-gradient(180deg, rgba(251,113,133,.22), rgba(251,113,133,.10));
+      border-color: rgba(251,113,133,.55);
+    }
+    .btn.ghost{ background: transparent; }
+    .btn svg{ width:16px; height:16px; opacity:.9; }
+    .field{ display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    .label{ font-size:12px; color:var(--muted); }
+    .input, .select, .textarea{
+      width:100%;
+      padding:8px 10px;
+      background: rgba(10,14,22,.65);
+      border:1px solid rgba(60,85,126,.38);
+      border-radius:12px;
+      color:var(--text);
+      outline:none;
+      font-size:13px;
+    }
+    .textarea{ min-height:120px; resize:vertical; font-family:var(--mono); font-size:12px; }
+    .hint{ color:var(--muted2); font-size:12px; line-height:1.35; }
+    .divider{ height:1px; background: rgba(60,85,126,.22); margin:12px 0; }
+    .sectionTitle{ margin: 10px 0 8px 0; color: rgba(230,237,247,.92); font-weight: 800; font-size: 12px; letter-spacing: .3px; }
+
+    .tree details{
+      border:1px solid rgba(60,85,126,.24);
+      border-radius: 12px;
+      background: rgba(10,14,22,.35);
+      margin-bottom:8px;
+      overflow:hidden;
+    }
+    .tree summary{
+      cursor:pointer;
+      padding:10px 10px;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      user-select:none;
+      font-size:13px;
+    }
+    .tree summary::-webkit-details-marker{ display:none; }
+    .tree .catIcon{ width:18px; height:18px; opacity:.9; }
+    .tree .items{ padding: 0 10px 10px 10px; display:flex; flex-direction:column; gap:8px; }
+    .nodeItem{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 10px;
+      border-radius:12px;
+      background: rgba(15,22,34,.55);
+      border:1px solid rgba(60,85,126,.22);
+      cursor:pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .nodeItem:hover{ background: rgba(20,29,45,.75); border-color: rgba(97,132,190,.45); }
+    .nodeItem .meta{ display:flex; flex-direction:column; gap:1px; }
+    .nodeItem .name{ font-size:14px; font-weight:650; }
+    .nodeItem .desc{ font-size:12px; color:var(--muted); }
+    .badge{
+      margin-left:auto;
+      font-family:var(--mono);
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid rgba(60,85,126,.35);
+      background: rgba(10,14,22,.55);
+      padding:3px 8px;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+
+    .workspaceWrap{
+      position:relative;
+      border-radius: var(--radius);
+      overflow:hidden;
+      border:1px solid rgba(60,85,126,.35);
+      box-shadow: var(--shadow);
+      background: radial-gradient(900px 600px at 30% 20%, rgba(88,132,255,.12), transparent 65%),
+                  linear-gradient(180deg, rgba(9,12,18,.75), rgba(9,12,18,.85));
+      min-height:0;
+    }
+    .topBar{
+      position:absolute;
+      left:12px;
+      right:12px;
+      top:12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      pointer-events:none;
+      z-index:7;
+    }
+    .topBar .chip{
+      pointer-events:auto;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      background: rgba(15,22,34,.62);
+      border:1px solid rgba(60,85,126,.35);
+      border-radius:14px;
+      backdrop-filter:blur(10px);
+      box-shadow:0 10px 22px rgba(0,0,0,.30);
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .topBar .chip strong{ color:var(--text); font-weight:700; }
+    .topBar .chip .mono{ font-family:var(--mono); }
+    .topBar .chip .k{
+      font-family:var(--mono);
+      font-size:11px;
+      border:1px solid rgba(60,85,126,.35);
+      padding:2px 6px;
+      border-radius:8px;
+      color:var(--text);
+      background:rgba(10,14,22,.55);
+    }
+    .workspace{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      cursor:grab;
+      touch-action:none;
+    }
+    .workspace.grabbing{ cursor:grabbing; }
+    .grid{
+      position:absolute;
+      inset:0;
+      background-image:
+        linear-gradient(rgba(70,95,140,.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(70,95,140,.18) 1px, transparent 1px),
+        linear-gradient(rgba(70,95,140,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(70,95,140,.08) 1px, transparent 1px);
+      opacity:.75;
+      transform-origin:0 0;
+      will-change:transform;
+      pointer-events:none;
+    }
+    .world{
+      position:absolute;
+      left:0;
+      top:0;
+      transform-origin:0 0;
+      will-change:transform;
+      transform:translateZ(0);
+    }
+    .originCross{ position:absolute; left:0; top:0; width:1px; height:1px; transform:translate(-50%,-50%); pointer-events:none; z-index:2; }
+    .originCross::before,.originCross::after{ content:""; position:absolute; left:50%; top:50%; background:rgba(255,255,255,.18); }
+    .originCross::before{ width:200px; height:2px; transform:translate(-50%,-50%); border-radius:2px; }
+    .originCross::after{ width:2px; height:200px; transform:translate(-50%,-50%); border-radius:2px; }
+    .originLabel{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(12px,-28px);
+      font-family:var(--mono);
+      font-size:11px;
+      color:rgba(230,237,247,.68);
+      padding:3px 8px;
+      border-radius:10px;
+      border:1px solid rgba(60,85,126,.35);
+      background:rgba(10,14,22,.55);
+      white-space:nowrap;
+    }
+    canvas{
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      display:block;
+      pointer-events:none;
+      z-index:5;
+    }
+    .lasso{ position:absolute; border:1px dashed rgba(88,132,255,.75); background:rgba(88,132,255,.12); pointer-events:none; display:none; z-index:6; }
+    .toast{
+      position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+      background:rgba(251,113,133,.15); border:1px solid rgba(251,113,133,.55);
+      padding:10px 12px; border-radius:14px; box-shadow:var(--shadow2);
+      display:none; z-index:20; max-width:780px; width:calc(100% - 40px);
+      backdrop-filter:blur(10px);
+    }
+    .toast .row{ display:flex; gap:10px; align-items:flex-start; }
+    .toast .ico{ width:18px; height:18px; flex:0 0 auto; margin-top:2px; }
+    .toast .msg{ font-size:13px; line-height:1.35; color:rgba(255,255,255,.92); }
+
+    .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; z-index:50; }
+    .modal{
+      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:min(960px, calc(100% - 28px));
+      background:linear-gradient(180deg, rgba(18,26,39,.96), rgba(12,17,26,.94));
+      border:1px solid rgba(60,85,126,.42);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:none;
+      z-index:51;
+      backdrop-filter:blur(10px);
+    }
+    .modalHeader{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .modalHeader .h{ font-weight:850; }
+    .modalHeader .sp{ margin-left:auto; display:flex; gap:8px; }
+    .modalBody{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modalFooter{ display:flex; gap:10px; margin-top:12px; justify-content:flex-end; }
+    .helpCard{ font-size:13px; line-height:1.45; color:rgba(230,237,247,.92); }
+    .helpCard kbd{
+      font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:9px;
+      border:1px solid rgba(60,85,126,.45); background:rgba(10,14,22,.55);
+      color:var(--text); margin:0 2px;
+    }
+    .helpCols{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .helpCols .box{ border:1px solid rgba(60,85,126,.25); border-radius:14px; padding:12px; background:rgba(10,14,22,.30); }
+    .helpButton{ margin-top:auto; padding:12px; border-top:1px solid rgba(60,85,126,.22); }
+    .helpTip{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:10px 12px; border-radius:14px;
+      background:rgba(88,132,255,.10); border:1px solid rgba(88,132,255,.38);
+      cursor:pointer;
+    }
+    .helpTip .t{ font-weight:850; letter-spacing:.2px; }
+    .helpTip .b{ font-family:var(--mono); color:var(--muted); font-size:12px; }
+
+    .kv{ display:grid; grid-template-columns:110px 1fr; gap:8px; align-items:center; font-size:13px; }
+    .kv .k{ color:var(--muted); font-size:12px; }
+    .kv .v{ font-family:var(--mono); font-size:12px; color:rgba(230,237,247,.90); }
+    .typeStack{ border:1px solid rgba(60,85,126,.25); border-radius:14px; padding:10px; background:rgba(10,14,22,.32); margin-bottom:10px; }
+    .typeStack .head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .typeStack .head .t{ font-weight:850; font-size:13px; }
+    .typeStack .head .c{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="panel" id="leftPanel">
+    <div class="panelHeader"><div class="title">Проект</div><div class="pill" id="projectPill">ElectricCAD Easy</div></div>
+    <div class="scroll">
+      <div class="btnRow">
+        <button class="btn ghost" id="btnBack"><svg viewBox="0 0 24 24" fill="none"><path d="M14.5 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Назад</button>
+        <button class="btn" id="btnSave"><svg viewBox="0 0 24 24" fill="none"><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8l4 4v12a2 2 0 0 1-2 2Z" stroke="currentColor"/><path d="M7 21v-8h10v8"/><path d="M8 3v4h8" stroke="currentColor"/></svg>Сохранить</button>
+        <button class="btn" id="btnExport"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12" stroke="currentColor"/><path d="M8 7l4-4 4 4"/><path d="M5 21h14" stroke="currentColor"/></svg>Экспорт JSON</button>
+        <button class="btn" id="btnImport"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21V9"/><path d="M8 13l4 4 4-4"/><path d="M5 3h14"/></svg>Импорт JSON</button>
+        <button class="btn danger" id="btnClear"><svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 16h10l1-16"/></svg>Очистить</button>
+      </div>
+      <div class="field"><div class="label">Название проекта</div><input class="input" id="projectName" value="ElectricCAD Easy" /></div>
+      <div class="divider"></div>
+      <div class="btnRow"><button class="btn primary" id="btnNewNode"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Новая нода</button></div>
+      <div class="divider"></div>
+      <div class="sectionTitle">Каталог нод</div>
+      <div class="tree" id="catalog"></div>
+      <div class="hint">Наведите на овал порта — подсветка. Зажмите ЛКМ и тащите к другому порту — зелёная подсветка при возможности соединения.</div>
+    </div>
+    <input id="fileImport" type="file" accept="application/json" hidden />
+  </aside>
+  <main class="workspaceWrap" id="workspaceWrap">
+    <div class="topBar"><div class="chip"><strong>WORLD</strong><span class="mono">0;0</span><span>Zoom:</span><span class="mono" id="zoomReadout">100%</span><span>Pan:</span><span class="mono" id="panReadout">0;0</span></div><div class="chip"><span class="k">F</span> фокус <span class="k">MMB</span>пан <span class="k">Wheel</span>zoom</div></div>
+    <div class="workspace" id="workspace"><div class="grid" id="grid"></div><div class="world" id="world"><div class="originCross" id="origin"><div class="originLabel">0;0</div></div></div><canvas id="canvas"></canvas><div class="lasso" id="lasso"></div><div class="toast" id="toast"><div class="row"><svg class="ico" viewBox="0 0 24 24"><path d="M12 9v4" stroke="currentColor"/><path d="M12 17h.01" stroke="currentColor" stroke-width="3"/><path d="M10.3 4.6 2.8 18a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0Z" stroke="currentColor"/></svg><div class="msg" id="toastMsg"></div></div></div></div>
+  </main>
+  <aside class="panel" id="rightPanel"><div class="panelHeader"><div class="title">Свойства</div><div class="pill" id="selectionPill">ничего не выбрано</div></div><div class="scroll" id="propsScroll"><div class="hint" id="propsHint">Выберите ноду (ЛКМ) или несколько (SHIFT+ЛКМ / лассо).</div><div id="propsBody"></div></div><div class="helpButton"><div class="helpTip" id="helpTip"><div><div class="t">HELP</div><div class="b">управление и правила</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 18h.01" stroke="currentColor" stroke-width="3"/><path d="M9.1 9a3 3 0 1 1 5.6 1.5c-.8 1-1.7 1.4-2.1 2.3-.2.4-.3.8-.3 1.2v.5" stroke="currentColor"/><path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10Z" stroke="currentColor"/></svg></div></div></aside>
+</div>
+<div class="overlay" id="overlay"></div>
+<div class="modal" id="helpModal"><div class="modalHeader"><div class="h">HELP — управление и правила</div><div class="sp"><button class="btn" id="btnCloseHelp">Закрыть</button></div></div><div class="helpCard"><div class="helpCols"><div class="box"><div class="sectionTitle">Навигация</div><div>Масштаб — колесо мыши</div><div>Перемещение — средняя кнопка (MMB)</div><div>Фокус на 0;0 — F</div></div><div class="box"><div class="sectionTitle">Выделение</div><div>Одиночное — ЛКМ по ноде</div><div>Групповое — SHIFT+ЛКМ</div><div>Лассо — ЛКМ по пустому месту и drag</div></div><div class="box"><div class="sectionTitle">Соединения</div><div>Создать — ЛКМ по овалу порта и перетащить на овал другого порта</div><div>Разъединить — ПКМ по овалу порта</div><div>Нельзя: выход↔выход, вход↔вход, разные типоразъёмы, разная фазность, циклы, занятый выход</div></div><div class="box"><div class="sectionTitle">Клавиши</div><div>Del — удалить выбранные</div><div>Ctrl+C / Ctrl+V / Ctrl+X</div><div>Ctrl+Z / Ctrl+Y</div><div>Ctrl+Shift+S / O / Alt+Del</div></div></div></div></div>
+<div class="modal" id="nodeModal"><div class="modalHeader"><div class="h">Новая нода</div><div class="sp"><button class="btn" id="btnCloseNodeModal">Закрыть</button></div></div><div class="modalBody"><div><div class="field"><div class="label">Тип</div><select class="select" id="newNodeType"><option value="input">Ввод (источник)</option><option value="distributor">Дистрибьютор</option><option value="extender">Удлинитель/Переход</option><option value="consumer">Потребитель</option></select></div><div class="field"><div class="label">Название</div><input class="input" id="newNodeName" placeholder="Нода" /></div><div class="field"><div class="label">Вход (типоразъём)</div><select class="select" id="newNodeInConn"><option value="euro:1">EURO/SHUKO (1ф)</option><option value="cee1:1">CEE 1ф (1ф)</option><option value="cee3:3">CEE 3ф (3ф)</option></select></div><div class="field"><div class="label">Номинал входа (A)</div><input class="input" id="newNodeInA" type="number" min="1" value="16" /></div><div class="field" id="consumerWField"><div class="label">Потребление (Вт)</div><input class="input" id="newNodeW" type="number" min="0" value="1000" /></div></div><div><div class="field" id="outputsCountField"><div class="label">Кол-во выходов</div><input class="input" id="newNodeOutCount" type="number" min="0" max="12" value="2" /></div><div class="field"><div class="label">Выход (типоразъём)</div><select class="select" id="newNodeOutConn"><option value="euro:1">EURO/SHUKO (1ф)</option><option value="cee1:1">CEE 1ф (1ф)</option><option value="cee3:3">CEE 3ф (3ф)</option></select></div><div class="field"><div class="label">Номинал выхода (A)</div><input class="input" id="newNodeOutA" type="number" min="1" value="16" /></div><div class="hint">Для дистрибьютора фазы распределяются по выходам L1/L2/L3.</div></div></div><div class="modalFooter"><button class="btn primary" id="btnCreateNode">Создать</button></div></div>
+
+<script>
+  (function(){
+    // ---------- КОНСТАНТЫ ----------
+    const VOLT_1P = 220, VOLT_3P = 380, MAX_HISTORY = 25, OVERLOAD_EPS_A = 0.05;
+    const PortKind = { IN: "in", OUT: "out" };
+    const ConnType = { EURO: "euro", CEE1: "cee1", CEE3: "cee3" };
+    const LOAD_BLOCK_SPACING = 16;
+    const PORT_HEIGHT = 26;
+
+    // ---------- СОСТОЯНИЕ ----------
+    const state = {
+      project: { name: "ElectricCAD Easy", version: 31 },
+      view: { panX: 0, panY: 0, zoom: 1 },
+      nodes: [], links: [], selection: new Set(),
+      drag: null, connect: null, justLasso: false,
+      undo: [], redo: [], clipboard: null, _toastT: null,
+      hoveredPort: null,
+      targetHoverPort: null,
+      _blinkTime: Date.now()
+    };
+
+    function id(selector) { return document.getElementById(selector); }
+    function newId(prefix) { return prefix + "_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16); }
+    function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+    function escapeHtml(str) { return String(str ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+    function toast(msg) { let t = id("toastMsg"); if(t) { t.innerHTML = msg; id("toast").style.display = "block"; clearTimeout(state._toastT); state._toastT = setTimeout(() => { id("toast").style.display = "none"; }, 3600); } }
+
+    function getNode(nodeId) { return state.nodes.find(n => n.id === nodeId); }
+    function getPort(nodeId, portId) { let n = getNode(nodeId); if(!n) return null; return [...n.inputs, ...n.outputs].find(p => p.id === portId); }
+
+    // ---------- ИСТОРИЯ ----------
+    function pushHistory() {
+      state.undo.push(JSON.stringify({ project: state.project, view: state.view, nodes: state.nodes, links: state.links }));
+      if(state.undo.length > MAX_HISTORY) state.undo.shift();
+      state.redo = [];
+    }
+    function snapshot() { return JSON.stringify({ project: state.project, view: state.view, nodes: state.nodes, links: state.links }); }
+    function restore(snap) {
+      let data = JSON.parse(snap);
+      state.project = data.project ?? state.project;
+      state.view = data.view ?? state.view;
+      state.nodes = data.nodes ?? [];
+      state.links = data.links ?? [];
+      afterMutation();
+      id("projectName").value = state.project.name;
+      id("projectPill").textContent = state.project.name;
+    }
+    function undo() { let prev = state.undo.pop(); if(prev) { state.redo.push(snapshot()); restore(prev); } }
+    function redo() { let nxt = state.redo.pop(); if(nxt) { state.undo.push(snapshot()); restore(nxt); } }
+
+    // ---------- ВЫДЕЛЕНИЕ ----------
+    function selectOnly(nodeId) { state.selection.clear(); if(nodeId) state.selection.add(nodeId); renderSelection(); renderProps(); }
+    function toggleSelection(nodeId) { if(state.selection.has(nodeId)) state.selection.delete(nodeId); else state.selection.add(nodeId); renderSelection(); renderProps(); }
+    function clearSelection() { state.selection.clear(); renderSelection(); renderProps(); }
+    function renderSelection() { let p = id("selectionPill"); if(!p) return; if(state.selection.size === 0) p.textContent = "ничего не выбрано"; else if(state.selection.size === 1) { let n = getNode(Array.from(state.selection)[0]); p.textContent = n ? n.name : "1 нода"; } else p.textContent = state.selection.size + " нод"; redrawCanvas(); }
+
+    // ---------- УДАЛЕНИЕ ----------
+    function deleteSelectedNodes() {
+      let ids = new Set(state.selection);
+      if(ids.size === 0) return;
+      state.nodes = state.nodes.filter(n => !ids.has(n.id));
+      state.links = state.links.filter(l => !ids.has(l.from.nodeId) && !ids.has(l.to.nodeId));
+      state.selection.clear();
+      afterMutation();
+    }
+    function copySelection(cut) {
+      let ids = Array.from(state.selection);
+      if(ids.length === 0) return;
+      let nodes = ids.map(id => getNode(id)).filter(Boolean).map(n => deepClone(n));
+      let links = state.links.filter(l => ids.includes(l.from.nodeId) && ids.includes(l.to.nodeId)).map(l => deepClone(l));
+      state.clipboard = { nodes, links };
+      if(cut) deleteSelectedNodes();
+    }
+    function pasteClipboard() {
+      if(!state.clipboard) return;
+      let offset = { x: 40 / state.view.zoom, y: 40 / state.view.zoom };
+      let idMap = new Map(), newIds = [];
+      for(let n of state.clipboard.nodes) {
+        let nn = deepClone(n);
+        let oldId = nn.id;
+        nn.id = newId("node");
+        idMap.set(oldId, nn.id);
+        nn.pos.x += offset.x; nn.pos.y += offset.y;
+        for(let p of nn.inputs) p.id = newId("in");
+        for(let p of nn.outputs) p.id = newId("out");
+        nn.computed = { inPhase: null, loadW: {L1:0,L2:0,L3:0}, loadA: {L1:0,L2:0,L3:0}, overload: false, phaseImbalance: false, firstOverload: false, firstImbalance: false };
+        state.nodes.push(nn);
+        newIds.push(nn.id);
+      }
+      for(let l of state.clipboard.links) {
+        let fromOld = l.from.nodeId, toOld = l.to.nodeId;
+        if(!idMap.has(fromOld) || !idMap.has(toOld)) continue;
+        let fromNewNode = getNode(idMap.get(fromOld)), toNewNode = getNode(idMap.get(toOld));
+        let fromOldNode = state.clipboard.nodes.find(n => n.id === fromOld), toOldNode = state.clipboard.nodes.find(n => n.id === toOld);
+        if(!fromNewNode || !toNewNode || !fromOldNode || !toOldNode) continue;
+        let fromPortIdx = fromOldNode.outputs.findIndex(p => p.id === l.from.portId);
+        let toPortIdx = toOldNode.inputs.findIndex(p => p.id === l.to.portId);
+        let fromPortId = fromNewNode.outputs[fromPortIdx]?.id, toPortId = toNewNode.inputs[toPortIdx]?.id;
+        if(!fromPortId || !toPortId) continue;
+        state.links.push({ id: newId("link"), from: { nodeId: fromNewNode.id, portId: fromPortId }, to: { nodeId: toNewNode.id, portId: toPortId }, phase: l.phase ?? null });
+      }
+      state.selection.clear();
+      newIds.forEach(id => state.selection.add(id));
+      afterMutation();
+    }
+
+    // ---------- КООРДИНАТЫ ----------
+    function clampZoom(z) { return Math.min(2.5, Math.max(0.005, z)); }
+    function getLocalPoint(e, rect) { return { x: e.clientX - rect.left, y: e.clientY - rect.top }; }
+    function screenToWorld(pt, rect) { let { panX, panY, zoom } = state.view; return { x: (pt.x - panX) / zoom, y: (pt.y - panY) / zoom }; }
+    function worldToScreen(wx, wy, rect) { let { panX, panY, zoom } = state.view; return { x: wx * zoom + panX, y: wy * zoom + panY }; }
+    function applyViewAndRedraw() {
+      let t = `translate(${state.view.panX}px, ${state.view.panY}px) scale(${state.view.zoom})`;
+      id("world").style.transform = t;
+      let major = 120 * state.view.zoom, minor = 24 * state.view.zoom;
+      let g = id("grid");
+      g.style.backgroundSize = `${major}px ${major}px, ${major}px ${major}px, ${minor}px ${minor}px, ${minor}px ${minor}px`;
+      g.style.backgroundPosition = `${state.view.panX}px ${state.view.panY}px, ${state.view.panX}px ${state.view.panY}px, ${state.view.panX}px ${state.view.panY}px, ${state.view.panX}px ${state.view.panY}px`;
+      id("zoomReadout").textContent = Math.round(state.view.zoom * 100) + "%";
+      id("panReadout").textContent = Math.round(state.view.panX) + ";" + Math.round(state.view.panY);
+      redrawCanvas();
+    }
+    function worldCenter() { let r = id("workspace").getBoundingClientRect(); return screenToWorld({ x: r.width/2, y: r.height/2 }, r); }
+    function focusOrigin() { let r = id("workspace").getBoundingClientRect(); state.view.zoom = 1; state.view.panX = r.width/2; state.view.panY = r.height/2; applyViewAndRedraw(); }
+
+    // ---------- РАЗМЕРЫ НОД ----------
+    const NODE_W = 354;
+    function countNameLines(node) {
+      let name = node.name, maxWidth = NODE_W - 150;
+      let words = name.split(' '), lines = 1, current = '';
+      for(let w of words) {
+        let test = current ? current + ' ' + w : w;
+        let approxWidth = test.length * 6.5;
+        if(approxWidth > maxWidth && current) { lines++; current = w; } else current = test;
+      }
+      return Math.min(lines, 3);
+}
+function getNodeHeight(node) {
+      let nameLines = countNameLines(node);
+      let headerH = 18 + nameLines * 18 + 4;
+      let typeCapsuleH = 20;
+      let paramsH = 50;
+      let outputsH = Math.max(1, node.outputs.length) * 34;
+      let loadsH = 60;
+      let extraForConsumer = (node.category === "consumer" && node.consumerWatts) ? 104 : 0;
+      return headerH + typeCapsuleH + 8 + paramsH + outputsH + loadsH + extraForConsumer;
+    }
+    function getNodeScreenRect(node, rect) {
+      let c = worldToScreen(node.pos.x, node.pos.y, rect);
+      let h = getNodeHeight(node);
+      return { left: c.x - NODE_W/2, top: c.y - h/2, right: c.x + NODE_W/2, bottom: c.y + h/2, width: NODE_W, height: h };
+    }
+
+    // ----- ПОЗИЦИИ ПОРТОВ (Y) -----
+    function getPortYPositions(node, top, headerH, paramsH, extraOffset) {
+      let startY = top + headerH + paramsH + 8 + (extraOffset || 0);
+      let step = 34;
+      let outputYs = [];
+      for(let i = 0; i < node.outputs.length; i++) outputYs.push(startY + i * step);
+      let inputY = (outputYs.length === 0) ? startY + 17 : (outputYs[0] + outputYs[outputYs.length-1]) / 2;
+      return { inputY, outputYs };
+    }
+
+    // ----- ЦЕНТР ПОРТА (мировые) -----
+    function getPortCenterWorldPos(node, port) {
+      const left = node.pos.x - NODE_W/2;
+      const h = getNodeHeight(node);
+      const top = node.pos.y - h/2;
+      const nameLines = countNameLines(node);
+      const headerH = 18 + nameLines * 18 + 4;
+      const typeCapsuleH = 20;
+      const headerH2 = headerH + typeCapsuleH + 8;
+      const paramsH = 50;
+      let extraOffset = (node.category === "consumer" && node.consumerWatts) ? 104 : 0;
+      const positions = getPortYPositions(node, top, headerH2, paramsH, extraOffset);
+      let y;
+      if(port.kind === PortKind.IN) y = positions.inputY;
+      else {
+        let idx = node.outputs.findIndex(p => p.id === port.id);
+        if(idx === -1) return null;
+        y = positions.outputYs[idx];
+      }
+      const circleX = (port.kind === PortKind.IN) ? (left + 20 + 18) : (left + NODE_W - 20 - 18);
+      return { x: circleX, y: y };
+    }
+
+    // ----- ВСПОМОГАТЕЛЬНЫЕ ДЛЯ HIT-TEST -----
+    function getPortWorldRect(node, port) {
+      const left = node.pos.x - NODE_W/2;
+      const h = getNodeHeight(node);
+      const top = node.pos.y - h/2;
+      const nameLines = countNameLines(node);
+      const headerH = 18 + nameLines * 18 + 4;
+      const typeCapsuleH = 20;
+      const headerH2 = headerH + typeCapsuleH + 8;
+      const paramsH = 50;
+      let extraOffset = (node.category === "consumer" && node.consumerWatts) ? 104 : 0;
+      const positions = getPortYPositions(node, top, headerH2, paramsH, extraOffset);
+      let y;
+      if(port.kind === PortKind.IN) y = positions.inputY;
+      else {
+        let idx = node.outputs.findIndex(p => p.id === port.id);
+        if(idx === -1) return null;
+        y = positions.outputYs[idx];
+      }
+      const w = 130, hPill = 26;
+      const rx = port.kind === PortKind.IN ? left + 20 : left + NODE_W - 20 - w;
+      const ry = y - hPill/2;
+      return { rx, ry, w: w, h: hPill };
+    }
+    function isPointInPortOval(node, port, worldX, worldY) {
+      const rect = getPortWorldRect(node, port);
+      if(!rect) return false;
+      return worldX >= rect.rx && worldX <= rect.rx + rect.w && worldY >= rect.ry && worldY <= rect.ry + rect.h;
+    }
+    function hitTestPort(screenX, screenY, rect) {
+      const world = screenToWorld({ x: screenX, y: screenY }, rect);
+      for(let node of state.nodes) {
+        for(let port of [...node.inputs, ...node.outputs]) {
+          if(isPointInPortOval(node, port, world.x, world.y)) {
+            return { nodeId: node.id, portId: port.id, kind: port.kind };
+          }
+        }
+      }
+      return null;
+    }
+    function hitTestNode(screenX, screenY, rect) {
+      let world = screenToWorld({ x: screenX, y: screenY }, rect);
+      for(let node of state.nodes) {
+        let h = getNodeHeight(node);
+        let left = node.pos.x - NODE_W/2, top = node.pos.y - h/2;
+        if(world.x >= left && world.x <= left + NODE_W && world.y >= top && world.y <= top + h) return node;
+      }
+      return null;
+    }
+
+    // ---------- СОЕДИНЕНИЯ (С ИСПРАВЛЕНИЕМ ФАЗ) ----------
+    function disconnectByPort(nodeId, portId) {
+      state.links = state.links.filter(l => !(l.from.nodeId === nodeId && l.from.portId === portId) && !(l.to.nodeId === nodeId && l.to.portId === portId));
+      afterMutation();
+    }
+    function isOutputOccupied(nodeId, portId) {
+      let p = getPort(nodeId, portId);
+      if(!p || p.kind !== PortKind.OUT) return false;
+      return state.links.some(l => l.from.nodeId === nodeId && l.from.portId === portId);
+    }
+    function isCompatible(outPort, inPort) {
+      if(outPort.phases !== inPort.phases) return { ok: false, reason: "Разная фазность" };
+      if(outPort.connType !== inPort.connType) return { ok: false, reason: "Разные типоразъёмы" };
+      if(outPort.connType.startsWith("cee") && outPort.nominalA !== inPort.nominalA) return { ok: false, reason: `Разный номинал CEE (${outPort.nominalA}A → ${inPort.nominalA}A)` };
+      return { ok: true };
+    }
+    function wouldCreateCycle(fromNodeId, toNodeId) {
+      let adj = new Map();
+      for(let l of state.links) { if(!adj.has(l.from.nodeId)) adj.set(l.from.nodeId, []); adj.get(l.from.nodeId).push(l.to.nodeId); }
+      if(!adj.has(fromNodeId)) adj.set(fromNodeId, []); adj.get(fromNodeId).push(toNodeId);
+      let seen = new Set(), stack = [toNodeId];
+      while(stack.length) {
+        let cur = stack.pop();
+        if(cur === fromNodeId) return true;
+        if(seen.has(cur)) continue;
+        seen.add(cur);
+        for(let nxt of (adj.get(cur) ?? [])) stack.push(nxt);
+      }
+      return false;
+    }
+
+    function getNodeInputPhase(nodeId, visited = new Set()) {
+      if (visited.has(nodeId)) return null;
+      visited.add(nodeId);
+      const incomingLink = state.links.find(l => l.to.nodeId === nodeId);
+      if (!incomingLink) return null;
+      if (incomingLink.phase) return incomingLink.phase;
+      const fromNode = getNode(incomingLink.from.nodeId);
+      if (!fromNode) return null;
+      const fromPort = getPort(incomingLink.from.nodeId, incomingLink.from.portId);
+      if (!fromPort) return null;
+      if (fromPort.label && fromPort.label.match(/L[123]/i)) {
+        return fromPort.label.match(/L[123]/i)[0].toUpperCase();
+      }
+      return getNodeInputPhase(incomingLink.from.nodeId, visited);
+    }
+
+    function tryConnect(portA, portB) {
+      let out = null, inn = null;
+      if(portA.kind === PortKind.OUT && portB.kind === PortKind.IN) { out = portA; inn = portB; }
+      else if(portA.kind === PortKind.IN && portB.kind === PortKind.OUT) { out = portB; inn = portA; }
+      else { toast("Соединение только выход→вход"); return false; }
+      if(out.nodeId === inn.nodeId) { toast("Нельзя соединять выход и вход одного узла"); return false; }
+      if(state.links.some(l => l.to.nodeId === inn.nodeId && l.to.portId === inn.portId)) { toast("Вход уже занят"); return false; }
+      if(isOutputOccupied(out.nodeId, out.portId)) { toast("Выход уже используется"); return false; }
+      let outP = getPort(out.nodeId, out.portId), inP = getPort(inn.nodeId, inn.portId);
+      if(!outP || !inP) return false;
+      let comp = isCompatible(outP, inP);
+      if(!comp.ok) { toast(comp.reason); return false; }
+      if(wouldCreateCycle(out.nodeId, inn.nodeId)) { toast("Циклы запрещены"); return false; }
+
+      let phase = null;
+      if(outP.phases === 1) {
+        if(outP.label && outP.label.match(/L[123]/i)) {
+          phase = outP.label.match(/L[123]/i)[0].toUpperCase();
+        } else {
+          const parentPhase = getNodeInputPhase(out.nodeId);
+          if(parentPhase) phase = parentPhase;
+        }
+      }
+
+      state.links.push({ id: newId("link"), from: { nodeId: out.nodeId, portId: out.portId }, to: { nodeId: inn.nodeId, portId: inn.portId }, phase });
+      return true;
+    }
+
+    // ---------- РАСЧЁТ НАГРУЗОК ----------
+    function recalc() {
+      for(let n of state.nodes) n.computed = { inPhase: null, loadW: {L1:0,L2:0,L3:0}, loadA: {L1:0,L2:0,L3:0}, overload: false, phaseImbalance: false, firstOverload: false, firstImbalance: false };
+      let incoming = new Map(), outgoing = new Map();
+      for(let l of state.links) {
+        if(!incoming.has(l.to.nodeId)) incoming.set(l.to.nodeId, []); incoming.get(l.to.nodeId).push(l);
+        if(!outgoing.has(l.from.nodeId)) outgoing.set(l.from.nodeId, []); outgoing.get(l.from.nodeId).push(l);
+      }
+      for(let n of state.nodes) { let inLink = (incoming.get(n.id) || [])[0]; if(inLink && inLink.phase) n.computed.inPhase = inLink.phase; }
+      let indeg = new Map(state.nodes.map(n => [n.id, 0]));
+      for(let l of state.links) indeg.set(l.to.nodeId, (indeg.get(l.to.nodeId) || 0) + 1);
+      let q = [], order = [];
+      for(let [id, d] of indeg.entries()) if(d === 0) q.push(id);
+      while(q.length) { let id = q.shift(); order.push(id); for(let l of (outgoing.get(id) ?? [])) { indeg.set(l.to.nodeId, (indeg.get(l.to.nodeId) || 0) - 1); if(indeg.get(l.to.nodeId) === 0) q.push(l.to.nodeId); } }
+      for(let n of state.nodes) if(!order.includes(n.id)) order.push(n.id);
+      let nodesById = new Map(state.nodes.map(n => [n.id, n]));
+      for(let nodeId of order.slice().reverse()) {
+        let n = nodesById.get(nodeId);
+        if(!n) continue;
+        if(n.category === "consumer") {
+          let w = Number(n.consumerWatts ?? 0);
+          let inP = n.inputs[0];
+          if(inP?.phases === 1) { let ph = n.computed.inPhase ?? "L1"; n.computed.loadW[ph] += w; }
+          else if(inP?.phases === 3) { n.computed.loadW.L1 += w/3; n.computed.loadW.L2 += w/3; n.computed.loadW.L3 += w/3; }
+        }
+        for(let l of (outgoing.get(nodeId) ?? [])) {
+          let child = nodesById.get(l.to.nodeId);
+          if(!child) continue;
+          if(l.phase) n.computed.loadW[l.phase] += child.computed.loadW[l.phase] ?? 0;
+          else { n.computed.loadW.L1 += child.computed.loadW.L1; n.computed.loadW.L2 += child.computed.loadW.L2; n.computed.loadW.L3 += child.computed.loadW.L3; }
+        }
+        let uses3p = (n.inputs[0]?.phases === 3) || (n.outputs[0]?.phases === 3);
+        let U = uses3p ? (VOLT_3P / Math.sqrt(3)) : VOLT_1P;
+        n.computed.loadA.L1 = n.computed.loadW.L1 / U;
+        n.computed.loadA.L2 = n.computed.loadW.L2 / U;
+        n.computed.loadA.L3 = n.computed.loadW.L3 / U;
+      }
+      for(let n of state.nodes) {
+        let inPort = n.inputs[0];
+        if(inPort) {
+          if(inPort.phases === 1) { let ph = n.computed.inPhase ?? "L1"; let ia = n.computed.loadA[ph] ?? 0; if(ia > inPort.nominalA + OVERLOAD_EPS_A) n.computed.overload = true; }
+          else { let mx = Math.max(n.computed.loadA.L1, n.computed.loadA.L2, n.computed.loadA.L3); if(mx > inPort.nominalA + OVERLOAD_EPS_A) n.computed.overload = true; }
+        }
+        for(let o of n.outputs) {
+          if(o.phases === 3) {
+            let outA = {L1:0,L2:0,L3:0};
+            for(let l of state.links.filter(ll => ll.from.nodeId === n.id && ll.from.portId === o.id)) {
+              let child = nodesById.get(l.to.nodeId);
+              if(child) { if(l.phase) outA[l.phase] += child.computed.loadA[l.phase] ?? 0; else { outA.L1 += child.computed.loadA.L1; outA.L2 += child.computed.loadA.L2; outA.L3 += child.computed.loadA.L3; } }
+            }
+            let mx = Math.max(outA.L1, outA.L2, outA.L3);
+            if(mx > o.nominalA + OVERLOAD_EPS_A) n.computed.overload = true;
+          } else {
+            let outW = 0, fallback = (o.label && o.label.match(/L[123]/i)) ? o.label.match(/L[123]/i)[0].toUpperCase() : (n.computed.inPhase ?? "L1");
+            for(let l of state.links.filter(ll => ll.from.nodeId === n.id && ll.from.portId === o.id)) {
+              let child = nodesById.get(l.to.nodeId);
+              if(child) { let ph = l.phase ?? fallback; outW += child.computed.loadW[ph] ?? 0; }
+            }
+            let outA = outW / VOLT_1P;
+            if(outA > o.nominalA + OVERLOAD_EPS_A) n.computed.overload = true;
+          }
+        }
+        if(n.inputs[0]?.phases === 3) {
+          let vals = [n.computed.loadA.L1, n.computed.loadA.L2, n.computed.loadA.L3].filter(v => v > 1e-6);
+          if(vals.length >= 2) { let mx = Math.max(...vals), mn = Math.min(...vals); n.computed.phaseImbalance = (mx / mn) >= 1.5; }
+        }
+      }
+    }
+
+    // ---------- ЦВЕТА НАГРУЗКИ ----------
+    function getLoadColor(loadA, nominalA, isOverloadFlag) {
+      if (isOverloadFlag || loadA >= nominalA) return "#ff0000";
+      let ratio = nominalA > 0 ? Math.min(1, loadA / nominalA) : 0;
+      if (ratio <= 0.5) {
+        let t = ratio / 0.5;
+        let r = Math.floor(0 + t * 255);
+        let g = Math.floor(102 + t * (204 - 102));
+        let b = Math.floor(102 + t * (0 - 102));
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        let t = (ratio - 0.5) / 0.5;
+        let r = 255;
+        let g = Math.floor(204 + t * (51 - 204));
+        let b = Math.floor(0 + t * (0 - 0));
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+    }
+    function getNominalForLoad(node) {
+      if (node.inputs && node.inputs.length) return node.inputs[0].nominalA;
+      if (node.outputs && node.outputs.length) return node.outputs[0].nominalA;
+      return 1;
+    }
+
+    function getConnectorColor(connType, phases) {
+      if (connType === ConnType.CEE3 && phases === 3) return "#ef4444";
+      if (connType === ConnType.CEE1 && phases === 1) return "#3b82f6";
+      if (connType === ConnType.EURO && phases === 1) return "#6b7280";
+      return "#6b7280";
+    }
+
+    function getConnectorDisplayText(port) {
+      let conn = port.connType.toUpperCase();
+      return `${conn} ${port.nominalA}A`;
+    }
+
+    function drawPort(ctx, center, port, isHighlight, isTargetHighlight) {
+      ctx.save();
+      ctx.font = "bold 9px monospace";
+      const nominalText = getConnectorDisplayText(port);
+      const nominalWidth = ctx.measureText(nominalText).width + 16;
+      let phaseWidth = 0, phaseText = "", phaseColor = "";
+      if (port.kind === PortKind.OUT && port.phases === 1 && port.label && port.label.match(/L[123]/i)) {
+        phaseText = port.label.match(/L[123]/i)[0].toUpperCase();
+        phaseColor = phaseText === "L1" ? "#ffcc00" : (phaseText === "L2" ? "#44ff44" : "#ff6666");
+        phaseWidth = ctx.measureText(phaseText).width + 12;
+      }
+      const leftMargin = 15, rightMargin = 15, gapBetween = 15, circleR = 7;
+      let requiredWidth;
+      if (port.kind === PortKind.IN) {
+        requiredWidth = leftMargin + circleR*2 + gapBetween + nominalWidth + rightMargin;
+      } else {
+        let contentWidth = nominalWidth + (phaseWidth ? gapBetween + phaseWidth : 0);
+        requiredWidth = leftMargin + contentWidth + gapBetween + circleR*2 + rightMargin;
+      }
+      const w = Math.min(220, Math.max(100, requiredWidth));
+      const h = 26;
+      let rx, ry;
+      if (port.kind === PortKind.IN) rx = center.x - 18;
+      else rx = center.x - (w - 18);
+      ry = center.y - h / 2;
+      const color = pinColor(port.connType, port.phases);
+
+      ctx.fillStyle = "#0a0e16cc";
+      ctx.shadowBlur = 2;
+      ctx.beginPath(); ctx.roundRect(rx, ry, w, h, 13); ctx.fill();
+      if (isTargetHighlight && state.connect) { ctx.strokeStyle = "#4ade80"; ctx.lineWidth = 2.5; }
+      else if (isHighlight) { ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2.5; }
+      else { ctx.strokeStyle = color; ctx.lineWidth = 1.2; }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath(); ctx.arc(center.x, center.y, 7, 0, 2*Math.PI);
+      ctx.fillStyle = color; ctx.fill();
+      ctx.beginPath(); ctx.arc(center.x, center.y, 7, 0, 2*Math.PI);
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.2; ctx.stroke();
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      if (port.kind === PortKind.IN) {
+        let currentX = center.x + circleR + gapBetween;
+        ctx.fillStyle = getConnectorColor(port.connType, port.phases);
+        ctx.beginPath(); ctx.roundRect(currentX, ry + (h-18)/2, nominalWidth, 18, 6); ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(nominalText, currentX + nominalWidth/2, ry + h/2);
+      } else {
+        let currentX = rx + leftMargin;
+        ctx.fillStyle = getConnectorColor(port.connType, port.phases);
+        ctx.beginPath(); ctx.roundRect(currentX, ry + (h-18)/2, nominalWidth, 18, 6); ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(nominalText, currentX + nominalWidth/2, ry + h/2);
+        currentX += nominalWidth;
+        if (phaseWidth) {
+          currentX += gapBetween;
+          ctx.fillStyle = phaseColor;
+          ctx.beginPath(); ctx.roundRect(currentX, ry + (h-18)/2, phaseWidth, 18, 6); ctx.fill();
+          ctx.fillStyle = "#000000";
+          ctx.fillText(phaseText, currentX + phaseWidth/2, ry + h/2);
+        }
+      }
+      ctx.restore();
+    }
+
+    // ---- вспомогательные функции (цвета нод и пр.) ----
+    function getWireColor(outPort) {
+      if(outPort.connType === ConnType.CEE3 && outPort.phases === 3) return "#ef4444";
+      if(outPort.connType === ConnType.CEE1 && outPort.phases === 1) return "#3b82f6";
+      if(outPort.connType === ConnType.EURO && outPort.phases === 1) return "#cbd5e1";
+      return "#f0c0a0";
+    }
+    function nodeFill(node) {
+      if(node.category === "input" && node.outputs[0]?.connType === ConnType.CEE3 && node.name.includes("Щит")) return "#ffffff";
+      if(node.category === "input" && node.outputs[0]?.connType === ConnType.EURO) return "#FFFACD";
+      if(node.category === "consumer") return "#0b2a63";
+      if(node.category === "input") {
+        let out0 = node.outputs[0];
+        if(out0?.connType === ConnType.CEE3) return "#ef4444";
+        if(out0?.connType === ConnType.CEE1) return "#1e40af";
+      }
+      if(node.category === "distributor") return "#a3a11e";
+      if(node.category === "extender") return "#14532d";
+      return "#111827";
+    }
+    function nodeIsLight(node) {
+      let bg = nodeFill(node);
+      return bg === "#ffffff" || bg === "#FFFACD" || bg === "#cbd5e1" || bg === "#f5f7fb";
+    }
+    function getAuxTextColor(node, defaultLight, defaultDark) {
+      if((node.category === "input" && node.outputs[0]?.connType === ConnType.CEE3 && node.name.includes("Щит")) ||
+         (node.category === "input" && node.outputs[0]?.connType === ConnType.EURO)) {
+        return "#e6edf7";
+      }
+      return nodeIsLight(node) ? defaultLight : defaultDark;
+    }
+    function pinColor(connType, phases) {
+      if(phases === 3 && connType === ConnType.CEE3) return "#ef4444";
+      if(phases === 1 && connType === ConnType.CEE1) return "#3b82f6";
+      if(phases === 1 && connType === ConnType.EURO) return "#cbd5e1";
+      return phases === 3 ? "#ef4444" : "#cbd5e1";
+    }
+    function voltageLabel(node) {
+      let inPh = node.inputs[0]?.phases ?? (node.outputs[0]?.phases ?? 1);
+      let outPh = node.outputs.some(o => o.phases === 1) ? 1 : (node.outputs[0]?.phases ?? inPh);
+      if(inPh === 3 && outPh === 1) return "380В→220В";
+      if(inPh === 3) return "380В";
+      return "220В";
+    }
+    function getCommonOutLabel(node) {
+      if(node.outputs.length === 0) return null;
+      const first = node.outputs[0];
+      const same = node.outputs.every(p => p.connType === first.connType && p.nominalA === first.nominalA);
+      if(!same) return "разные";
+      return `${first.connType.toUpperCase()} ${first.nominalA}A`;
+    }
+    function countNameLinesForWidth(ctx, text, maxWidth) {
+      let words = text.split(' ');
+      let lines = [], current = '';
+      for(let w of words) {
+        let test = current ? current + ' ' + w : w;
+        if(ctx.measureText(test).width > maxWidth && current) {
+          lines.push(current);
+          current = w;
+        } else current = test;
+      }
+      if(current) lines.push(current);
+      return lines.length;
+    }
+    function drawMultilineText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+      let words = text.split(' ');
+      let lines = [], current = '';
+      for(let w of words) {
+        let test = current ? current + ' ' + w : w;
+        if(ctx.measureText(test).width > maxWidth && current) {
+          lines.push(current);
+          if(lines.length >= maxLines) break;
+          current = w;
+        } else current = test;
+      }
+      if(current && lines.length < maxLines) lines.push(current);
+      for(let i=0; i<lines.length; i++) ctx.fillText(lines[i], x, y + i * lineHeight);
+      return lines.length;
+    }
+
+    // ---------- ОТРИСОВКА НОДЫ (с исправленным порядком и отступом для потребителя) ----------
+    function drawNode(ctx, node) {
+      let h = getNodeHeight(node);
+      let left = node.pos.x - NODE_W/2, top = node.pos.y - h/2;
+      let isLight = nodeIsLight(node);
+      let bg = nodeFill(node);
+      ctx.shadowBlur = 6; ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.roundRect(left, top, NODE_W, h, 16); ctx.fill();
+      ctx.shadowBlur = 0;
+      if(state.selection.has(node.id)) {
+        ctx.save();
+        ctx.shadowBlur = 10; ctx.shadowColor = "#ffaa44";
+        ctx.strokeStyle = "#ffaa44"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.roundRect(left, top, NODE_W, h, 16); ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = "#3a5a7a"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(left, top, NODE_W, h, 16); ctx.stroke();
+      }
+
+      let maxNameWidth = NODE_W - 24;
+      ctx.font = `bold 13px ${getComputedStyle(document.body).fontFamily}`;
+
+      // Капсула названия - 1 строка, 30 символов max, затемненный бэкграунд
+      const displayName = node.name.length > 30 ? node.name.substring(0, 30) + '...' : node.name;
+      const nameH = 24;
+      const nameCapsuleW = Math.min(NODE_W - 16, ctx.measureText(displayName).width + 16);
+      const nameCapsuleY = top + 8;
+      ctx.fillStyle = "#0a0e16cc";
+      ctx.beginPath(); ctx.roundRect(left + NODE_W/2 - nameCapsuleW/2, nameCapsuleY, nameCapsuleW, nameH, 10); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText(displayName, left + NODE_W/2, nameCapsuleY + nameH/2 + 4);
+      ctx.textAlign = "left";
+      let headerH = nameH + 8;
+      const typeCapsuleH = 20;
+
+      // Капсула с ТИПОМ НОДЫ
+      const typeLabels = { input: "ИСТОЧНИК", distributor: "ДИСТРИБЬЮТОР", extender: "УДЛИНИТЕЛЬ", consumer: "ПОТРЕБИТЕЛЬ" };
+      const nodeType = typeLabels[node.category] || "НЕИЗВЕСТНО";
+      ctx.font = "bold 10px monospace";
+      const typeTextW = ctx.measureText(nodeType).width + 16;
+      const typeCapsuleW = Math.max(100, typeTextW);
+      const typeTopOffset = 50;
+      ctx.fillStyle = "#0a0e16cc";
+      ctx.beginPath(); ctx.roundRect(left + NODE_W/2 - typeCapsuleW/2, top + typeTopOffset, typeCapsuleW, typeCapsuleH, typeCapsuleH/2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText(nodeType, left + NODE_W/2, top + typeTopOffset + typeCapsuleH/2 + 3);
+      ctx.textAlign = "left";
+
+      // Капсула мощности для потребителей
+      if(node.category === "consumer" && node.consumerWatts) {
+        const watts = node.consumerWatts;
+        const amps = (watts / VOLT_1P).toFixed(1);
+        const powerText = `${(watts/1000).toFixed(1)}кВт / ${amps}А`;
+        const powerCapsuleH = 24;
+        const powerTopOffset = typeTopOffset + 60;
+        ctx.font = "bold 12px monospace";
+        const powerCapsuleW = NODE_W - 16;
+        ctx.fillStyle = "#0a0e16cc";
+        ctx.beginPath(); ctx.roundRect(left + 8, top + powerTopOffset, powerCapsuleW, powerCapsuleH, 8); ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.fillText(powerText, left + NODE_W/2, top + powerTopOffset + powerCapsuleH/2 + 4);
+        ctx.textAlign = "left";
+      }
+
+      let paramsH = 50;
+
+      const nameLinesCnt = countNameLines(node);
+      const headerH2 = headerH + typeCapsuleH + 8;
+      const extraOffset = 0;
+      const positions = getPortYPositions(node, top, headerH2, paramsH, extraOffset);
+      let maxPortY = positions.inputY;
+      for(let y of positions.outputYs) if(y > maxPortY) maxPortY = y;
+      const portBottom = maxPortY + PORT_HEIGHT/2;
+
+      // --- КАПСУЛЫ С НАГРУЗКОЙ ПО ФАЗАМ (привязаны к нижней границе) ---
+      const loads = node.computed.loadA;
+      const inPh = node.inputs[0]?.phases ?? (node.outputs[0]?.phases ?? 1);
+      const nominalForColor = getNominalForLoad(node);
+      const isOverload = node.computed.overload;
+      const bottomLoadSpacing = 30;
+      const capsuleW = 85, capsuleH = 22;
+      const capsuleGap = 8;
+      const capsulesStartX = left + (NODE_W - (inPh === 3 ? 3 * capsuleW + 2 * capsuleGap : capsuleW)) / 2;
+      const loadBlockY = top + h - bottomLoadSpacing - capsuleH;
+
+      if(inPh === 3) {
+        const phases = ["L1", "L2", "L3"];
+        for(let i=0; i<phases.length; i++) {
+          let ph = phases[i];
+          let val = loads[ph] || 0;
+          let color = getLoadColor(val, nominalForColor, isOverload && val > nominalForColor);
+          let capX = capsulesStartX + i * (capsuleW + capsuleGap);
+          ctx.fillStyle = "#0a0e16cc";
+          ctx.beginPath(); ctx.roundRect(capX, loadBlockY, capsuleW, capsuleH, capsuleH/2); ctx.fill();
+          ctx.fillStyle = color;
+          ctx.font = "9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(`${ph} ${val.toFixed(1)}A`, capX + capsuleW/2, loadBlockY + capsuleH/2 + 3);
+        }
+      } else {
+        let ph = node.computed.inPhase ?? "L1";
+        let val = loads[ph] || 0;
+        let color = getLoadColor(val, nominalForColor, isOverload && val > nominalForColor);
+        ctx.fillStyle = "#0a0e16cc";
+        ctx.beginPath(); ctx.roundRect(capsulesStartX, loadBlockY, capsuleW, capsuleH, capsuleH/2); ctx.fill();
+        ctx.fillStyle = color;
+        ctx.font = "9px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`${ph} ${val.toFixed(1)}A`, capsulesStartX + capsuleW/2, loadBlockY + capsuleH/2 + 3);
+      }
+
+      // --- БЭЙДЖИ ПЕРЕГРУЗКИ И ДИСБАЛАНСА (85px от верхней границы) ---
+      ctx.font = "bold 9px monospace";
+      const alertH = 20;
+      const alertGap = 8;
+      const topOffset = 85;
+      const isBlinkVisible = Math.floor(Date.now() / 300) % 2 === 0;
+      if(node.computed.overload || node.computed.phaseImbalance) {
+        const badges = [];
+        if(node.computed.overload) badges.push({ text: "⚠ ПЕРЕГРУЗКА", color: "#ff0000", stroke: true, strokeColor: "#000", innerStroke: true, innerStrokeColor: "#fff", blink: true, textColor: "#fff" });
+        if(node.computed.phaseImbalance) badges.push({ text: "⚠ ДИСБАЛАНС ФАЗ", color: "#fbbf24", stroke: true, blink: false });
+        let totalW = 0;
+        for(let b of badges) {
+          b.w = ctx.measureText(b.text).width + 16;
+          totalW += b.w;
+        }
+        totalW += (badges.length - 1) * alertGap;
+        let badgesStartX = left + (NODE_W - totalW) / 2;
+        let curX = badgesStartX;
+        for(let b of badges) {
+          if(b.blink && !isBlinkVisible) { curX += b.w + alertGap; continue; }
+          let alertY = top + topOffset;
+          ctx.fillStyle = b.color + "cc";
+          ctx.beginPath(); ctx.roundRect(curX, alertY - alertH/2 + 2, b.w, alertH, alertH/2); ctx.fill();
+          if(b.stroke) {
+            ctx.strokeStyle = b.strokeColor || "#000";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+          }
+          if(b.innerStroke) {
+            ctx.strokeStyle = b.innerStrokeColor || "#fff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          ctx.fillStyle = b.textColor || "#000";
+          ctx.textAlign = "center";
+          ctx.fillText(b.text, curX + b.w/2, alertY + 4);
+          curX += b.w + alertGap;
+        }
+        ctx.textAlign = "left";
+      }
+
+      // --- ТЕПЕРЬ РИСУЕМ ПОРТЫ
+      for(let p of node.inputs) {
+        let center = getPortCenterWorldPos(node, p);
+        if(center) {
+          let isHighlight = (state.hoveredPort && state.hoveredPort.nodeId === node.id && state.hoveredPort.portId === p.id);
+          let isTargetHighlight = (state.targetHoverPort && state.targetHoverPort.nodeId === node.id && state.targetHoverPort.portId === p.id);
+          drawPort(ctx, center, p, isHighlight, isTargetHighlight);
+        }
+      }
+      for(let p of node.outputs) {
+        let center = getPortCenterWorldPos(node, p);
+        if(center) {
+          let isHighlight = (state.hoveredPort && state.hoveredPort.nodeId === node.id && state.hoveredPort.portId === p.id);
+          let isTargetHighlight = (state.targetHoverPort && state.targetHoverPort.nodeId === node.id && state.targetHoverPort.portId === p.id);
+          drawPort(ctx, center, p, isHighlight, isTargetHighlight);
+        }
+      }
+    }
+
+    function redrawCanvas() {
+      let rect = id("workspace").getBoundingClientRect();
+      if(rect.width === 0) return;
+      let can = id("canvas");
+      can.width = rect.width; can.height = rect.height;
+      let ctx = can.getContext("2d");
+      ctx.clearRect(0, 0, can.width, can.height);
+      ctx.save();
+      ctx.translate(state.view.panX, state.view.panY);
+      ctx.scale(state.view.zoom, state.view.zoom);
+      for(let node of state.nodes) {
+        if(state.selection.has(node.id)) continue;
+        drawNode(ctx, node);
+      }
+      for(let link of state.links) {
+        let fromNode = getNode(link.from.nodeId), toNode = getNode(link.to.nodeId);
+        if(!fromNode || !toNode) continue;
+        let fromPort = getPort(link.from.nodeId, link.from.portId);
+        if(!fromPort) continue;
+        let fromW = getPortCenterWorldPos(fromNode, fromPort);
+        let toPort = getPort(link.to.nodeId, link.to.portId);
+        let toW = toPort ? getPortCenterWorldPos(toNode, toPort) : null;
+        if(!fromW || !toW) continue;
+        ctx.beginPath();
+        ctx.moveTo(fromW.x, fromW.y);
+        let cp1 = { x: fromW.x + (toW.x - fromW.x) * 0.4, y: fromW.y };
+        let cp2 = { x: toW.x - (toW.x - fromW.x) * 0.4, y: toW.y };
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, toW.x, toW.y);
+        ctx.lineWidth = 5 / state.view.zoom;
+        ctx.strokeStyle = getWireColor(fromPort);
+        ctx.stroke();
+        if(link.phase) {
+          let mx = (fromW.x + toW.x)/2, my = (fromW.y + toW.y)/2 - 10;
+          ctx.font = `10px ${getComputedStyle(document.body).fontFamily}`;
+          ctx.fillStyle = "#e6edf7";
+          ctx.fillText(link.phase, mx, my);
+        }
+      }
+      for(let node of state.nodes) {
+        if(!state.selection.has(node.id)) continue;
+        drawNode(ctx, node);
+      }
+      if(state.connect) {
+        let sn = getNode(state.connect.fromNodeId), sp = getPort(state.connect.fromNodeId, state.connect.fromPortId);
+        if(sn && sp && state.connect.currentWorld) {
+          let fw = getPortCenterWorldPos(sn, sp);
+          if(fw) {
+            ctx.beginPath();
+            ctx.moveTo(fw.x, fw.y);
+            let tw = state.connect.currentWorld;
+            let cp1 = { x: fw.x + (tw.x - fw.x)*0.5, y: fw.y };
+            let cp2 = { x: tw.x - (tw.x - fw.x)*0.5, y: tw.y };
+            ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, tw.x, tw.y);
+            ctx.setLineDash([6,8]);
+            ctx.strokeStyle = state.targetHoverPort ? "#88ff88" : "#88aaff";
+            ctx.lineWidth = 4.5 / state.view.zoom;
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
+        if(w<2*r) r=w/2; if(h<2*r) r=h/2;
+        this.moveTo(x+r,y); this.lineTo(x+w-r,y);
+        this.quadraticCurveTo(x+w,y,x+w,y+r);
+        this.lineTo(x+w,y+h-r);
+        this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+        this.lineTo(x+r,y+h);
+        this.quadraticCurveTo(x,y+h,x,y+h-r);
+        this.lineTo(x,y+r);
+        this.quadraticCurveTo(x,y,x+r,y);
+        return this;
+      };
+    }
+
+    // ---------- ШАБЛОНЫ И СОЗДАНИЕ НОД (без изменений) ----------
+    function normalizePort(p, kind, idx) {
+      return { id: newId(kind === PortKind.IN ? "in" : "out"), kind, connType: p.connType, nominalA: Number(p.nominalA ?? 16), phases: Number(p.phases ?? 1), label: p.label ?? (kind === PortKind.OUT ? `OUT${idx+1}` : "IN") };
+    }
+    function out(connType, nominalA, phases, label) { return { connType, nominalA, phases, label: label ?? null }; }
+    function outN(n, connType, nominalA, phases) { return Array.from({ length: n }, () => out(connType, nominalA, phases, null)); }
+    function tplBase(category, name) { return { category, name }; }
+    function tplInput(name, connType, nominalA, phases) { return Object.assign(tplBase("input", name), { inputs: [], outputs: [out(connType, nominalA, phases, null)] }); }
+    function tplDistributor(name, inConnType, inA, outputs) { return Object.assign(tplBase("distributor", name), { inputs: [{ connType: inConnType, nominalA: inA, phases: (inConnType === ConnType.CEE3 ? 3 : 1), label: null }], outputs }); }
+    function tplExtender(name, inConnType, inA, outputs) { return Object.assign(tplBase("extender", name), { inputs: [{ connType: inConnType, nominalA: inA, phases: (inConnType === ConnType.CEE3 ? 3 : 1), label: null }], outputs }); }
+    function tplConsumer(name, inConnType, inA, phases, watts) { return Object.assign(tplBase("consumer", name), { inputs: [{ connType: inConnType, nominalA: inA, phases, label: null }], outputs: [], consumerWatts: watts }); }
+    function createNodeFromTemplate(tpl, posWorld) {
+      let node = {
+        id: newId("node"), category: tpl.category, templateName: tpl.name, name: tpl.name,
+        pos: { x: posWorld.x, y: posWorld.y },
+        inputs: (tpl.inputs ?? []).map((p,idx) => normalizePort(p, PortKind.IN, idx)),
+        outputs: (tpl.outputs ?? []).map((p,idx) => normalizePort(p, PortKind.OUT, idx)),
+        consumerWatts: tpl.consumerWatts ?? 0,
+        computed: { inPhase: null, loadW: {L1:0,L2:0,L3:0}, loadA: {L1:0,L2:0,L3:0}, overload: false, phaseImbalance: false, firstOverload: false, firstImbalance: false }
+      };
+      state.nodes.push(node);
+      afterMutation();
+      selectOnly(node.id);
+      return node;
+    }
+
+    function buildAdvancedDemo() {
+      clearProject();
+      let src = createNodeFromTemplate(tplInput("Электрический Щит 3P 32A", ConnType.CEE3, 32, 3), { x: 0, y: 0 });
+      let dist = createNodeFromTemplate(tplDistributor("Дистрибьютор 32A -> 6x EURO 16A (L1/L2/L3)", ConnType.CEE3, 32,
+        [ out(ConnType.EURO,16,1,"L1"), out(ConnType.EURO,16,1,"L1"),
+          out(ConnType.EURO,16,1,"L2"), out(ConnType.EURO,16,1,"L2"),
+          out(ConnType.EURO,16,1,"L3"), out(ConnType.EURO,16,1,"L3") ]), { x: 420, y: 0 });
+      let watts = [1000, 1000, 2000, 2000, 3500, 5500];
+      let yOff = -140;
+      for(let i=0; i<6; i++) {
+        let cons = createNodeFromTemplate(tplConsumer(`Потребитель EURO ${watts[i]} Вт`, ConnType.EURO, 16, 1, watts[i]), { x: 840, y: yOff + i*70 });
+        tryConnect({ nodeId: dist.id, portId: dist.outputs[i].id, kind: PortKind.OUT }, { nodeId: cons.id, portId: cons.inputs[0].id, kind: PortKind.IN });
+      }
+      tryConnect({ nodeId: src.id, portId: src.outputs[0].id, kind: PortKind.OUT }, { nodeId: dist.id, portId: dist.inputs[0].id, kind: PortKind.IN });
+      afterMutation();
+    }
+    function clearProject() { state.nodes = []; state.links = []; state.selection.clear(); afterMutation(); }
+
+    function restoreMissingPhases() {
+      let changed = true;
+      let maxPasses = 10;
+      let pass = 0;
+      while (changed && pass < maxPasses) {
+        changed = false;
+        for (let link of state.links) {
+          if (link.phase) continue;
+          const fromNode = getNode(link.from.nodeId);
+          if (!fromNode) continue;
+          const fromPort = getPort(link.from.nodeId, link.from.portId);
+          if (!fromPort) continue;
+          if (fromPort.label && fromPort.label.match(/L[123]/i)) {
+            link.phase = fromPort.label.match(/L[123]/i)[0].toUpperCase();
+            changed = true;
+            continue;
+          }
+          const parentPhase = getNodeInputPhase(link.from.nodeId);
+          if (parentPhase) {
+            link.phase = parentPhase;
+            changed = true;
+          }
+        }
+        pass++;
+      }
+    }
+
+    function importProject(json) {
+      if(!Array.isArray(json.nodes) || !Array.isArray(json.links)) throw new Error("Неверный формат");
+      state.project.name = json.meta?.name ?? "ElectricCAD Easy";
+      state.view = json.view ?? { panX: 0, panY: 0, zoom: 1 };
+      state.nodes = json.nodes.map(n => {
+        n.computed = n.computed || { inPhase: null, loadW: {L1:0,L2:0,L3:0}, loadA: {L1:0,L2:0,L3:0}, overload: false, phaseImbalance: false, firstOverload: false, firstImbalance: false };
+        return n;
+      });
+      state.links = json.links;
+      restoreMissingPhases();
+      afterMutation();
+      id("projectName").value = state.project.name;
+      id("projectPill").textContent = state.project.name;
+    }
+
+    function exportProject() {
+      let data = JSON.stringify({ meta: { app: "ElectricCAD_Easy", version: state.project.version, name: state.project.name }, view: deepClone(state.view), nodes: deepClone(state.nodes), links: deepClone(state.links) }, null, 2);
+      let blob = new Blob([data], { type: "application/json" });
+      let a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = state.project.name.replace(/[^\w\-]/g, "_") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1200);
+    }
+
+    function afterMutation() { recalc(); applyViewAndRedraw(); renderProps(); renderSelection(); }
+
+    function renderProps() { /* без изменений, оставлено как в оригинале */
+      let sel = Array.from(state.selection);
+      let body = id("propsBody");
+      if(!body) return;
+      body.innerHTML = "";
+      let hint = id("propsHint");
+      if(hint) hint.style.display = sel.length ? "none" : "block";
+      if(sel.length === 0) return;
+      let nodes = sel.map(id => getNode(id)).filter(Boolean);
+      let groups = new Map();
+      for(let n of nodes) { let key = `${n.category}::${n.templateName}`; if(!groups.has(key)) groups.set(key, []); groups.get(key).push(n); }
+      for(let [key, groupNodes] of groups) {
+        let n0 = groupNodes[0];
+        let box = document.createElement("div");
+        box.className = "typeStack";
+        box.innerHTML = `<div class="head"><div class="t">${escapeHtml(n0.templateName)}</div><div class="c">${groupNodes.length} шт</div></div>`;
+        if(groupNodes.length === 1) {
+          let nameWrap = document.createElement("div");
+          nameWrap.className = "field";
+          nameWrap.innerHTML = `<div class="label">Название</div><input class="input" maxlength="30" value="${escapeHtml(n0.name)}" />`;
+          let inp = nameWrap.querySelector("input");
+          inp.addEventListener("input", () => { pushHistory(); n0.name = inp.value.trim() || n0.templateName; redrawCanvas(); renderSelection(); });
+          box.appendChild(nameWrap);
+        }
+        if(n0.category === "consumer") {
+          let wWrap = document.createElement("div");
+          wWrap.className = "field";
+          wWrap.innerHTML = `<div class="label">Потребление, Вт</div><input class="input" type="number" min="0" value="${escapeHtml(String(n0.consumerWatts ?? 0))}" />`;
+          let inp = wWrap.querySelector("input");
+          inp.addEventListener("change", () => { pushHistory(); let v = Math.max(0, Number(inp.value || 0)); for(let nn of groupNodes) nn.consumerWatts = v; afterMutation(); });
+          box.appendChild(wWrap);
+        }
+        if(groupNodes.length === 1) {
+          let coords = document.createElement("div");
+          coords.style.marginTop = "10px";
+          coords.innerHTML = `<div class="sectionTitle">World координаты</div><div class="kv"><div class="k">X</div><div class="v">${Math.round(n0.pos.x)}</div></div><div class="kv"><div class="k">Y</div><div class="v">${Math.round(n0.pos.y)}</div></div>`;
+          box.appendChild(coords);
+          let conns = document.createElement("div");
+          conns.style.marginTop = "10px";
+          conns.innerHTML = `<div class="sectionTitle">Активные соединения</div>`;
+          let related = state.links.filter(l => l.from.nodeId === n0.id || l.to.nodeId === n0.id);
+          if(related.length === 0) { let empty = document.createElement("div"); empty.className = "hint"; empty.textContent = "Нет соединений."; conns.appendChild(empty); }
+          else {
+            for(let link of related) {
+              let item = document.createElement("div");
+              item.style.display = "flex"; item.style.gap = "8px"; item.style.alignItems = "center"; item.style.padding = "8px 10px"; item.style.borderRadius = "12px"; item.style.border = "1px solid rgba(60,85,126,.25)"; item.style.background = "rgba(10,14,22,.30)";
+              let label = document.createElement("div");
+              label.style.flex = "1"; label.style.fontFamily = "var(--mono)"; label.style.fontSize = "12px";
+              let a = getNode(link.from.nodeId)?.name ?? link.from.nodeId;
+              let b = getNode(link.to.nodeId)?.name ?? link.to.nodeId;
+              label.textContent = `${a} → ${b}${link.phase ? " " + link.phase : ""}`;
+              let btn = document.createElement("button");
+              btn.className = "btn danger";
+              btn.textContent = "Удалить";
+              btn.addEventListener("click", () => { pushHistory(); state.links = state.links.filter(l => l.id !== link.id); afterMutation(); });
+              item.append(label, btn);
+              conns.appendChild(item);
+            }
+          }
+          box.appendChild(conns);
+        }
+        body.appendChild(box);
+      }
+    }
+
+    function renderCatalog() { /* без изменений, оставлено для краткости */
+      let cat = id("catalog");
+      if(!cat) return;
+      cat.innerHTML = `
+        <details open>
+          <summary><svg class="catIcon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 12h14" stroke="currentColor" stroke-width="2"/></svg> Ввод / Источники</summary>
+          <div class="items"><details><summary>🔌 Электрические щиты (CEE 3ф)</summary><div class="items" id="cat_shields"></div></details><details><summary>⚡ Трёхфазные розетки CEE</summary><div class="items" id="cat_cee3"></div></details><details><summary>🔌 Однофазные розетки CEE</summary><div class="items" id="cat_cee1"></div></details><details><summary>🔌 Однофазные EURO/SHUKO</summary><div class="items" id="cat_euro"></div></details></div>
+        </details>
+        <details>
+          <summary><svg class="catIcon" viewBox="0 0 24 24" fill="none"><path d="M8 10h8M8 14h8" stroke="currentColor"/><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor"/></svg> Дистрибьюторы</summary>
+          <div class="items"><details><summary>➡️ Трёхфазные → трёхфазные</summary><div class="items" id="cat_dist_3to3"></div></details><details><summary>➡️ Трёхфазные → однофазные</summary><div class="items" id="cat_dist_3to1"></div></details></div>
+        </details>
+        <details>
+          <summary><svg class="catIcon" viewBox="0 0 24 24" fill="none"><path d="M7 7h10v10H7V7Z" stroke="currentColor"/><path d="M9 9h6v6H9V9Z" stroke="currentColor" opacity=".55"/></svg> Удлинители / Переходы</summary>
+          <div class="items" id="cat_extenders"></div>
+        </details>
+        <details>
+          <summary><svg class="catIcon" viewBox="0 0 24 24" fill="none"><path d="M13 2 3 14h7l-1 8 12-14h-7l-1-6Z" stroke="currentColor" stroke-linejoin="round"/></svg> Потребители</summary>
+          <div class="items"><details><summary>EURO/SHUKO</summary><div class="items" id="cat_cons_euro"></div></details><details><summary>CEE 1ф</summary><div class="items" id="cat_cons_cee1"></div></details><details><summary>CEE 3ф</summary><div class="items" id="cat_cons_cee3"></div></details></div>
+        </details>
+      `;
+      function addNode(container, name, desc, badge, tplType, params) {
+        let div = document.createElement("div");
+        div.className = "nodeItem";
+        div.innerHTML = `<div class="meta"><div class="name">${escapeHtml(name)}</div><div class="desc">${escapeHtml(desc)}</div></div><div class="badge">${escapeHtml(badge)}</div>`;
+        div.setAttribute("data-tpl", tplType);
+        for(let k in params) div.setAttribute(k, params[k]);
+        div.addEventListener("click", (e) => {
+          e.stopPropagation();
+          let tpl = div.getAttribute("data-tpl");
+          if(tpl === "input") {
+            let type = div.getAttribute("data-type");
+            let a = parseInt(div.getAttribute("data-a"));
+            let phases = parseInt(div.getAttribute("data-phases"));
+            let conn = type === "cee3" ? ConnType.CEE3 : (type === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let t = tplInput(name, conn, a, phases);
+            pushHistory();
+            createNodeFromTemplate(t, worldCenter());
+          } else if(tpl === "dist") {
+            let inType = div.getAttribute("data-in");
+            let inA = parseInt(div.getAttribute("data-in-a"));
+            let outCount = parseInt(div.getAttribute("data-out-count"));
+            let outType = div.getAttribute("data-out-type");
+            let outA = parseInt(div.getAttribute("data-out-a"));
+            let inConn = inType === "cee3" ? ConnType.CEE3 : (inType === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let outConn = outType === "cee3" ? ConnType.CEE3 : (outType === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let outputs = [];
+            if(outCount === 6 && outConn === ConnType.EURO) {
+              outputs = [ out(ConnType.EURO, outA, 1, "L1"), out(ConnType.EURO, outA, 1, "L1"),
+                          out(ConnType.EURO, outA, 1, "L2"), out(ConnType.EURO, outA, 1, "L2"),
+                          out(ConnType.EURO, outA, 1, "L3"), out(ConnType.EURO, outA, 1, "L3") ];
+            } else if(outCount === 6 && outConn === ConnType.CEE1) {
+              outputs = [ out(ConnType.CEE1, outA, 1, "L1"), out(ConnType.CEE1, outA, 1, "L1"),
+                          out(ConnType.CEE1, outA, 1, "L2"), out(ConnType.CEE1, outA, 1, "L2"),
+                          out(ConnType.CEE1, outA, 1, "L3"), out(ConnType.CEE1, outA, 1, "L3") ];
+            } else if(outCount === 3 && outConn === ConnType.EURO) {
+              outputs = [ out(ConnType.EURO, outA, 1, "L1"), out(ConnType.EURO, outA, 1, "L2"), out(ConnType.EURO, outA, 1, "L3") ];
+            } else if(outCount === 2) {
+              outputs = [ out(outConn, outA, outConn === ConnType.CEE3 ? 3 : 1, null), out(outConn, outA, outConn === ConnType.CEE3 ? 3 : 1, null) ];
+            } else {
+              outputs = outN(outCount, outConn, outA, outConn === ConnType.CEE3 ? 3 : 1);
+            }
+            let t = tplDistributor(name, inConn, inA, outputs);
+            pushHistory();
+            createNodeFromTemplate(t, worldCenter());
+          } else if(tpl === "ext") {
+            let inType = div.getAttribute("data-in");
+            let inA = parseInt(div.getAttribute("data-in-a"));
+            let outCount = parseInt(div.getAttribute("data-out-count"));
+            let outType = div.getAttribute("data-out-type");
+            let outA = parseInt(div.getAttribute("data-out-a"));
+            let inConn = inType === "cee3" ? ConnType.CEE3 : (inType === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let outConn = outType === "cee3" ? ConnType.CEE3 : (outType === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let outputs = outN(outCount, outConn, outA, outConn === ConnType.CEE3 ? 3 : 1);
+            let t = tplExtender(name, inConn, inA, outputs);
+            pushHistory();
+            createNodeFromTemplate(t, worldCenter());
+          } else if(tpl === "cons") {
+            let type = div.getAttribute("data-type");
+            let a = parseInt(div.getAttribute("data-a"));
+            let w = parseInt(div.getAttribute("data-w"));
+            let conn = type === "cee3" ? ConnType.CEE3 : (type === "cee1" ? ConnType.CEE1 : ConnType.EURO);
+            let phases = (conn === ConnType.CEE3) ? 3 : 1;
+            let t = tplConsumer(name, conn, a, phases, w);
+            pushHistory();
+            createNodeFromTemplate(t, worldCenter());
+          }
+        });
+        document.getElementById(container).appendChild(div);
+      }
+      addNode("cat_shields", "Электрический Щит 3P 250A", "Трёхфазный ввод 380В", "250A", "input", { "data-type":"cee3", "data-a":"250", "data-phases":"3" });
+      addNode("cat_shields", "Электрический Щит 3P 125A", "Трёхфазный ввод 380В", "125A", "input", { "data-type":"cee3", "data-a":"125", "data-phases":"3" });
+      addNode("cat_shields", "Электрический Щит 3P 63A", "Трёхфазный ввод 380В", "63A", "input", { "data-type":"cee3", "data-a":"63", "data-phases":"3" });
+      addNode("cat_shields", "Электрический Щит 3P 32A", "Трёхфазный ввод 380В", "32A", "input", { "data-type":"cee3", "data-a":"32", "data-phases":"3" });
+      addNode("cat_shields", "Электрический Щит 3P 16A", "Трёхфазный ввод 380В", "16A", "input", { "data-type":"cee3", "data-a":"16", "data-phases":"3" });
+      addNode("cat_cee3", "Розетка трёхфазная CEE 250A", "Трёхфазная 380В", "250A", "input", { "data-type":"cee3", "data-a":"250", "data-phases":"3" });
+      addNode("cat_cee3", "Розетка трёхфазная CEE 125A", "Трёхфазная 380В", "125A", "input", { "data-type":"cee3", "data-a":"125", "data-phases":"3" });
+      addNode("cat_cee3", "Розетка трёхфазная CEE 63A", "Трёхфазная 380В", "63A", "input", { "data-type":"cee3", "data-a":"63", "data-phases":"3" });
+      addNode("cat_cee3", "Розетка трёхфазная CEE 32A", "Трёхфазная 380В", "32A", "input", { "data-type":"cee3", "data-a":"32", "data-phases":"3" });
+      addNode("cat_cee3", "Розетка трёхфазная CEE 16A", "Трёхфазная 380В", "16A", "input", { "data-type":"cee3", "data-a":"16", "data-phases":"3" });
+      addNode("cat_cee1", "Розетка однофазная CEE 32A", "Однофазная 220В", "32A", "input", { "data-type":"cee1", "data-a":"32", "data-phases":"1" });
+      addNode("cat_cee1", "Розетка однофазная CEE 16A", "Однофазная 220В", "16A", "input", { "data-type":"cee1", "data-a":"16", "data-phases":"1" });
+      addNode("cat_euro", "Розетка EURO/SHUKO 16A", "Однофазная 220В", "16A", "input", { "data-type":"euro", "data-a":"16", "data-phases":"1" });
+      addNode("cat_euro", "Розетка EURO/SHUKO 10A", "Однофазная 220В", "10A", "input", { "data-type":"euro", "data-a":"10", "data-phases":"1" });
+      addNode("cat_euro", "Розетка EURO/SHUKO 6A", "Однофазная 220В", "6A", "input", { "data-type":"euro", "data-a":"6", "data-phases":"1" });
+      addNode("cat_dist_3to3", "Трёхфазный 250A -> 2x 125A", "3ф→3ф", "250→125", "dist", { "data-in":"cee3", "data-in-a":"250", "data-out-count":"2", "data-out-type":"cee3", "data-out-a":"125" });
+      addNode("cat_dist_3to3", "Трёхфазный 125A -> 2x 63A", "3ф→3ф", "125→63", "dist", { "data-in":"cee3", "data-in-a":"125", "data-out-count":"2", "data-out-type":"cee3", "data-out-a":"63" });
+      addNode("cat_dist_3to3", "Трёхфазный 63A -> 2x 32A", "3ф→3ф", "63→32", "dist", { "data-in":"cee3", "data-in-a":"63", "data-out-count":"2", "data-out-type":"cee3", "data-out-a":"32" });
+      addNode("cat_dist_3to3", "Трёхфазный 32A -> 2x 16A", "3ф→3ф", "32→16", "dist", { "data-in":"cee3", "data-in-a":"32", "data-out-count":"2", "data-out-type":"cee3", "data-out-a":"16" });
+      addNode("cat_dist_3to1", "Трёхфазный 32A -> 6x CEE 16A (L1/L2/L3)", "3ф→1ф CEE", "32A→6x16A", "dist", { "data-in":"cee3", "data-in-a":"32", "data-out-count":"6", "data-out-type":"cee1", "data-out-a":"16" });
+      addNode("cat_dist_3to1", "Трёхфазный 32A -> 6x EURO 16A (L1/L2/L3)", "3ф→1ф EURO", "32A→6x16A", "dist", { "data-in":"cee3", "data-in-a":"32", "data-out-count":"6", "data-out-type":"euro", "data-out-a":"16" });
+      addNode("cat_dist_3to1", "Трёхфазный 16A -> 3x EURO 16A (L1/L2/L3)", "3ф→1ф EURO", "16A→3x16A", "dist", { "data-in":"cee3", "data-in-a":"16", "data-out-count":"3", "data-out-type":"euro", "data-out-a":"16" });
+      addNode("cat_extenders", "EURO 1 -> 5x EURO 16A", "Удлинитель", "1→5", "ext", { "data-in":"euro", "data-in-a":"16", "data-out-count":"5", "data-out-type":"euro", "data-out-a":"16" });
+      addNode("cat_extenders", "CEE 16A 1ф -> 5x EURO 16A", "Переход CEE→EURO", "1→5", "ext", { "data-in":"cee1", "data-in-a":"16", "data-out-count":"5", "data-out-type":"euro", "data-out-a":"16" });
+      addNode("cat_cons_euro", "Потребитель EURO 1000 Вт", "Однофазный EURO", "1кВт", "cons", { "data-type":"euro", "data-a":"16", "data-w":"1000" });
+      addNode("cat_cons_euro", "Потребитель EURO 2000 Вт", "Однофазный EURO", "2кВт", "cons", { "data-type":"euro", "data-a":"16", "data-w":"2000" });
+      addNode("cat_cons_euro", "Потребитель EURO 3000 Вт", "Однофазный EURO", "3кВт", "cons", { "data-type":"euro", "data-a":"16", "data-w":"3000" });
+      addNode("cat_cons_euro", "Потребитель EURO 3500 Вт", "Однофазный EURO", "3.5кВт", "cons", { "data-type":"euro", "data-a":"16", "data-w":"3500" });
+      addNode("cat_cons_cee1", "Потребитель CEE 1ф 1000 Вт", "Однофазный CEE", "1кВт", "cons", { "data-type":"cee1", "data-a":"16", "data-w":"1000" });
+      addNode("cat_cons_cee1", "Потребитель CEE 1ф 2000 Вт", "Однофазный CEE", "2кВт", "cons", { "data-type":"cee1", "data-a":"16", "data-w":"2000" });
+      addNode("cat_cons_cee1", "Потребитель CEE 1ф 3000 Вт", "Однофазный CEE", "3кВт", "cons", { "data-type":"cee1", "data-a":"16", "data-w":"3000" });
+      addNode("cat_cons_cee1", "Потребитель CEE 1ф 3500 Вт", "Однофазный CEE", "3.5кВт", "cons", { "data-type":"cee1", "data-a":"16", "data-w":"3500" });
+      addNode("cat_cons_cee3", "Потребитель CEE 3ф 3500 Вт", "Трёхфазный", "3.5кВт", "cons", { "data-type":"cee3", "data-a":"32", "data-w":"3500" });
+    }
+
+    function openHelp() { id("overlay").style.display = "block"; id("helpModal").style.display = "block"; }
+    function openNodeModal() { id("overlay").style.display = "block"; id("nodeModal").style.display = "block"; syncConfiguratorUI(); }
+    function closeModal() { id("overlay").style.display = "none"; id("helpModal").style.display = "none"; id("nodeModal").style.display = "none"; }
+    function syncConfiguratorUI() {
+      let type = id("newNodeType").value;
+      let isConsumer = type === "consumer", isInput = type === "input";
+      id("consumerWField").style.display = isConsumer ? "block" : "none";
+      id("outputsCountField").style.display = (isConsumer || isInput) ? "none" : "block";
+      if(isInput) { id("newNodeInConn").disabled = true; id("newNodeInA").disabled = true; }
+      else { id("newNodeInConn").disabled = false; id("newNodeInA").disabled = false; }
+    }
+    function templateFromConfigurator() {
+      let cat = id("newNodeType").value;
+      let name = id("newNodeName").value.trim() || "Новая нода";
+      let outCount = Math.max(0, Math.min(12, Number(id("newNodeOutCount").value || 0)));
+      let [inConnType, inPhStr] = (id("newNodeInConn").value || "euro:1").split(":");
+      let inA = Math.max(1, Number(id("newNodeInA").value || 16));
+      let [outConnType, outPhStr] = (id("newNodeOutConn").value || "euro:1").split(":");
+      let outA = Math.max(1, Number(id("newNodeOutA").value || 16));
+      let inPh = Number(inPhStr || 1), outPh = Number(outPhStr || 1);
+      let watts = Math.max(0, Number(id("newNodeW").value || 0));
+      if(cat === "input") return tplInput(name, outConnType, outA, outPh);
+      if(cat === "consumer") return tplConsumer(name, inConnType, inA, inPh, watts);
+      let outputs = outN(outCount, outConnType, outA, outPh);
+      if(cat === "distributor") return tplDistributor(name, inConnType, inA, outputs);
+      else return tplExtender(name, inConnType, inA, outputs);
+    }
+
+    function initEvents() { /* без изменений, оставлено как в оригинале */
+      let ws = id("workspace");
+      let isPanning = false, panStart = { x:0, y:0 }, startPan = { x:0, y:0 };
+      let lassoActive = false, lassoStart = { x:0, y:0 }, lassoEnd = { x:0, y:0 };
+      ws.addEventListener("wheel", e => { e.preventDefault(); let rect = ws.getBoundingClientRect(); let mouse = getLocalPoint(e, rect); let before = screenToWorld(mouse, rect); let delta = -e.deltaY; let factor = delta > 0 ? 1.08 : 1/1.08; state.view.zoom = clampZoom(state.view.zoom * factor); let after = screenToWorld(mouse, rect); state.view.panX += (after.x - before.x) * state.view.zoom; state.view.panY += (after.y - before.y) * state.view.zoom; applyViewAndRedraw(); }, { passive: false });
+      ws.addEventListener("mousedown", e => {
+        let rect = ws.getBoundingClientRect();
+        let screen = getLocalPoint(e, rect);
+        if(e.button === 1) { e.preventDefault(); isPanning = true; panStart = screen; startPan = { x: state.view.panX, y: state.view.panY }; ws.classList.add("grabbing"); return; }
+        let hit = hitTestPort(screen.x, screen.y, rect);
+        if(e.button === 2 && hit) { e.preventDefault(); pushHistory(); disconnectByPort(hit.nodeId, hit.portId); return; }
+        if(e.button !== 0) return;
+        if(hit) { e.preventDefault(); let w = screenToWorld(screen, rect); state.connect = { fromNodeId: hit.nodeId, fromPortId: hit.portId, currentWorld: w }; redrawCanvas(); return; }
+        let hitNode = hitTestNode(screen.x, screen.y, rect);
+        if(hitNode) {
+          if(e.shiftKey) toggleSelection(hitNode.id);
+          else if(!state.selection.has(hitNode.id)) selectOnly(hitNode.id);
+          let startWorld = screenToWorld(screen, rect);
+          let nodeIds = Array.from(state.selection);
+          let startPositions = nodeIds.map(id => { let n = getNode(id); return n ? { x: n.pos.x, y: n.pos.y } : null; }).filter(p => p);
+          state.drag = { type: "nodeMove", startWorld, nodeIds, startPositions };
+          ws.classList.add("grabbing");
+          e.preventDefault();
+          return;
+        }
+        if(!hitNode) {
+          e.preventDefault();
+          lassoActive = true;
+          lassoStart = screen;
+          lassoEnd = screen;
+          id("lasso").style.display = "block";
+          updateLassoRect(lassoStart, lassoEnd);
+          if(!e.shiftKey) state.selection.clear();
+          renderSelection();
+          renderProps();
+        }
+      });
+      function updateLassoRect(a, b) { let x1 = Math.min(a.x, b.x), y1 = Math.min(a.y, b.y), x2 = Math.max(a.x, b.x), y2 = Math.max(a.y, b.y); let ls = id("lasso"); ls.style.left = x1 + "px"; ls.style.top = y1 + "px"; ls.style.width = (x2 - x1) + "px"; ls.style.height = (y2 - y1) + "px"; }
+      function updateSelectionByLasso(start, end, additive, rect) {
+        let left = Math.min(start.x, end.x), right = Math.max(start.x, end.x);
+        let top = Math.min(start.y, end.y), bottom = Math.max(start.y, end.y);
+        let hit = new Set();
+        for(let node of state.nodes) {
+          let r = getNodeScreenRect(node, rect);
+          let cx = (r.left + r.right)/2, cy = (r.top + r.bottom)/2;
+          if(cx >= left && cx <= right && cy >= top && cy <= bottom) hit.add(node.id);
+        }
+        if(!additive) state.selection = hit;
+        else for(let id of hit) state.selection.add(id);
+      }
+      window.addEventListener("mousemove", e => {
+        let rect = ws.getBoundingClientRect();
+        let screen = getLocalPoint(e, rect);
+        let world = screenToWorld(screen, rect);
+        if(!state.connect) {
+          let hit = hitTestPort(screen.x, screen.y, rect);
+          if(hit) state.hoveredPort = { nodeId: hit.nodeId, portId: hit.portId };
+          else state.hoveredPort = null;
+          state.targetHoverPort = null;
+        } else {
+          let hit = hitTestPort(screen.x, screen.y, rect);
+          if(hit && hit.nodeId !== state.connect.fromNodeId) state.targetHoverPort = { nodeId: hit.nodeId, portId: hit.portId };
+          else state.targetHoverPort = null;
+          state.hoveredPort = null;
+        }
+        redrawCanvas();
+        if(state.connect) { state.connect.currentWorld = world; redrawCanvas(); return; }
+        if(isPanning) { let dx = screen.x - panStart.x, dy = screen.y - panStart.y; state.view.panX = startPan.x + dx; state.view.panY = startPan.y + dy; applyViewAndRedraw(); return; }
+        if(state.drag && state.drag.type === "nodeMove") {
+          let deltaX = world.x - state.drag.startWorld.x, deltaY = world.y - state.drag.startWorld.y;
+          for(let i=0; i<state.drag.nodeIds.length; i++) {
+            let node = getNode(state.drag.nodeIds[i]);
+            if(node && state.drag.startPositions[i]) { node.pos.x = state.drag.startPositions[i].x + deltaX; node.pos.y = state.drag.startPositions[i].y + deltaY; }
+          }
+          redrawCanvas(); renderProps();
+          return;
+        }
+        if(lassoActive) { lassoEnd = screen; updateLassoRect(lassoStart, lassoEnd); updateSelectionByLasso(lassoStart, lassoEnd, false, rect); renderSelection(); renderProps(); }
+      });
+      window.addEventListener("mouseup", e => {
+        let rect = ws.getBoundingClientRect();
+        let screen = getLocalPoint(e, rect);
+        if(state.connect) {
+          let hit = hitTestPort(screen.x, screen.y, rect);
+          if(hit && hit.nodeId !== state.connect.fromNodeId) {
+            pushHistory();
+            let portA = { nodeId: state.connect.fromNodeId, portId: state.connect.fromPortId, kind: getPort(state.connect.fromNodeId, state.connect.fromPortId)?.kind };
+            let portB = { nodeId: hit.nodeId, portId: hit.portId, kind: getPort(hit.nodeId, hit.portId)?.kind };
+            if(portA && portB) { let ok = tryConnect(portA, portB); if(!ok) state.undo.pop(); else afterMutation(); } else state.undo.pop();
+          }
+          state.connect = null; state.targetHoverPort = null; redrawCanvas();
+        }
+        if(state.drag) { state.drag = null; ws.classList.remove("grabbing"); }
+        if(lassoActive) { lassoActive = false; id("lasso").style.display = "none"; state.justLasso = true; }
+        if(isPanning) { isPanning = false; ws.classList.remove("grabbing"); }
+      });
+      ws.addEventListener("contextmenu", e => e.preventDefault());
+      ws.addEventListener("click", e => { if(state.justLasso) { state.justLasso = false; return; } let rect = ws.getBoundingClientRect(); let screen = getLocalPoint(e, rect); let hitNode = hitTestNode(screen.x, screen.y, rect); if(!hitNode && !e.shiftKey) clearSelection(); });
+      window.addEventListener("keydown", e => {
+        if(e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+        if(e.key.toLowerCase() === "f") { e.preventDefault(); focusOrigin(); return; }
+        if(e.key === "Delete" && state.selection.size) { e.preventDefault(); pushHistory(); deleteSelectedNodes(); afterMutation(); return; }
+        if(e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+        if((e.ctrlKey && e.key.toLowerCase() === "y") || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "z")) { e.preventDefault(); redo(); return; }
+        if(e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); copySelection(false); return; }
+        if(e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "x") { e.preventDefault(); pushHistory(); copySelection(true); afterMutation(); return; }
+        if(e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "v") { e.preventDefault(); pushHistory(); pasteClipboard(); afterMutation(); return; }
+        if(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); exportProject(); return; }
+        if(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "o") { e.preventDefault(); id("fileImport").click(); return; }
+        if(e.ctrlKey && e.shiftKey && e.altKey && e.key === "Delete") { e.preventDefault(); pushHistory(); clearProject(); afterMutation(); }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      id("btnBack").addEventListener("click", () => history.back());
+      id("btnExport").addEventListener("click", exportProject);
+      id("btnSave").addEventListener("click", exportProject);
+      id("btnImport").addEventListener("click", () => id("fileImport").click());
+      id("fileImport").addEventListener("change", async e => {
+        let file = e.target.files[0];
+        if(!file) return;
+        let text = await file.text();
+        try { pushHistory(); importProject(JSON.parse(text)); } catch(err) { state.undo.pop(); toast("Ошибка импорта: " + err.message); } finally { id("fileImport").value = ""; }
+      });
+      id("btnClear").addEventListener("click", () => { pushHistory(); clearProject(); afterMutation(); });
+      id("btnNewNode").addEventListener("click", openNodeModal);
+      id("helpTip").addEventListener("click", openHelp);
+      id("btnCloseHelp").addEventListener("click", closeModal);
+      id("btnCloseNodeModal").addEventListener("click", closeModal);
+      id("overlay").addEventListener("click", closeModal);
+      id("newNodeType").addEventListener("change", syncConfiguratorUI);
+      id("btnCreateNode").addEventListener("click", () => { pushHistory(); createNodeFromTemplate(templateFromConfigurator(), worldCenter()); closeModal(); afterMutation(); });
+      id("projectName").addEventListener("input", () => { state.project.name = id("projectName").value.trim() || "ElectricCAD Easy"; id("projectPill").textContent = state.project.name; });
+      renderCatalog();
+      initEvents();
+      buildAdvancedDemo();
+      focusOrigin();
+      setInterval(() => redrawCanvas(), 300);
+      new ResizeObserver(() => applyViewAndRedraw()).observe(id("workspace"));
+    });
+  })();
+</script>
+
+<style>.hub-back{position:fixed;top:12px;left:12px;z-index:99999;display:inline-flex;align-items:center;gap:6px;background:rgba(20,45,100,.92);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 14px;font:600 13px system-ui,-apple-system,Arial,sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.4);transition:.15s ease}.hub-back:hover{background:#4a7cff;border-color:#4a7cff}</style>
+<a class="hub-back" href="/" title="Вернуться в хаб">← Хаб</a>
+</body>
+</html>
