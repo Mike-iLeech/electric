@@ -586,3 +586,10 @@
 .overload-wire .wire-end { fill:#ff0000; }
 .overload-origin-pulse { fill-opacity:.12; filter:drop-shadow(0 0 var(--alarm-glow,5px) #ff3020) drop-shadow(0 0 var(--alarm-glow,5px) #ff3020) drop-shadow(0 0 var(--alarm-glow,5px) #ff5010); }
 .branch-node-outline { fill:none; stroke:#4ce4ff; stroke-width:var(--zoom-selection-outline,3px); }
+
+.customCatalogRow { display:flex; align-items:center; gap:4px; }
+.customCatalogRow .nodeItem { min-width:0; flex:1; }
+.customCatalogRow .danger { flex:none; min-height:32px; padding:4px 8px; }
+.moduleActions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin:0 0 8px; }
+.moduleActions .btn { display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; padding:6px 2px; font-size:10px; white-space:nowrap; }
+.moduleActions svg { width:15px; height:15px; flex:none; }

@@ -293,7 +293,7 @@
   function compare(a, b) {
     return a.f - b.f || a.turns - b.turns || a.h - b.h || a.serial - b.serial;
   }
-  function fallback(p, l, reserved, guide) {
+  function fallback(p, l, reserved, guide, wideSearch = false) {
     const i = info(p, l);
     if (!i) return [];
     const old = reserved.flatMap(segments),
@@ -308,11 +308,12 @@
       });
     const s = { x: i.ar.right + CLEAR + 2, y: i.start.y },
       t = { x: i.br.left - CLEAR - 2, y: i.end.y };
+    const margin = wideSearch ? 640 : 200;
     const corridor = {
-      left: Math.min(s.x, t.x) - 200,
-      right: Math.max(s.x, t.x) + 200,
-      top: Math.min(s.y, t.y) - 200,
-      bottom: Math.max(s.y, t.y) + 200,
+      left: Math.min(s.x, t.x) - margin,
+      right: Math.max(s.x, t.x) + margin,
+      top: Math.min(s.y, t.y) - margin,
+      bottom: Math.max(s.y, t.y) + margin,
     };
     const relevant = obstacles
       .filter(
@@ -322,7 +323,7 @@
           r.bottom >= corridor.top &&
           r.top <= corridor.bottom,
       )
-      .slice(0, 64);
+      .slice(0, wideSearch ? 112 : 64);
     const xs = new Set([
         s.x,
         t.x,
@@ -347,7 +348,7 @@
     }
     const xx = [...xs].sort((a, b) => a - b),
       yy = [...ys].sort((a, b) => a - b);
-    if (xx.length * yy.length > 40000) return [];
+    if (xx.length * yy.length > (wideSearch ? 80000 : 40000)) return [];
     const key = (x, y) => x + "," + y;
     const vertices = new Map();
     for (let xi = 0; xi < xx.length; xi++)
@@ -381,7 +382,7 @@
       serial: serial++,
     });
     let visits = 0;
-    while (q.length && visits++ < 60000) {
+    while (q.length && visits++ < (wideSearch ? 120000 : 60000)) {
       const cur = q.pop();
       if (cur.g !== costs.get(cur.key)) continue;
       if (cur.v === tk) {
@@ -482,7 +483,9 @@
     ].filter((path) => valid(p, l, path, reserved));
     if (direct.length) return direct.sort((a, b) => a.length - b.length)[0];
     if (valid(p, l, plan, reserved)) return clean(plan);
-    return fallback(p, l, reserved, plan);
+    const path = fallback(p, l, reserved, plan);
+    if (path.length || !p.settings?.advancedMode) return path;
+    return fallback(p, l, reserved, plan, true);
   }
   function routeConnections(p, previous = new Map(), affected = null) {
     const plans = groupPlans(p),

@@ -276,6 +276,8 @@
     if (!a || !b) return { ok: false, reason: "Порт не найден" };
     if (a.kind !== "out" || b.kind !== "in")
       return { ok: false, reason: "Соединение только выход → вход" };
+    if (a.hardware?.mechanicalKey && b.hardware?.mechanicalKey && a.hardware.mechanicalKey !== b.hardware.mechanicalKey)
+      return { ok: false, reason: "Разные механические ключи" };
     if (a.phases !== b.phases) return { ok: false, reason: "Разная фазность" };
     if (a.connType !== b.connType)
       return { ok: false, reason: "Разные разъёмы: нужен переходник" };
@@ -390,13 +392,13 @@
       if (
         !Array.isArray(n.inputs) ||
         !Array.isArray(n.outputs) ||
-        n.inputs.length !== (n.category === "input" ? 0 : 1) ||
+        n.inputs.length !== (n.category === "input" ? 0 : n.category === "distributor" && n.transfer ? 2 : 1) ||
         n.outputs.length > 32 ||
         (n.category === "consumer" && n.outputs.length) ||
         (n.category !== "consumer" && !n.outputs.length)
       )
         throw Error("Неверное число портов");
-      if (n.inputs[0] && n.inputs[0].phases !== n.phases)
+      if (n.inputs.some(input => input.phases !== n.phases))
         throw Error("Фазность входа отличается от модуля");
       for (const [kind, ports] of [
         ["in", n.inputs],
@@ -439,6 +441,18 @@
       edges = new Map(p.nodes.map((n) => [n.id, []]));
     for (const l of p.links) {
       unique(l.id);
+      if (l.protection !== undefined && (!l.protection || typeof l.protection !== "object" || Array.isArray(l.protection)))
+        throw Error("Неверные параметры защиты");
+      if (l.cable !== undefined) {
+        if (!l.cable || typeof l.cable !== "object" || Array.isArray(l.cable)) throw Error("Неверные параметры кабеля");
+        const {lengthM, sectionMm2, ampacityA, material} = l.cable;
+        if (lengthM !== undefined) finite(lengthM, 0.01, 100000, "Длина кабеля");
+        if (sectionMm2 !== undefined) finite(sectionMm2, 0.1, 500, "Сечение кабеля");
+        if (ampacityA !== undefined) finite(ampacityA, 0.1, 10000, "Допустимый ток кабеля");
+        if (l.cable.ambientC !== undefined) finite(l.cable.ambientC, -50, 100, "Температура среды");
+        if (l.cable.thermalResistance !== undefined) finite(l.cable.thermalResistance, 0.0001, 1000, "Тепловое сопротивление");
+        if (material !== undefined && !["cu", "al"].includes(material)) throw Error("Неверный материал жил");
+      }
       const from = ix.ports.get(l.from?.portId),
         to = ix.ports.get(l.to?.portId);
       if (
@@ -543,9 +557,16 @@
     }
     if (order.length !== p.nodes.length)
       throw Error("Расчёт остановлен: цикл в схеме");
+    const activeInputs = new Map();
+    const feeds = new Map();
+    for (const link of p.links) feeds.set(link.to.portId, link);
     for (const id of order) {
       const n = ix.nodes.get(id),
-        l = ix.incoming.get(id);
+        candidates = n.inputs.map(input => feeds.get(input.id)).filter(Boolean),
+        l = candidates.find(link => computed.get(link.from.nodeId).powered &&
+          closed(ix.ports.get(link.from.portId).port.breaker) &&
+          closed(ix.ports.get(link.to.portId).port.breaker)) || candidates[0];
+      if (l) activeInputs.set(id, l);
       let phase = n.phases === 1 ? "L1" : null,
         connected = n.category === "input",
         powered = connected && closed(n.mainBreaker),
@@ -559,7 +580,7 @@
         connected = pc.connected;
         pathOpen =
           pc.pathOpen || !closed(parent.mainBreaker) || !closed(o.breaker);
-        powered = pc.powered && closed(o.breaker) && closed(n.mainBreaker);
+        powered = pc.powered && closed(o.breaker) && closed(ix.ports.get(l.to.portId).port.breaker) && closed(n.mainBreaker);
       }
       if (!l && n.category !== "input") powered = false;
       computed.set(id, {
@@ -589,10 +610,10 @@
           for (const k of PHASES) c.demandW[k] = n.consumerWatts / 3;
         else c.demandW[c.inPhase || "L1"] = n.consumerWatts;
       }
-      for (const l of ix.outgoing.get(id) || [])
+      for (const l of (ix.outgoing.get(id) || []).filter(link => activeInputs.get(link.to.nodeId) === link))
         add(c.demandW, computed.get(l.to.nodeId).demandW);
       if (n.category === "consumer" && c.powered) add(c.loadW, c.demandW);
-      for (const l of ix.outgoing.get(id) || [])
+      for (const l of (ix.outgoing.get(id) || []).filter(link => activeInputs.get(link.to.nodeId) === link))
         add(c.loadW, computed.get(l.to.nodeId).loadW);
       for (const k of PHASES) {
         c.loadA[k] = c.loadW[k] / p.settings.voltageLN;
@@ -609,7 +630,7 @@
         const l = (ix.outgoing.get(id) || []).find(
             (l) => l.from.portId === o.id,
           ),
-          cc = l ? computed.get(l.to.nodeId) : null;
+          cc = l && activeInputs.get(l.to.nodeId) === l ? computed.get(l.to.nodeId) : null;
         const demandW = cc ? clone(cc.demandW) : zero(),
           loadW = cc ? clone(cc.loadW) : zero();
         const v = {
@@ -661,9 +682,64 @@
     return {
       nodes: computed,
       ports: portLoads,
+      activeInputs,
       voltageLN: p.settings.voltageLN,
       voltageLL: p.settings.voltageLN * Math.sqrt(3),
     };
+  }
+  function tripTimeRange(curve, currentA) {
+    if (!Number.isFinite(currentA) || currentA <= 0 || !Array.isArray(curve) || curve.length < 2 || curve.length > 100) return null;
+    if (curve.some((point, index) => !Array.isArray(point) || point.length !== 3 ||
+      point.some(value => !Number.isFinite(value) || value <= 0) || point[1] > point[2] ||
+      (index && point[0] <= curve[index - 1][0]))) return null;
+    for (let i = 1; i < curve.length; i++) {
+      const [low, high] = [curve[i - 1], curve[i]];
+      if (currentA < low[0] || currentA > high[0]) continue;
+      const ratio = Math.log(currentA / low[0]) / Math.log(high[0] / low[0]);
+      return [1, 2].map(index => low[index] * (high[index] / low[index]) ** ratio);
+    }
+    return null;
+  }
+
+  function protectionScenario(config, voltageLN) {
+    const faultA = config.earthing !== "IT" && Number.isFinite(config.loopOhm) && config.loopOhm > 0
+      ? voltageLN / config.loopOhm : null;
+    const currentA = config.startA || faultA;
+    const downstream = tripTimeRange(config.curve, currentA);
+    const upstream = tripTimeRange(config.upstreamCurve, currentA);
+    const thermal = downstream && config.startSeconds > 0 && config.coolingSeconds > 0
+      ? downstream.map(time => {
+          let dose = 0;
+          const retention = Math.exp(-(config.pauseSeconds || 0) / config.coolingSeconds);
+          for (let i = 0; i < Math.min(1000, Math.max(1, Math.trunc(config.starts) || 1)); i++) {
+            dose = dose * retention + config.startSeconds / time;
+          }
+          return dose;
+        })
+      : null;
+    return {
+      faultA, downstream, upstream, thermal,
+      separatedBands: downstream && upstream ? downstream[1] < upstream[0] : null,
+      rcdThresholdReached: config.residualMa >= 0 && config.rcdMa > 0 ? config.residualMa >= config.rcdMa : null,
+      ttTouchV: config.earthing === "TT" && config.earthOhm > 0 && config.rcdMa > 0
+        ? config.earthOhm * config.rcdMa / 1000 : null,
+      disconnectionWithinTarget: config.measuredTripSeconds > 0 && config.targetSeconds > 0
+        ? config.measuredTripSeconds <= config.targetSeconds : null,
+    };
+  }
+
+  function cableEstimate(cable, phaseCount, currents) {
+    const { lengthM, sectionMm2, material, ampacityA } = cable;
+    if (!(lengthM > 0 && sectionMm2 > 0 && ampacityA > 0)) return null;
+    const resistance = (material === "al" ? 37.6 : 23.7) * lengthM / (1000 * sectionMm2);
+    const values = PHASES.map(phase => currents[phase] || 0);
+    const current = Math.max(...values);
+    const balanced = current - Math.min(...values) < 1e-6;
+    const dropV = phaseCount === 1 ? 2 * current * resistance
+      : balanced ? Math.sqrt(3) * current * resistance : null;
+    const lossW = phaseCount === 1 ? 2 * current ** 2 * resistance
+      : balanced ? 3 * current ** 2 * resistance : null;
+    return { dropV, lossW, resistance, current, exceedsAmpacity: current > ampacityA };
   }
   function selectedBranch(p, selected) {
     const ids = [...selected];
@@ -1148,6 +1224,8 @@
     tripOverloads,
     overloadOrigins,
     selectedBranch,
+    cableEstimate,
+    protectionScenario,
     indexes,
     nodeHeight,
     nodeWidth,

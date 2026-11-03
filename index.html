@@ -685,9 +685,8 @@
 
           <section id="catalogBlock">
             <div class="sectionTitle">Каталог модулей</div>
-            <button class="btn primary createModule" id="btnNewNode">
-              Создать свой модуль</button
-            ><label class="field"
+            <div class="moduleActions"><button type="button" class="btn primary" id="btnNewNode" title="Создать свой модуль"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Создать</button><button type="button" class="btn" id="btnExportTemplates" title="Экспорт своих модулей в JSON" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/></svg>Экспорт</button><button type="button" class="btn" id="btnImportTemplates" title="Импорт модулей из JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Импорт</button></div><input id="fileImportTemplates" type="file" accept=".json,application/json" hidden>
+            <label class="field"
               >Поиск в каталоге<input
                 id="catalogSearch"
                 class="input"
@@ -695,6 +694,7 @@
                 placeholder="Модуль, разъём, номинал…"
             /></label>
 
+            
             <div class="tree" id="catalog"></div>
           </section>
         </div>
@@ -765,11 +765,11 @@
             </div>
 
           </section>
-<details class="worldSettingsPopup" id="worldSettingsPopup"><summary title="Настройки" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-1 3-3 1-3 3 2 3-1 3 3 3 3-1 3 2 3-3-1-3 2-3-3-3-3 1-1-3ZM9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg></summary><div class="settingsPopover"><strong>Настройки</strong><label class="tripModeField"><input type="checkbox" id="highlightBranch">Подсветка всей ветки</label><p>Выделите начальную и конечную ноду с Shift или Ctrl: подсветится путь между ними.</p><label class="tripModeField"><input type="checkbox" id="autoTrip">Срабатывание автоматов</label><p>Автоматически отключать автоматы при превышении номинального тока.</p><button class="btn" id="btnEnableBreakers" title="Включить вводные и портовые автоматы всей схемы"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg><span>Включить все автоматы</span></button><button
+<details class="worldSettingsPopup" id="worldSettingsPopup"><summary title="Настройки" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 3-1 3-3 1-3 3 2 3-1 3 3 3 3-1 3 2 3-3-1-3 2-3-3-3-3 1-1-3ZM9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg></summary><div class="settingsPopover"><strong>Настройки</strong><label class="tripModeField"><input type="checkbox" id="advancedMode">Продвинутый режим</label><p>Кабели, сценарии защиты и разъёмы в свойствах портов. Резервный ввод в свойствах дистрибьютора. Расширенный поиск трасс.</p><label class="tripModeField"><input type="checkbox" id="highlightBranch">Подсветка всей ветки</label><p>Выделите начальную и конечную ноду с Shift или Ctrl: подсветится путь между ними.</p><label class="tripModeField"><input type="checkbox" id="autoTrip">Срабатывание автоматов</label><p>Автоматически отключать автоматы при превышении номинального тока.</p><button class="btn" id="btnEnableBreakers" title="Включить вводные и портовые автоматы всей схемы"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg><span>Включить все автоматы</span></button><button
             class="btn"
             id="btnTrip"
             title="Отключить включённые автоматы, где текущий ток выше номинала"
-          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Кабельный расчёт пока не учитывается.</p></div></details></div>
+          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Продвинутый режим даёт оценку потерь и падения напряжения на заданном кабеле.</p></div></details></div>
 </div>
 <button class="chip headerHelp" id="helpTip" type="button" title="Помощь" aria-label="Помощь"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0"/></svg></button>
           <a

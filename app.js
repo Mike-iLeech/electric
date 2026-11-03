@@ -200,6 +200,7 @@
     $("btnSnap").setAttribute("aria-pressed", !!p.settings.snapToGrid);
     $("btnSnap").classList.toggle("active", !!p.settings.snapToGrid);
     $("autoTrip").checked = !!p.settings.autoTrip;
+    $("advancedMode").checked = !!p.settings.advancedMode;
     $("highlightBranch").checked = !!p.settings.highlightBranch;
     if (document.activeElement !== $("voltageLN"))
       $("voltageLN").value = Number(p.settings.voltageLN.toFixed(6));
@@ -695,6 +696,7 @@
       }
       for (const l of links)
         p.links.push({
+          ...l,
           id: E.uid("link"),
           from: {
             nodeId: maps.get(l.from.nodeId),
@@ -788,6 +790,125 @@
     box.append(curve);
     return box;
   }
+  function renderProtection(link) {
+    const panel = document.createElement("details");
+    const title = document.createElement("summary");
+    title.textContent = "Сценарий защиты участка";
+    panel.append(title);
+    const config = link.protection || {};
+    panel.open = Object.keys(config).length > 0;
+    const storeValue = (key, value) => {
+      link.protection ??= {};
+      if (value === undefined) delete link.protection[key];
+      else link.protection[key] = value;
+    };
+    const earthing = document.createElement("select");
+    earthing.className = "select";
+    earthing.setAttribute("aria-label", "Система заземления");
+    for (const type of ["TN", "TT", "IT"]) earthing.add(new Option(type, type));
+    earthing.value = config.earthing || "TN";
+    earthing.onchange = () => transaction(() => storeValue("earthing", earthing.value), {geometry:false});
+    panel.append(earthing);
+    for (const [key, label, min, max] of [
+      ["loopOhm", "Импеданс петли L–PE, Ом", 0.00001, 100000],
+      ["earthOhm", "Сопротивление заземлителя TT, Ом", 0.00001, 100000],
+      ["rcdMa", "Номинальный дифференциальный ток УЗО, мА", 0.01, 100000],
+      ["residualMa", "Дифференциальный ток сценария, мА", 0, 1000000],
+      ["measuredTripSeconds", "Время отключения по измерению, с", 0.00001, 100000],
+      ["targetSeconds", "Допустимое время отключения, с", 0.00001, 100000],
+      ["startA", "Пусковой ток, А", 0.01, 1000000],
+      ["startSeconds", "Длительность пуска, с", 0.00001, 100000],
+      ["starts", "Число одинаковых пусков", 1, 1000],
+      ["pauseSeconds", "Пауза между пусками, с", 0, 100000],
+      ["coolingSeconds", "Постоянная остывания, с", 0.00001, 100000],
+    ]) {
+      panel.append(field(label, "number", config[key], value => {
+        const number = Number(value);
+        if (value !== "" && (!Number.isFinite(number) || number < min || number > max || (key === "starts" && !Number.isInteger(number)))) throw Error("Проверьте значение: " + label);
+        storeValue(key, value === "" ? undefined : number);
+      }, {min, max, step:key === "starts" ? "1" : "any"}));
+    }
+    for (const [key, label] of [["curve", "Автомат участка"], ["upstreamCurve", "Автомат выше по цепи"]]) {
+      const wrap = document.createElement("label");
+      wrap.className = "field";
+      const caption = document.createElement("span");
+      caption.textContent = label + " · точки [А, мин. с, макс. с]";
+      const input = document.createElement("textarea");
+      input.className = "input";
+      input.rows = 2;
+      input.value = config[key] ? JSON.stringify(config[key]) : "";
+      input.placeholder = "[[ток, время мин., время макс.], …]";
+      input.onchange = () => transaction(() => {
+        if (!input.value.trim()) return storeValue(key, undefined);
+        const points = JSON.parse(input.value);
+        if (!Array.isArray(points) || points.length < 2 || points.length > 100 ||
+          points.some((point, i) => !Array.isArray(point) || point.length !== 3 ||
+            point.some(value => !Number.isFinite(value) || value <= 0) ||
+            point[1] > point[2] || (i && point[0] <= points[i - 1][0])))
+          throw Error("Нужны точки паспортной кривой с возрастающим током и диапазоном времени");
+        storeValue(key, points);
+      }, {geometry:false});
+      wrap.append(caption,input);
+      panel.append(wrap);
+    }
+    const result = E.protectionScenario(config, p.settings.voltageLN);
+    const lines = [];
+    if (config.earthing === "IT") lines.push("Для IT нужна отдельная модель первого и второго замыкания.");
+    if (result.faultA !== null) lines.push("Ожидаемый ток по заданной петле L–PE: " + result.faultA.toFixed(1) + " А.");
+    if (result.downstream) lines.push((config.startA ? "Время по кривой при пусковом токе: " : "Время по кривой при токе замыкания: ") + result.downstream.map(n => n.toPrecision(3)).join("–") + " с.");
+    if (result.separatedBands !== null) lines.push(result.separatedBands ? "При заданном токе диапазоны времени разделены." : "При заданном токе селективность по времени не подтверждена.");
+    if (result.thermal) lines.push("Накопленная доля ресурса до срабатывания по модели остывания: " + result.thermal.map(n => (n * 100).toFixed(0) + "%").reverse().join("–") + ".");
+    if (result.rcdThresholdReached !== null) lines.push(result.rcdThresholdReached ? "Достигнут номинальный дифференциальный ток УЗО." : "Дифференциальный ток ниже номинального порога УЗО.");
+    if (result.ttTouchV !== null) lines.push("Для TT произведение RA × IΔn: " + result.ttTouchV.toFixed(2) + " В.");
+    if (result.disconnectionWithinTarget !== null) lines.push(result.disconnectionWithinTarget ? "Измеренное время укладывается в заданный предел." : "Измеренное время превышает заданный предел.");
+    const summary = document.createElement("p");
+    summary.className = "hint";
+    summary.textContent = lines.join(" ") || "Задайте параметры измерения или паспортные точки автоматов.";
+    panel.append(summary);
+    return panel;
+  }
+  function renderCable(link) {
+    const panel = document.createElement("section");
+    const title = document.createElement("strong");
+    title.textContent = "Кабель · оценка для PF = 1, изоляция XLPE";
+    panel.append(title);
+    const cable = link.cable || {};
+    for (const [key, label, min, max] of [
+      ["lengthM", "Длина, м", 0.01, 100000],
+      ["sectionMm2", "Сечение жилы, мм²", 0.1, 500],
+      ["ampacityA", "Допустимый ток для условий прокладки, А", 0.1, 10000],
+      ["ambientC", "Температура среды, °C", -50, 100],
+      ["thermalResistance", "Тепловое сопротивление участка, К/Вт", 0.0001, 1000],
+    ]) {
+      panel.append(field(label, "number", cable[key], value => {
+        if (value !== "" && (!Number.isFinite(Number(value)) || Number(value) < min || Number(value) > max)) throw Error("Проверьте диапазон: " + label);
+        link.cable ??= {};
+        if (value === "") delete link.cable[key];
+        else link.cable[key] = Number(value);
+      }, {min, max, step:"any"}));
+    }
+    const material = document.createElement("select");
+    material.className = "select";
+    material.setAttribute("aria-label", "Материал жил");
+    material.add(new Option("Медь", "cu"));
+    material.add(new Option("Алюминий", "al"));
+    material.value = cable.material === "al" ? "al" : "cu";
+    material.onchange = () => transaction(() => { (link.cable ??= {}).material = material.value; }, {geometry:false});
+    panel.append(material);
+    const out = port(link.from), load = calc.ports.get(link.from.portId);
+    const estimate = out && load && E.cableEstimate(cable, out.phases, load.loadA);
+    const result = document.createElement("p");
+    result.className = "hint";
+    if (!estimate) result.textContent = "Задайте длину, сечение и допустимый ток.";
+    else {
+      const {dropV, lossW, current, exceedsAmpacity} = estimate;
+      result.textContent = "Ток " + current.toFixed(2) + " А. " + (exceedsAmpacity ? "Превышен допустимый ток кабеля. " : "") +
+        (dropV === null ? "Для несимметричной трёхфазной нагрузки падение напряжения и потери не оценены."
+          : "Падение на участке " + dropV.toFixed(2) + " В. Потери " + lossW.toFixed(1) + " Вт.");
+    }
+    panel.append(result);
+    return panel;
+  }
   function renderProps() {
     const body = $("propsBody"), scrollTop = $("propsScroll").scrollTop;
     const openPorts = new Set([...body.querySelectorAll("details.portProps[open]")].map(el => el.dataset.portId));
@@ -824,8 +945,13 @@
         box.dataset.portId = v.id;
         box.open = openPorts.has(v.id);
         const title = document.createElement("summary");
-        title.textContent = `${v.kind === "in" ? "Вход" : "Выход"} · ${E.CONNECTORS[v.connType].name} ${v.nominalA} А${v.phase ? " · " + v.phase : ""}`;
+        title.textContent = `${v.kind === "in" ? (n.transfer ? (v === n.inputs[0] ? "Основной ввод" : "Резервный ввод") : "Вход") : "Выход"} · ${E.CONNECTORS[v.connType].name} ${v.nominalA} А${v.phase ? " · " + v.phase : ""}`;
         box.append(title);
+        if (p.settings.advancedMode) {
+          for (const [key, label] of [["manufacturer", "Производитель"], ["partNumber", "Артикул"], ["ip", "Степень IP"], ["mechanicalKey", "Механический ключ"]]) {
+            box.append(field(label, "text", v.hardware?.[key], value => { (v.hardware ??= {})[key] = value.trim().slice(0, 120); }, {maxlength:120}));
+          }
+        }
         if (v.breaker) box.append(renderBreaker(v.breaker, "Автомат линии"));
         const ref = { nodeId: n.id, portId: v.id, kind: v.kind };
         box.append(
@@ -840,6 +966,7 @@
           (l) => l.from.portId === v.id || l.to.portId === v.id,
         );
         if (l) {
+          if (p.settings.advancedMode) box.append(renderCable(l), renderProtection(l));
           const txt = document.createElement("p");
           txt.textContent =
             E.nomenclature(node(l.from.nodeId)) +
@@ -1037,13 +1164,35 @@
           '</span></span><span class="badge">' +
           t.inA +
           "A</span>";
-        parent.append(el);
+        if (!custom.includes(t)) {
+          parent.append(el);
+          continue;
+        }
+        const row = document.createElement("div");
+        row.className = "customCatalogRow";
+        const remove = button("×", () => {
+          if (!confirm("Удалить шаблон «" + t.name + "» из каталога?")) return;
+          const next = custom.filter(template => template !== t);
+          try {
+            localStorage.setItem(CUSTOM, JSON.stringify(next));
+          } catch {
+            notify("Не удалось сохранить каталог");
+            return;
+          }
+          custom = next;
+          renderCatalog();
+        }, "btn danger");
+        remove.title = "Удалить шаблон";
+        remove.setAttribute("aria-label", "Удалить шаблон «" + t.name + "»");
+        row.append(el, remove);
+        parent.append(row);
       }
     };
     append(cat, root);
     if (!root.children.size) cat.textContent = "Ничего не найдено";
   }
   function renderCatalog() {
+    $("btnExportTemplates").disabled = custom.length === 0;
     renderModuleCatalog($("catalog"), catalogQuery.toLowerCase());
   }
   function exportProject() {
@@ -1584,16 +1733,24 @@
             n.id = old.id;
             n.pos = old.pos;
             n.templateName = old.templateName;
+            if (old.transfer && n.category === "distributor") {
+              n.transfer = true;
+              n.inputs.push(E.clone(old.inputs[1]));
+            }
             if (n.mainBreaker && old.mainBreaker) {
               n.mainBreaker.state = old.mainBreaker.state;
               n.mainBreaker.curve = old.mainBreaker.curve;
             }
             n.inputs.forEach((v, i) => {
-              if (old.inputs[i]) v.id = old.inputs[i].id;
+              if (old.inputs[i]) {
+                v.id = old.inputs[i].id;
+                if (old.inputs[i].connType === v.connType && old.inputs[i].hardware) v.hardware = old.inputs[i].hardware;
+              }
             });
             n.outputs.forEach((v, i) => {
               if (old.outputs[i]) {
                 v.id = old.outputs[i].id;
+                if (old.outputs[i].connType === v.connType && old.outputs[i].hardware) v.hardware = old.outputs[i].hardware;
                 if (v.breaker && old.outputs[i].breaker)
                   v.breaker.state = old.outputs[i].breaker.state;
               }
@@ -1627,6 +1784,36 @@
       }
     } catch (e) {
       notify(e.message);
+    }
+  }
+  async function importTemplates(file) {
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw Error("Файл модулей больше 2 МБ");
+      const incoming = JSON.parse((await file.text()).replace(/^\uFEFF/, ""));
+      if (!Array.isArray(incoming) || !incoming.length || incoming.length > 1500)
+        throw Error("Ожидается JSON со списком пользовательских модулей");
+      const next = [...custom];
+      const signature = ({id, ...template}) => JSON.stringify(template);
+      const known = new Set(custom.map(signature));
+      for (const template of incoming) {
+        if (!template || typeof template !== "object" || Array.isArray(template) || E.obsoleteCable(template))
+          throw Error("В файле есть неподдерживаемый шаблон");
+        const sample = E.project();
+        sample.nodes.push(E.makeNode(template));
+        E.validate(sample);
+        const key = signature(template);
+        if (known.has(key)) continue;
+        known.add(key);
+        next.push({...template, id:E.uid("custom")});
+      }
+      localStorage.setItem(CUSTOM, JSON.stringify(next));
+      const count = next.length - custom.length;
+      custom = next;
+      renderCatalog();
+      notify(count ? "Импортировано модулей: " + count : "Все модули из файла уже есть в каталоге");
+    } catch (error) {
+      notify("Импорт модулей: " + error.message);
     }
   }
   function saveTemplate() {
@@ -2141,6 +2328,23 @@
     $("overlay").onclick = closeModal;
     $("btnCreateNode").onclick = applyBuilder;
     $("btnSaveTemplate").onclick = saveTemplate;
+    $("btnImportTemplates").onclick = () => $("fileImportTemplates").click();
+    $("fileImportTemplates").onchange = event => {
+      const input = event.target;
+      const file = input.files[0];
+      input.value = "";
+      importTemplates(file);
+    };
+    $("btnExportTemplates").onclick = () => {
+      if (!custom.length) return;
+      const blob = new Blob([JSON.stringify(custom, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "electriccad-custom-modules.json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
     let nameBefore = null;
     $("projectName").onfocus = () => (nameBefore = serial());
     $("projectName").onchange = () => {
@@ -2192,6 +2396,7 @@
       renderCatalog();
     };
     $("btnSnap").onclick = () => transaction(() => { p.settings.snapToGrid = !p.settings.snapToGrid; }, {geometry:false});
+    $("advancedMode").onchange = e => transaction(() => { p.settings.advancedMode = e.target.checked; });
     $("highlightBranch").onchange = e => transaction(() => { p.settings.highlightBranch = e.target.checked; }, {geometry:false});
     $("autoTrip").onchange = e => transaction(() => { p.settings.autoTrip = e.target.checked; }, {geometry:false});
     document.addEventListener("click", e => { if (!$("worldSettingsPopup").contains(e.target)) $("worldSettingsPopup").open = false; });

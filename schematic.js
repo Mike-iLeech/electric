@@ -119,7 +119,7 @@
     }
     const firstFork=p.nodes.find(n=>(children.get(n.id)||[]).length>1)?.id;
     const byId=new Map(p.nodes.map(n=>[n.id,n])),sizes=new Map(),poses=new Map(),seen=new Set();
-    const ownHeight=n=>Math.max(160,95+n.outputs.length*28);
+    const ownHeight=n=>Math.max(160,95+Math.max(n.inputs.length,n.outputs.length)*28);
     function size(id){
       if(sizes.has(id))return sizes.get(id);
       const n=byId.get(id),kids=children.get(id)||[];
@@ -143,6 +143,26 @@
     let y=150;
     for(const n of p.nodes.filter(n=>!incoming.has(n.id))){place(n.id,60,y,0);y+=size(n.id).h+140;}
     for(const n of p.nodes)if(!seen.has(n.id)){place(n.id,60,y,0);y+=size(n.id).h+140;}
+    if (p.nodes.some(n => n.transfer)) {
+      const degrees = new Map(p.nodes.map(n => [n.id, 0]));
+      for (const l of p.links) degrees.set(l.to.nodeId, degrees.get(l.to.nodeId) + 1);
+      const queue = [...degrees].filter(([, degree]) => !degree).map(([id]) => id);
+      const levels = new Map(queue.map(id => [id, 0]));
+      const rows = new Map();
+      for (let i = 0; i < queue.length; i++) {
+        const id = queue[i], depth = levels.get(id), rect = poses.get(id);
+        rect.x = 60 + depth * 460;
+        rect.y = rows.get(depth) || 150;
+        rect.routeTop = rect.y;
+        rect.depth = depth;
+        rows.set(depth, rect.y + rect.h + 100);
+        for (const child of children.get(id)) {
+          levels.set(child, Math.max(levels.get(child) || 0, depth + 1));
+          degrees.set(child, degrees.get(child) - 1);
+          if (!degrees.get(child)) queue.push(child);
+        }
+      }
+    }
     return poses;
   }
   function layoutForSheet(p,width,height,balance=100) {
@@ -164,7 +184,7 @@
     function clear(points){return points.slice(1).every((b,i)=>{const a=points[i];return rects.every(r=>a.y===b.y ? !(a.y>r.y&&a.y<r.y+r.h&&Math.max(a.x,b.x)>r.x&&Math.min(a.x,b.x)<r.x+r.w) : !(a.x>r.x&&a.x<r.x+r.w&&Math.max(a.y,b.y)>r.y&&Math.min(a.y,b.y)<r.y+r.h));});}
     return new Map(p.links.map(l=>{
       const n=nodes.get(l.from.nodeId),a=poses.get(n.id),b=poses.get(l.to.nodeId),i=n.outputs.findIndex(o=>o.id===l.from.portId);
-      const start={x:a.x+a.w,y:a.y+85+i*28},end={x:b.x,y:b.y+85};
+      const start={x:a.x+a.w,y:a.y+85+i*28},end={x:b.x,y:b.y+85+28*nodes.get(l.to.nodeId).inputs.findIndex(input=>input.id===l.to.portId)};
       const lead=start.x+30+i*12,entry=end.x-30;
       const candidates=[];
       if(start.y===end.y)candidates.push([start,end]);
@@ -348,6 +368,12 @@
       const cy = y + 85;
       if (n.category === "consumer") {
         line(x, cy, x + 35, cy);
+        if (n.transfer) {
+          line(x, cy + 28, x + 35, cy + 28);
+          circle(x + 35, cy + 28, 3);
+          line(x + 35, cy + 28, x + 51, cy + 14);
+          text("АВР", x + 55, cy + 32, 14);
+        }
         circle(x + 50, cy, 15);
         line(x + 40, cy - 10, x + 60, cy + 10);
         line(x + 40, cy + 10, x + 60, cy - 10);

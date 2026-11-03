@@ -928,3 +928,21 @@ test('уведомление остаётся до устранения пере
  const p=E.project(),a=E.makeNode({name:'Ввод',category:'input',phases:1,inConnType:'euro',inA:16,outputs:[{connType:'euro',nominalA:16}]},{x:200,y:350}),b=E.makeNode({name:'Нагрузка',category:'consumer',phases:1,inConnType:'euro',inA:16,watts:5000},{x:700,y:350});p.nodes=[a,b];E.connect(p,{nodeId:a.id,portId:a.outputs[0].id,kind:'out'},{nodeId:b.id,portId:b.inputs[0].id,kind:'in'});const s=await setup(p);
  assert.equal(s.$('toast').dataset.kind,'overload');s.$('btnSave').click();assert.equal(s.$('toast').dataset.kind,'overload');assert.equal(s.$('toast').style.display,'block');s.$('btnTrip').click();assert.notEqual(s.$('toast').dataset.kind,'overload');assert.equal(s.$('toastMsg').querySelector('.overloadSourceLink'),null);s.dom.window.close();
 });
+test("импорт каталога принимает экспортированные шаблоны и пропускает повторы", async () => {
+  const s = await setup(single());
+  const template = {...E.catalog()[0], id:"custom-import-test", name:"Импортный шаблон"};
+  const input = s.$("fileImportTemplates");
+  const contents = JSON.stringify([template]);
+  Object.defineProperty(input, "files", {value:[{size:contents.length, text:async () => contents}]});
+  const importFile = async () => {
+    input.dispatchEvent(new s.w.Event("change"));
+    await new Promise(resolve => setImmediate(resolve));
+  };
+  await importFile();
+  await importFile();
+  const saved = JSON.parse(s.w.localStorage.getItem("electriccad.templates.v32"));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].name, template.name);
+  assert.equal(s.$("btnExportTemplates").disabled, false);
+  s.dom.window.close();
+});

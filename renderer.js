@@ -977,7 +977,7 @@
         const d = svgPath(route.points, route.hits),
           node = project.nodes.find((n) => n.id === l.from.nodeId),
           port = node.outputs.find((o) => o.id === l.from.portId),
-          powered = calc.nodes.get(l.to.nodeId).powered,
+          powered = calc.nodes.get(l.to.nodeId).powered && (!calc.activeInputs || calc.activeInputs.get(l.to.nodeId)?.id === l.id),
           color = alerts.links.has(l.id)
             ? "#ff0000"
             : branch.links.has(l.id) ? "#4ce4ff" : powered

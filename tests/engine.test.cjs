@@ -417,3 +417,47 @@ test('подсветка ветки: весь путь, обратный выб�
  assert.equal(E.selectedBranch(p,new Set(['c','d'])).links.size,0);assert.equal(E.selectedBranch(p,new Set(['a','x'])).links.size,0);assert.equal(E.selectedBranch(p,new Set(['a'])).links.size,0);
  p.settings.highlightBranch=false;assert.equal(E.selectedBranch(p,new Set(['a','c'])).links.size,0);
 });
+test("АВР подаёт нагрузку только через один ввод и возвращается на основной", () => {
+  const p = E.project();
+  const main = src(p), backup = src(p), transfer = dist(p), consumer = load(p);
+  backup.pos.y = 500;
+  transfer.transfer = true;
+  transfer.inputs.push(E.port("in", "cee3", 32));
+  const connect = (from, out, to, input) => E.connect(p,
+    {nodeId:from.id, portId:out.id, kind:"out"},
+    {nodeId:to.id, portId:input.id, kind:"in"});
+  const reserve = connect(backup, backup.outputs[0], transfer, transfer.inputs[1]);
+  const normal = connect(main, main.outputs[0], transfer, transfer.inputs[0]);
+  connect(transfer, transfer.outputs[0], consumer, consumer.inputs[0]);
+  E.validate(p);
+  const check = (active, idle, link) => {
+    const result = E.calculate(p);
+    assert.equal(result.activeInputs.get(transfer.id), link);
+    assert.equal(E.sum(result.nodes.get(active.id).loadW), 2300);
+    assert.equal(E.sum(result.nodes.get(idle.id).loadW), 0);
+    assert.equal(result.nodes.get(consumer.id).powered, true);
+  };
+  check(main, backup, normal);
+  main.outputs[0].breaker.state = "open";
+  check(backup, main, reserve);
+  main.outputs[0].breaker.state = "closed";
+  check(main, backup, normal);
+  const S = require("../schematic");
+  const paths = S.connectionPaths(p);
+  assert.notEqual(paths.get(reserve.id).at(-1).y, paths.get(normal.id).at(-1).y);
+});
+
+test("сценарий защиты вычисляет ток петли, диапазон времени, тепловую память и TT", () => {
+  const result = E.protectionScenario({
+    earthing:"TT", loopOhm:2.3, earthOhm:100, rcdMa:30, residualMa:40,
+    measuredTripSeconds:.1, targetSeconds:.2, startA:100, startSeconds:1,
+    starts:2, pauseSeconds:2, coolingSeconds:2,
+    curve:[[100,2,4],[200,1,2]], upstreamCurve:[[100,5,7],[200,2,3]],
+  },230);
+  assert.ok(Math.abs(result.faultA - 100) < 1e-9);
+  assert.deepEqual(result.downstream,[2,4]);
+  assert.ok(result.separatedBands);
+  assert.ok(Math.abs(result.thermal[0] - .5*(1+Math.exp(-1))) < 1e-9);
+  assert.equal(result.ttTouchV,3);
+  assert.ok(result.rcdThresholdReached && result.disconnectionWithinTarget);
+});
