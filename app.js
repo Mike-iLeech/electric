@@ -1037,13 +1037,35 @@
           '</span></span><span class="badge">' +
           t.inA +
           "A</span>";
-        parent.append(el);
+        if (!custom.includes(t)) {
+          parent.append(el);
+          continue;
+        }
+        const row = document.createElement("div");
+        row.className = "customCatalogRow";
+        const remove = button("×", () => {
+          if (!confirm("Удалить шаблон «" + t.name + "» из каталога?")) return;
+          const next = custom.filter(template => template !== t);
+          try {
+            localStorage.setItem(CUSTOM, JSON.stringify(next));
+          } catch {
+            notify("Не удалось сохранить каталог");
+            return;
+          }
+          custom = next;
+          renderCatalog();
+        }, "btn danger");
+        remove.title = "Удалить шаблон";
+        remove.setAttribute("aria-label", "Удалить шаблон «" + t.name + "»");
+        row.append(el, remove);
+        parent.append(row);
       }
     };
     append(cat, root);
     if (!root.children.size) cat.textContent = "Ничего не найдено";
   }
   function renderCatalog() {
+    $("btnExportTemplates").disabled = custom.length === 0;
     renderModuleCatalog($("catalog"), catalogQuery.toLowerCase());
   }
   function exportProject() {
@@ -1629,6 +1651,36 @@
       notify(e.message);
     }
   }
+  async function importTemplates(file) {
+    if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw Error("Файл модулей больше 2 МБ");
+      const incoming = JSON.parse((await file.text()).replace(/^\uFEFF/, ""));
+      if (!Array.isArray(incoming) || !incoming.length || incoming.length > 1500)
+        throw Error("Ожидается JSON со списком пользовательских модулей");
+      const next = [...custom];
+      const signature = ({id, ...template}) => JSON.stringify(template);
+      const known = new Set(custom.map(signature));
+      for (const template of incoming) {
+        if (!template || typeof template !== "object" || Array.isArray(template) || E.obsoleteCable(template))
+          throw Error("В файле есть неподдерживаемый шаблон");
+        const sample = E.project();
+        sample.nodes.push(E.makeNode(template));
+        E.validate(sample);
+        const key = signature(template);
+        if (known.has(key)) continue;
+        known.add(key);
+        next.push({...template, id:E.uid("custom")});
+      }
+      localStorage.setItem(CUSTOM, JSON.stringify(next));
+      const count = next.length - custom.length;
+      custom = next;
+      renderCatalog();
+      notify(count ? "Импортировано модулей: " + count : "Все модули из файла уже есть в каталоге");
+    } catch (error) {
+      notify("Импорт модулей: " + error.message);
+    }
+  }
   function saveTemplate() {
     try {
       const n = builderNode(),
@@ -2141,6 +2193,23 @@
     $("overlay").onclick = closeModal;
     $("btnCreateNode").onclick = applyBuilder;
     $("btnSaveTemplate").onclick = saveTemplate;
+    $("btnImportTemplates").onclick = () => $("fileImportTemplates").click();
+    $("fileImportTemplates").onchange = event => {
+      const input = event.target;
+      const file = input.files[0];
+      input.value = "";
+      importTemplates(file);
+    };
+    $("btnExportTemplates").onclick = () => {
+      if (!custom.length) return;
+      const blob = new Blob([JSON.stringify(custom, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "electriccad-custom-modules.json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
     let nameBefore = null;
     $("projectName").onfocus = () => (nameBefore = serial());
     $("projectName").onchange = () => {
