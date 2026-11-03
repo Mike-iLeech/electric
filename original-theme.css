@@ -740,6 +740,15 @@
 .helpDrawing { display:block; width:100%; max-width:600px; height:auto; }
 .helpGuide figure { margin:10px 0; }
 .helpGuide figcaption { margin-top:6px; color:#aab9cd; }
+.helpScreenshot { width:fit-content; max-width:min(760px,100%); }
+.helpImageButton { display:block; position:relative; width:fit-content; max-width:100%; padding:0; border:1px solid #344b6a; border-radius:9px; overflow:hidden; background:#0b111a; cursor:zoom-in; color:#e6edf7; }
+.helpImageButton .helpDrawing { width:auto; max-width:100%; }
+.helpImageButton > span { position:absolute; bottom:8px; right:8px; padding:4px 8px; border:1px solid #536b8c; border-radius:6px; background:#101a29ed; font-size:11px; }
+.helpImageDialog { box-sizing:border-box; width:fit-content; max-width:min(1440px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); padding:12px; border:1px solid #536b8c; border-radius:12px; background:#101723; color:#e6edf7; overflow:auto; }
+.helpImageDialog::backdrop { background:#000c; }
+.helpImageDialog > .btn { display:block; margin:0 0 10px auto; }
+.helpImageDialog img { display:block; width:auto; max-width:100%; height:auto; max-height:calc(100dvh - 160px); object-fit:contain; margin:0 auto; }
+.helpImageDialog p { margin:10px 0 0; color:#bac9dd; font-size:12px; }
 #cableSectionsFields .field, .cableSectionsHead {
   display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:12px;
   margin:0; padding:4px 0; border-bottom:1px solid #24344a;

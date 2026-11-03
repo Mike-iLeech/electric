@@ -19,6 +19,18 @@ const files = new Set([
   "help-images/overload.jpg",
   "help-images/cable.png",
   "help-images/export.jpg",
+  "help-images/overview.jpg",
+  "help-images/project-panel.jpg",
+  "help-images/navigation.jpg",
+  "help-images/catalog.jpg",
+  "help-images/module-builder.jpg",
+  "help-images/connections.jpg",
+  "help-images/properties.jpg",
+  "help-images/cable-settings.jpg",
+  "help-images/export-preview.jpg",
+  "help-images/alerts.jpg",
+  "help-images/calculations.jpg",
+  "help-images/protection.jpg",
 ]);
 http
   .createServer((req, res) => {

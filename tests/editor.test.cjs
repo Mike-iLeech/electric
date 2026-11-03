@@ -24,6 +24,33 @@ test("справка открывается и поиск показывает �
   assert.equal(s.$("helpExport").hidden, false);
   s.dom.window.close();
 });
+test("все разделы справки иллюстрированы, снимок открывается и закрывается без закрытия справки", async () => {
+  const s = await setup();
+  s.$("helpTip").click();
+  const sections = [...s.$("helpModal").querySelectorAll(".helpGuide")];
+  assert.equal(sections.length, 11);
+  for (const section of sections) {
+    const img = section.querySelector(".helpImageButton img");
+    assert.ok(img, section.id);
+    assert.ok(img.alt.length > 0, section.id);
+    assert.match(img.getAttribute("src"), /^help-images\/[a-z-]+\.jpg$/);
+  }
+  const viewer = s.w.document.querySelector(".helpImageDialog");
+  viewer.showModal = () => viewer.setAttribute("open", "");
+  viewer.close = () => {
+    viewer.removeAttribute("open");
+    viewer.dispatchEvent(new s.w.Event("close"));
+  };
+  const trigger = sections[0].querySelector(".helpImageButton");
+  trigger.click();
+  assert.equal(viewer.open, true);
+  assert.equal(viewer.querySelector("img").src, trigger.querySelector("img").src);
+  viewer.dispatchEvent(new s.w.KeyboardEvent("keydown", {key:"Escape", bubbles:true}));
+  assert.equal(viewer.open, false);
+  assert.equal(s.$("helpModal").getAttribute("aria-hidden"), "false");
+  assert.equal(s.w.document.activeElement, trigger);
+  s.dom.window.close();
+});
 test("разделители остаются доступными и раскрывают соседние блоки с клавиатуры", async () => {
   const s = await setup();
   for (const [upper, lower, splitter] of [

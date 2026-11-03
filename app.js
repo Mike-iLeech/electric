@@ -2849,6 +2849,46 @@
     };
     $("btnNewNode").onclick = () => openBuilder();
     $("helpTip").onclick = () => openModal("helpModal");
+    const helpImageDialog = document.createElement("dialog");
+    helpImageDialog.className = "helpImageDialog";
+    helpImageDialog.setAttribute("aria-label", "Изображение из справки");
+    const helpImage = document.createElement("img"),
+      helpImageCaption = document.createElement("p"),
+      helpImageClose = document.createElement("button");
+    helpImageCaption.id = "helpImageCaption";
+    helpImageDialog.setAttribute("aria-describedby", helpImageCaption.id);
+    helpImageClose.type = "button";
+    helpImageClose.className = "btn";
+    helpImageClose.textContent = "Закрыть изображение";
+    let helpImageTrigger = null;
+    helpImageClose.onclick = () => helpImageDialog.close();
+    helpImageDialog.onclose = () => {
+      helpImage.removeAttribute("src");
+      helpImageTrigger?.focus();
+    };
+    helpImageDialog.onkeydown = event => {
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        helpImageDialog.close();
+      }
+    };
+    helpImageDialog.onclick = event => {
+      if (event.target === helpImageDialog) helpImageDialog.close();
+    };
+    helpImageDialog.append(helpImageClose, helpImage, helpImageCaption);
+    document.body.append(helpImageDialog);
+    for (const trigger of $("helpModal").querySelectorAll(".helpImageButton")) {
+      trigger.onclick = () => {
+        const source = trigger.querySelector("img");
+        helpImageTrigger = trigger;
+        helpImage.src = source.src;
+        helpImage.alt = source.alt;
+        helpImageCaption.textContent = trigger.closest("figure").querySelector("figcaption")?.textContent || source.alt;
+        helpImageDialog.showModal();
+        helpImageClose.focus();
+      };
+    }
     $("helpSearch").oninput = event => {
       const query = event.target.value.trim().toLocaleLowerCase("ru-RU");
       const sections = [...$("helpModal").querySelectorAll(".helpGuide")];
