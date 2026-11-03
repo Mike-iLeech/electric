@@ -185,6 +185,78 @@
       2.5,
     );
     c.lineWidth = 0.35 * mm;
+    if (plan.journal) {
+      const {x, y, w} = plan.sheet.drawing;
+      const rows = [["№ трассы", "Источник", "Тип источника", "Выход · разъём",
+        "Потребитель", "Тип потребителя", "Вход · разъём", "Состав жил", "Сечение жилы",
+        "Длина линии", "Падение ΔU", "Напряжение, В", "Потери ΔP", "Фактическая нагрузка, Вт"],
+        ...plan.journal.map(cable => [cable.id, cable.source, cable.sourceType, cable.output,
+          cable.target, cable.targetType, cable.input, cable.conductors, cable.section,
+          cable.length, cable.drop, cable.voltage, cable.loss, cable.load])];
+      if (!plan.journal.length) rows.push(rows[0].map((_, index) => index === 2 ? "Нет трасс" : "—"));
+      c.font = `${3 * mm}px OpenGOST, sans-serif`;
+      const widths = rows[0].map((_, col) =>
+        1.2 * Math.max(...rows.map(row => c.measureText(row[col]).width)) + ([3, 6].includes(col) ? 14 : 0));
+      const naturalWidth = widths.reduce((sum, width) => sum + width, 0);
+      const availableHeight = b.y - y - 5 * mm;
+      const gap = 18;
+      const layouts = [1, 2, 3].filter(count => count <= rows.length - 1).map(count => {
+        const perBlock = Math.ceil((rows.length - 1) / count);
+        const width = count * naturalWidth + (count - 1) * gap;
+        const height = 30 + (perBlock + 1) * 20;
+        return {perBlock, width, height, scale:Math.min(w / width, availableHeight / height)};
+      });
+      const {perBlock, width, height, scale} = layouts.reduce((best, candidate) =>
+        candidate.scale > best.scale ? candidate : best);
+      const left = x + (w - width * scale) / 2;
+      const headingY = y + (availableHeight - height * scale) / 2 + 14 * scale;
+      const heading = "КАБЕЛЬНЫЙ ЖУРНАЛ";
+      c.font = `${4 * mm * scale}px OpenGOST, sans-serif`;
+      text(heading, x + (w - c.measureText(heading).width) / 2, headingY, 4 * scale);
+      for (let offset = 1; offset < rows.length; offset += perBlock) {
+        const blockX = left + ((offset - 1) / perBlock) * (naturalWidth + gap) * scale;
+        [rows[0], ...rows.slice(offset, offset + perBlock)].forEach((row, index) => {
+        const top = headingY + (10 + index * 20) * scale;
+        let cellX = blockX;
+        row.forEach((value, col) => {
+          const width = widths[col] * scale;
+          c.strokeRect(cellX, top, width, 20 * scale);
+          c.font = `${3 * mm * scale}px OpenGOST, sans-serif`;
+          const cable = index ? plan.journal[offset + index - 2] : null;
+          const connector = col === 3 ? cable?.outputConnector : col === 6 ? cable?.inputConnector : null;
+          if (connector) {
+            const cx = cellX + 9 * scale, cy = top + 10 * scale;
+            const pin = (dx, dy, radius) => {
+              c.beginPath();
+              c.arc(cx + dx * scale, cy + dy * scale, radius * scale, 0, 2 * Math.PI);
+              c.stroke();
+            };
+            if (connector.startsWith("terminal")) {
+              c.strokeRect(cx - 5 * scale, cy - 3 * scale, 10 * scale, 6 * scale);
+              for (const dx of [-3, 0, 3]) pin(dx, 0, .75);
+            } else {
+              pin(0, 0, 5);
+              if (connector === "cee3") {
+                pin(0, -2.9, .65);
+                for (const side of [-1, 1]) {
+                  pin(side * 2.75, -.9, .65);
+                  pin(side * 1.7, 2.35, .65);
+                }
+              } else {
+                pin(-2, 0, .75);
+                pin(2, 0, .75);
+                if (connector === "cee1") pin(0, 3, .75);
+              }
+            }
+          }
+          const inset = connector ? 15 * scale : 0;
+          text(value, cellX + inset + (width - inset - c.measureText(value).width) / 2, top + 14 * scale, 3 * scale);
+          cellX += width;
+        });
+        });
+      }
+      return;
+    }
     c.strokeRect(n.x, n.y, n.w, n.h);
     const u = Math.min(1, n.h / n.requiredHeight),
       W = n.w / mm / u - 8;
@@ -243,6 +315,7 @@
       ["port", "Порт подключения"],
       ["line", "Электрическая связь"],
       ["box", "Граница устройства"],
+      ["branch", "Ветка №х — граница ветки"],
     ];
     const nl = (a, b, d, e) => line(X(a), Y(b), X(d), Y(e));
     const nc = (x, yy, r) => {
@@ -286,6 +359,11 @@
       }
       if (kind === "line") nl(x, yy - 1, x + 7, yy - 1);
       if (kind === "box") c.strokeRect(X(x), Y(yy - 3), 7 * mm * u, 4 * mm * u);
+      if (kind === "branch") {
+        for (const dy of [-3, 1])
+          for (const dx of [0, 3, 6]) nl(x + dx, yy + dy, x + Math.min(dx + 1, 7), yy + dy);
+        for (const dx of [0, 7]) nl(x + dx, yy - 2, x + dx, yy);
+      }
       nt(label, x + 9, yy, 2.5);
     });
   }

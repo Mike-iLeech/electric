@@ -771,6 +771,7 @@
             title="Отключить включённые автоматы, где текущий ток выше номинала"
           ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Продвинутый режим даёт оценку потерь и падения напряжения на заданном кабеле.</p></div></details></div>
 </div>
+<span class="chip" id="collapsedPowerTotal"></span>
 <button class="chip" id="btnCableSections" type="button">Сечения кабелей</button>
 <button class="chip headerHelp" id="helpTip" type="button" title="Помощь" aria-label="Помощь"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0"/></svg></button>
           <a
@@ -827,6 +828,16 @@
         </div>
       </main>
       <aside class="panel" id="rightPanel">
+        <section id="powerSummary" aria-labelledby="powerSummaryTitle">
+          <div class="panelHeader">
+            <div class="title" id="powerSummaryTitle">Итого</div>
+            <span class="pill" id="powerSummaryTotal"></span>
+          </div>
+          <div class="powerSummaryBody">
+            <div id="powerBranchCount"></div>
+            <ol id="powerBranchLoads"></ol>
+          </div>
+        </section>
         <div class="panelHeader">
           <div class="title">Дерево проекта</div>
           <span id="outlinerCount" class="pill"></span>
@@ -1194,6 +1205,14 @@
       <form id="cableLengthForm">
         <strong id="cableLengthTitle">Длина кабельной трассы</strong>
         <label class="field">Длина, м<input class="input" id="cableLengthInput" type="number" min="0.01" max="100000" step="any" placeholder="Введите длину"></label>
+        <section id="cableLengthLimits" aria-labelledby="cableLengthLimitsTitle" hidden>
+          <strong id="cableLengthLimitsTitle">Предел длины для данной кабельной линии</strong>
+          <dl>
+            <dt id="cableDropLimitLabel">По нормативу ΔU &lt; 5%</dt><dd id="cableDropLimitValue"></dd>
+            <dt>По нагрузке линии</dt><dd id="cableLoadLimitValue"></dd>
+            <dt>Общий предел (ΔU = 100%)</dt><dd id="cableAbsoluteLimitValue"></dd>
+          </dl>
+        </section>
         <p id="cableLengthWarning" class="cableWarning" role="alert" hidden></p>
         <div class="btnRow">
           <button class="btn primary" type="submit">Сохранить</button>
@@ -1205,7 +1224,11 @@
     <dialog id="actionLog" class="cableLengthDialog" aria-labelledby="actionLogTitle">
       <strong id="actionLogTitle">Журнал действий</strong>
       <pre id="actionLogEntries" tabindex="0"></pre>
-      <button class="btn" id="btnCloseActionLog" type="button">Закрыть</button>
+      <div class="btnRow">
+        <button class="btn" id="btnCopyActionLog" type="button">Скопировать весь лог</button>
+        <button class="btn" id="btnCloseActionLog" type="button">Закрыть</button>
+      </div>
+      <div id="actionLogCopyStatus" role="status"></div>
     </dialog>
   </body>
 </html>

@@ -730,8 +730,11 @@
       c.voltageLN = n.phases === 3 ? Math.min(...Object.values(voltages)) : voltages[c.inPhase || "L1"];
       c.currentLimit = currentLimit;
       c.availableWatts = c.powered ? currentLimit * c.voltageLN * n.phases : 0;
-      c.voltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
+      c.localVoltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
         c.voltageLN < p.settings.voltageLN - 1e-8 && sum(c.loadW) > c.availableWatts + 1e-8;
+      c.upstreamVoltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
+        sum(c.loadW) > 0 && !!upstream?.voltagePowerDeficit;
+      c.voltagePowerDeficit = c.localVoltagePowerDeficit || c.upstreamVoltagePowerDeficit;
     }
     return {
       nodes: computed,
@@ -814,7 +817,7 @@
     return { dropV, lossW, phaseDropV, lineVoltage: phaseCount === 3 && balanced,
       resistance, current, exceedsAmpacity: current > ampacityA };
   }
-  function cableWarnings(cable, estimate, output, input, voltageLN) {
+  function cableWarnings(cable, estimate, output, input, voltageLN, {includeLength = true} = {}) {
     if (!estimate) return [];
     const warnings = [];
     const voltage = voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
@@ -822,8 +825,8 @@
     if (estimate.dropV > dropLimit) {
       const maxLength = cable.lengthM * dropLimit / estimate.dropV;
       warnings.push("Падение напряжения " + (100 * estimate.dropV / voltage).toFixed(2) +
-        "% выше предела " + cable.maxDropPercent + "%. При текущей нагрузке допустимая длина участка около " +
-        maxLength.toFixed(1) + " м.");
+        "% выше предела " + cable.maxDropPercent + "%." + (includeLength ?
+          " При текущей нагрузке допустимая длина участка около " + maxLength.toFixed(1) + " м." : ""));
     }
     const nominalA = Math.min(output.nominalA,input.nominalA);
     const currentLimit = Math.min(cable.ampacityA, nominalA);

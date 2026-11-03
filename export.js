@@ -4,6 +4,7 @@
     Sheet = ElectricSheet,
     mm = 72 / 25.4;
   function plans(project, options = {}) {
+    const cables = S.cableRows(project);
     const all = S.branches(project),
       groups =
         options.separateBranches && all.length > 1
@@ -22,6 +23,7 @@
           layoutHeight: sheet.drawing.h,
           ...options,
           diagramOnly: true,
+          cables,
           designations: S.designations(project),
           branchNumber: branch.number,
           pageIndex: i + 1,
@@ -47,7 +49,7 @@
       };
     });
     const commonScale = Math.min(...pages.map((page) => page.scale));
-    return pages.map((page) => ({
+    const result = pages.map((page) => ({
       ...page,
       scale: commonScale,
       x:
@@ -57,6 +59,14 @@
         page.sheet.drawing.y +
         (page.sheet.drawing.h - page.size.height * commonScale) / 2,
     }));
+    if (options.cableJournal) {
+      const sheet = Sheet.geometry(pw, ph, project);
+      const rows = [...cables.values()];
+      result.push({...result[0], project, sheet, journal: rows,
+        options:{...result[0].options, branchNumber:null, pageIndex:result.length + 1}});
+      for (const page of result) page.options.pageCount = result.length;
+    }
+    return result;
   }
   function pageCanvas(plan, resolution = 300) {
     // Keep previews lightweight while allowing large sheets to retain small labels.
@@ -73,7 +83,7 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.translate(plan.x * dpi, plan.y * dpi);
-    S.render(plan.project, {
+    if (!plan.journal) S.render(plan.project, {
       ...plan.options,
       context: ctx,
       renderScale: plan.scale * dpi,
@@ -177,6 +187,11 @@
       this.setFont();
       return { width: this.doc.getTextWidth(String(t)) / this.factor };
     }
+    fillVerticalText(t, x, y) {
+      this.setFont();
+      this.doc.setTextColor(this.fillStyle);
+      this.doc.text(String(t), ...this.xy(x, y), {angle:90});
+    }
   }
   function pdf(project, options = {}) {
     const list = plans(project, options),
@@ -201,7 +216,7 @@
           plan.pw > plan.ph ? "landscape" : "portrait",
         );
       const ctx = new PDFContext(doc, plan.x, plan.y);
-      S.render(plan.project, {
+      if (!plan.journal) S.render(plan.project, {
         ...plan.options,
         context: ctx,
         renderScale: plan.scale,

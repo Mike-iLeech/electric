@@ -561,6 +561,12 @@
 @media(min-width:761px) and (max-width:1250px) { .app.hideLeftSidebar { grid-template-columns:minmax(0,1fr); } }
 @media(min-width:761px) { .app.hideLeftSidebar #leftPanel { display:none; } }
 @media(min-width:1251px) { .app.hideRightSidebar #rightPanel { display:none; } }
+#collapsedPowerTotal { display:none; white-space:nowrap; }
+@media(min-width:1251px) { .app.hideRightSidebar #collapsedPowerTotal { display:inline-flex; } }
+@media(max-width:1250px) { body:not([data-panel="right"]) #collapsedPowerTotal { display:inline-flex; } }
+#powerSummary { flex:none; border-bottom:1px solid #26364c; }
+.powerSummaryBody { padding:6px 12px; }
+#powerBranchLoads { margin:4px 0 0; padding-left:24px; max-height:100px; overflow:auto; }
 @media(max-width:1550px) and (min-width:761px) { .topBar .headerHelp { position:absolute; right:43px; top:6px; margin:0; } }
 
 #helpTip.headerHelp { width:28px; min-width:28px; height:28px; min-height:28px; margin:0; }
@@ -605,6 +611,12 @@
 .cableLengthDialog .btnRow { margin-top:10px; }
 .cableSettingsDialog { max-height:85dvh; overflow:auto; }
 .cableSettingsDialog .field { margin:6px 0; }
+#cableLengthLimits { margin:10px 0; padding:10px; border:1px solid #344862; border-radius:10px; background:#101a29; }
+#cableLengthLimitsTitle { display:block; font-size:13px; }
+#cableLengthLimits dl { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,40%); gap:0 8px; margin:8px 0 0; font-size:12px; }
+#cableLengthLimits dt, #cableLengthLimits dd { border-top:1px solid #283952; padding:6px 0; margin:0; }
+#cableLengthLimits dt { color:#aab9cd; }
+#cableLengthLimits dd { text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
 #btnActionLog { position:fixed; right:8px; bottom:8px; z-index:20; display:grid; place-items:center; width:28px; height:28px; min-height:0; padding:0; }
 #actionLog { width:min(560px, calc(100vw - 32px)); max-width:none; }
 #actionLogEntries { max-height:55vh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }

@@ -243,7 +243,27 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 500);
   }
+  function updatePowerSummary() {
+    const format = watts => {
+      const [divisor, unit] = watts >= 1e6 ? [1e6, "МВт"] : watts >= 1000 ? [1000, "кВт"] : [1, "Вт"];
+      return (watts / divisor).toLocaleString("ru-RU", {maximumFractionDigits:2}) + " " + unit;
+    };
+    const sources = p.nodes.filter(node => node.category === "input");
+    let total = 0;
+    const rows = sources.map(source => {
+      const watts = E.sum(calc.nodes.get(source.id).loadW);
+      total += watts;
+      const row = document.createElement("li");
+      row.textContent = source.name + " · " + format(watts);
+      return row;
+    });
+    $("powerSummaryTotal").textContent = format(total);
+    $("collapsedPowerTotal").textContent = "Итого " + format(total);
+    $("powerBranchCount").textContent = "Веток от вводов: " + sources.length;
+    $("powerBranchLoads").replaceChildren(...rows);
+  }
   function updateStatus() {
+    updatePowerSummary();
     $("btnSnap").setAttribute("aria-pressed", !!p.settings.snapToGrid);
     $("btnSnap").classList.toggle("active", !!p.settings.snapToGrid);
     $("autoTrip").checked = !!p.settings.autoTrip;
@@ -1487,7 +1507,7 @@
           o.value = i;
           o.textContent =
             `Лист ${i + 1}` +
-            (v.options.branchNumber
+            (v.journal ? " · Кабельный журнал" : v.options.branchNumber
               ? ` · Ветка №${v.options.branchNumber}`
               : " · Все ветки");
           return o;
@@ -1605,7 +1625,21 @@
         refreshDrawing();
       };
     }
-    fields.append(sheetLabel);
+    const journalToggle = document.createElement("label");
+    journalToggle.className = "branchPageToggle";
+    const journalCheckbox = document.createElement("input");
+    journalCheckbox.type = "checkbox";
+    journalCheckbox.checked = !!drawingOptions.cableJournal;
+    journalToggle.append(journalCheckbox, document.createTextNode("Выгрузка кабельного журнала"));
+    journalCheckbox.onchange = () => {
+      drawingOptions.cableJournal = journalCheckbox.checked;
+      p.meta.exportSettings = {...drawingOptions};
+      dirty = true;
+      scheduleSave();
+      selectedPage = 0;
+      refreshDrawing();
+    };
+    fields.append(journalToggle, sheetLabel);
     refreshDrawing();
     const note = document.createElement("p");
     note.textContent =
@@ -2415,10 +2449,25 @@
   function boot() {
     const actionLog = $("actionLog");
     $("btnActionLog").onclick = () => {
+      $("actionLogCopyStatus").textContent = "";
       actionLog.showModal();
       updateActionLog();
     };
     $("btnCloseActionLog").onclick = () => actionLog.close();
+    $("btnCopyActionLog").onclick = async () => {
+      const status = $("actionLogCopyStatus");
+      try {
+        await navigator.clipboard.writeText(recentActions.join("\n"));
+        status.textContent = "Весь лог скопирован";
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents($("actionLogEntries"));
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        status.textContent = "Лог выделен. Нажмите Ctrl+C, чтобы скопировать.";
+      }
+    };
     document.addEventListener("click", event => {
       const button = event.target.closest?.("button");
       if (!button || button.id === "btnActionLog" || actionLog.contains(button)) return;
@@ -2519,7 +2568,9 @@
     const cableDialog = $("cableLengthDialog");
     const lengthInput = $("cableLengthInput");
     const lengthWarning = $("cableLengthWarning");
+    const lengthLimits = $("cableLengthLimits");
     function refreshLengthWarning() {
+      lengthLimits.hidden = true;
       lengthInput.setCustomValidity("");
       const link = p.links.find(item => item.id === cableDialog.dataset.linkId);
       let warnings = [];
@@ -2531,7 +2582,7 @@
           const draft = {...link, cable: {...link.cable, lengthM: Number(lengthInput.value)}};
           const cable = E.cableParameters(draft, out, inlet);
           const estimate = E.cableEstimate(cable, out.phases, load.loadA);
-          warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN);
+          warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN, {includeLength:false});
           const error = cableDropError(estimate);
           lengthInput.setCustomValidity(error);
           if (error) warnings.unshift(error);
@@ -2541,16 +2592,20 @@
             return E.calculate(draftProject).nodes.get(link.to.nodeId);
           };
           const receiving = receivingAt(cable.lengthM);
-          if (receiving.voltagePowerDeficit) {
+          if (receiving.upstreamVoltagePowerDeficit)
+            warnings.unshift("Нехватка мощности выше по цепи питания. Изменение длины этой трассы не устраняет вышестоящее ограничение.");
+          if (receiving.localVoltagePowerDeficit) {
             const required = (E.sum(receiving.loadW) / 1000).toFixed(2);
             const available = (receiving.availableWatts / 1000).toFixed(2);
             warnings.unshift(`Из-за падения напряжения доступно ${available} кВт при нагрузке ${required} кВт.`);
           }
-          if (estimate?.dropV > 0 && (receiving.voltagePowerDeficit || estimate.dropV >
-              p.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1) * cable.maxDropPercent / 100)) {
+          if (estimate) {
             const voltage = p.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
+            const zeroVoltageLength = estimate.dropV > 0 ? cable.lengthM * voltage / estimate.dropV : Infinity;
+            const dropLength = zeroVoltageLength * cable.maxDropPercent / 100;
+            const maxInput = Number(lengthInput.max);
             let low = 0;
-            let high = Math.min(cable.lengthM, cable.lengthM * voltage * cable.maxDropPercent / (100 * estimate.dropV));
+            let high = Math.min(maxInput, zeroVoltageLength);
             const atLimit = receivingAt(high);
             if (E.sum(atLimit.loadW) <= atLimit.availableWatts + 1e-8) low = high;
             for (let i = 0; i < 32 && low < high; i++) {
@@ -2559,15 +2614,20 @@
               if (E.sum(node.loadW) <= node.availableWatts + 1e-8) low = middle;
               else high = middle;
             }
-            const limit = Math.floor(low * 100) / 100;
-            warnings.unshift(limit >= 0.01
-              ? `Максимальная длина этой трассы при текущей нагрузке: ${limit.toLocaleString("ru-RU")} м.`
-              : "При текущей нагрузке допустимой длины для этой трассы нет.");
+            const meters = value => !Number.isFinite(value) ? "нет предела при текущем токе"
+              : value < .01 ? "нет допустимой длины"
+              : (Math.floor(value * 100) / 100).toLocaleString("ru-RU") + " м";
+            $("cableDropLimitLabel").textContent = `По нормативу ΔU < ${cable.maxDropPercent}%`;
+            $("cableDropLimitValue").textContent = meters(dropLength);
+            $("cableLoadLimitValue").textContent = (low >= maxInput ? "≥ " : "") + meters(low);
+            $("cableAbsoluteLimitValue").textContent = meters(zeroVoltageLength);
+            lengthLimits.hidden = false;
           }
         }
       }
       lengthWarning.hidden = !warnings.length;
-      lengthWarning.textContent = warnings.join(" ");
+      lengthWarning.textContent = warnings.join("\n");
+      lengthWarning.style.whiteSpace = "pre-line";
     }
     lengthInput.oninput = refreshLengthWarning;
     scene.onCableEdit = id => {

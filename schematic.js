@@ -119,13 +119,7 @@
     }
     const firstFork=p.nodes.find(n=>(children.get(n.id)||[]).length>1)?.id;
     const byId=new Map(p.nodes.map(n=>[n.id,n])),sizes=new Map(),poses=new Map(),seen=new Set();
-    const cableRows = new Map();
-    for (const link of p.links) {
-      if (link.cable?.lengthM > 0)
-        cableRows.set(link.to.nodeId, (cableRows.get(link.to.nodeId) || 0) + 1);
-    }
-    const ownHeight=n=>Math.max(160,95+Math.max(n.inputs.length,n.outputs.length)*28) +
-      24 * (cableRows.get(n.id) || 0);
+    const ownHeight=n=>Math.max(160,95+Math.max(n.inputs.length,n.outputs.length)*28);
     function size(id){
       if(sizes.has(id))return sizes.get(id);
       const n=byId.get(id),kids=children.get(id)||[];
@@ -136,15 +130,15 @@
         const ids=kids.slice(i,i+rowCount),rects=ids.map(size);
         columns.push({ids,w:Math.max(...rects.map(r=>r.w)),h:rects.reduce((sum,r)=>sum+r.h+100,0)-100});
       }
-      const result={w:280+(columns.length?180+columns.reduce((sum,r)=>sum+r.w+100,0)-100:0),h:Math.max(ownHeight(n),...columns.map(r=>r.h)),columns};
+      const result={w:280+(columns.length?220+columns.reduce((sum,r)=>sum+r.w+120,0)-120:0),h:Math.max(ownHeight(n),...columns.map(r=>r.h)),columns};
       sizes.set(id,result);return result;
     }
     function place(id,left,top,depth){
       if(seen.has(id))return;seen.add(id);
       const n=byId.get(id),r=size(id),h=ownHeight(n);
       poses.set(id,{x:left,y:top+(r.h-h)/2,w:280,h,depth});
-      let x=left+460;
-      for(const column of r.columns){let y=top;for(const child of column.ids){place(child,x,y,depth+1);poses.get(child).routeTop=y; y+=size(child).h+100;}x+=column.w+100;}
+      let x=left+500;
+      for(const column of r.columns){let y=top;for(const child of column.ids){place(child,x,y,depth+1);poses.get(child).routeTop=y; y+=size(child).h+100;}x+=column.w+120;}
     }
     let y=150;
     for(const n of p.nodes.filter(n=>!incoming.has(n.id))){place(n.id,60,y,0);y+=size(n.id).h+140;}
@@ -157,7 +151,7 @@
       const rows = new Map();
       for (let i = 0; i < queue.length; i++) {
         const id = queue[i], depth = levels.get(id), rect = poses.get(id);
-        rect.x = 60 + depth * 460;
+        rect.x = 60 + depth * 500;
         rect.y = rows.get(depth) || 150;
         rect.routeTop = rect.y;
         rect.depth = depth;
@@ -178,7 +172,7 @@
     for(const split of [false,true])for(const rows of [1,2,3,4,6]){
       const poses=layout(p,rows,split),rects=[...poses.values()];
       const w=Math.max(600,...rects.map(r=>r.x+r.w+40))-40;
-      const h=Math.max(350,...rects.map(r=>r.y+r.h+60))-95;
+      const h=Math.max(350,...rects.map(r=>r.y+r.h+60))-60;
       const fit=Math.min(width/w,height/h);
       candidates.push({poses,fit,w});
       if(fit>score){best=poses;score=fit;}
@@ -187,6 +181,22 @@
   }
   function connectionPaths(p, poses=layout(p)) {
     const nodes=new Map(p.nodes.map(n=>[n.id,n])),rects=[...poses.values()];
+    const lanes = new Map();
+    function runs(points) {
+      return points.slice(1).flatMap((b,i) => {
+        const a = points[i];
+        if (a.x === b.x && a.y === b.y) return [];
+        const horizontal = a.y === b.y;
+        const axis = horizontal ? [a.x,b.x] : [a.y,b.y];
+        return [{axis:horizontal ? "y" : "x", coordinate:horizontal ? a.y : a.x,
+          low:Math.min(...axis), high:Math.max(...axis)}];
+      });
+    }
+    function overlap(route) {
+      return route.reduce((total, run) => total + (lanes.get(run.axis) || []).reduce((sum, other) =>
+        sum + Math.max(0, 24 - Math.abs(run.coordinate - other.coordinate)) *
+          Math.max(0, Math.min(run.high,other.high) - Math.max(run.low,other.low)), 0), 0);
+    }
     function clear(points){return points.slice(1).every((b,i)=>{const a=points[i];return rects.every(r=>a.y===b.y ? !(a.y>r.y&&a.y<r.y+r.h&&Math.max(a.x,b.x)>r.x&&Math.min(a.x,b.x)<r.x+r.w) : !(a.x>r.x&&a.x<r.x+r.w&&Math.max(a.y,b.y)>r.y&&Math.min(a.y,b.y)<r.y+r.h));});}
     return new Map(p.links.map(l=>{
       const n=nodes.get(l.from.nodeId),a=poses.get(n.id),b=poses.get(l.to.nodeId),i=n.outputs.findIndex(o=>o.id===l.from.portId);
@@ -194,15 +204,71 @@
       const lead=start.x+30+i*12,entry=end.x-30;
       const candidates=[];
       if(start.y===end.y)candidates.push([start,end]);
-      for(const mid of [lead,entry])candidates.push([start,{x:mid,y:start.y},{x:mid,y:end.y},end]);
+      const offsets = [0,-24,24,-48,48,-72,72];
+      for(const mid of offsets.flatMap(offset => [lead+offset,entry+offset]).filter(x=>x>start.x && x<end.x))
+        candidates.push([start,{x:mid,y:start.y},{x:mid,y:end.y},end]);
       for(const y of [b.routeTop-35-i*10,...rects.flatMap(r=>[r.y-20-i*8,r.y+r.h+20+i*8])]) {
-        candidates.push([start,{x:lead,y:start.y},{x:lead,y},{x:entry,y},{x:entry,y:end.y},end]);
+        for (const offset of offsets)
+          {
+            const laneY = Math.round(y / 24) * 24 + offset;
+            candidates.push([start,{x:lead,y:start.y},{x:lead,y:laneY},{x:entry,y:laneY},{x:entry,y:end.y},end]);
+          }
       }
       const length=points=>points.slice(1).reduce((sum,b,i)=>sum+Math.abs(b.x-points[i].x)+Math.abs(b.y-points[i].y)+15,0);
-      const points=candidates.filter(clear).sort((a,b)=>length(a)-length(b))[0];
+      const best = candidates.filter(clear).map(points => {
+        const route = runs(points);
+        return {points, route, overlap:overlap(route), length:length(points)};
+      }).sort((a,b)=>a.overlap-b.overlap || a.length-b.length)[0];
+      const points = best?.points;
       if(!points)throw Error('Не найден маршрут печатной схемы: '+l.id);
+      for (const run of best.route) {
+        if (!lanes.has(run.axis)) lanes.set(run.axis, []);
+        lanes.get(run.axis).push(run);
+      }
       return [l.id,points];
     }));
+  }
+  function cableRows(p, labels = designations(p)) {
+    const calc = E.calculate({...p, settings:{...p.settings, advancedMode:true}});
+    const ix = E.indexes(p);
+    const rows = new Map();
+    const format = new Intl.NumberFormat("ru-RU", {maximumFractionDigits:2});
+    const types = {input:"Ввод", distributor:"Дистрибьютор", consumer:"Потребитель"};
+    const deviceType = node => types[node.category] || (node.transition ? "Переход" : "Удлинитель");
+    const connectors = {cee1:"CEE", cee3:"CEE", euro:"Schuko", powercon:"TRUE1", terminal1:"Клеммы", terminal3:"Клеммы"};
+    const portLabel = (port, index) =>
+      `${connectors[port.connType] || port.connType} ${port.nominalA}А ${port.phases}P · №${index + 1}`;
+    for (const link of p.links) {
+      if (!(link.cable?.lengthM > 0)) continue;
+      const out = ix.ports.get(link.from.portId).port;
+      const inlet = ix.ports.get(link.to.portId).port;
+      const cable = E.cableParameters(link, out, inlet);
+      const estimate = E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA);
+      const length = format.format(cable.lengthM) + " м";
+      rows.set(link.id, {
+        id: "К" + String(rows.size + 1).padStart(2, "0"),
+        source: labels[link.from.nodeId],
+        sourceType: deviceType(ix.nodes.get(link.from.nodeId)),
+        output: portLabel(out, ix.nodes.get(link.from.nodeId).outputs.indexOf(out)),
+        target: labels[link.to.nodeId],
+        targetType: deviceType(ix.nodes.get(link.to.nodeId)),
+        input: portLabel(inlet, ix.nodes.get(link.to.nodeId).inputs.indexOf(inlet)),
+        outputConnector: out.connType,
+        inputConnector: inlet.connType,
+        voltage: (() => {
+          const receiver = calc.nodes.get(link.to.nodeId);
+          const active = receiver.powered && calc.activeInputs.get(link.to.nodeId)?.id === link.id;
+          return active ? format.format(receiver.voltageLN * (inlet.phases === 3 ? Math.sqrt(3) : 1)) : "0";
+        })(),
+        load: format.format(E.sum(calc.ports.get(out.id).loadW)),
+        conductors: `${out.phases}P+1N+1PE`,
+        section: cable.sectionMm2 == null ? "—" : format.format(cable.sectionMm2) + " мм²",
+        length,
+        drop: estimate ? "ΔU" + (estimate.lineVoltage ? "л" : "ф") + " " + format.format(estimate.dropV) + " В" : "—",
+        loss: estimate ? "ΔP " + format.format(estimate.lossW) + " Вт" : "—",
+      });
+    }
+    return rows;
   }
   function render(p, options = {}) {
     const poses = options.layoutWidth && options.layoutHeight
@@ -217,7 +283,7 @@
       ),
       fullHeight = diagramBottom + footer;
     const left = options.diagramOnly ? 40 : 0,
-      top = options.diagramOnly ? 95 : 0;
+      top = options.diagramOnly ? 60 : 0;
     const drawingWidth = options.diagramOnly
       ? Math.max(600, ...[...poses.values()].map((r) => r.x + r.w + 40)) - left
       : width;
@@ -280,15 +346,6 @@
         20,
       );
     }
-    for (const branch of branches(p)) {
-      const bounds = branch.project.nodes.map((n) => poses.get(n.id));
-      text(
-        `Ветка №${options.branchNumber || branch.number}`,
-        60,
-        Math.min(...bounds.map((r) => r.y)) - 22,
-        24,
-      );
-    }
     const labels = new Map(),
       counts = {};
     for (const n of p.nodes) {
@@ -312,20 +369,23 @@
       return { x: r.x + r.w, y: r.y + 85 + i * 28 };
     };
     const paths = connectionPaths(p, poses);
-    const calc = E.calculate(p);
-    const ix = E.indexes(p);
-    const cableNotes = new Map();
-    const format = new Intl.NumberFormat("ru-RU", {maximumFractionDigits:2});
-    for (const link of p.links) {
-      if (!(link.cable?.lengthM > 0)) continue;
-      const out = ix.ports.get(link.from.portId).port;
-      const inlet = ix.ports.get(link.to.portId).port;
-      const cable = E.cableParameters(link, out, inlet);
-      const estimate = E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA);
-      const prefix = `Вх. ${ix.nodes.get(link.to.nodeId).inputs.indexOf(inlet) + 1}: ${format.format(cable.lengthM)} м`;
-      const note = estimate ? `${prefix} · ΔU${estimate.lineVoltage ? "л" : "ф"} ${format.format(estimate.dropV)} В · ΔP ${format.format(estimate.lossW)} Вт` : prefix;
-      if (!cableNotes.has(link.to.nodeId)) cableNotes.set(link.to.nodeId, []);
-      cableNotes.get(link.to.nodeId).push(note);
+    for (const branch of branches(p)) {
+      if (!branch.project.nodes.some(node => node.category === "input")) continue;
+      const frames = branch.project.nodes.map(node => poses.get(node.id));
+      const points = branch.project.links.flatMap(link => paths.get(link.id) || []);
+      const leftEdge = Math.max(left + 2, Math.min(...frames.map(r => r.x), ...points.map(pt => pt.x)) - 16);
+      const rightEdge = Math.min(left + drawingWidth - 2, Math.max(...frames.map(r => r.x + r.w), ...points.map(pt => pt.x)) + 16);
+      const upperEdge = Math.max(top + 24, Math.min(...frames.map(r => r.y), ...points.map(pt => pt.y)) - 22);
+      const lowerEdge = Math.min(diagramBottom - 2, Math.max(...frames.map(r => r.y + r.h), ...points.map(pt => pt.y)) + 16);
+      for (let x = leftEdge; x < rightEdge; x += 14) {
+        line(x, upperEdge, Math.min(x + 8, rightEdge), upperEdge);
+        line(x, lowerEdge, Math.min(x + 8, rightEdge), lowerEdge);
+      }
+      for (let y = upperEdge; y < lowerEdge; y += 14) {
+        line(leftEdge, y, leftEdge, Math.min(y + 8, lowerEdge));
+        line(rightEdge, y, rightEdge, Math.min(y + 8, lowerEdge));
+      }
+      text("Ветка №" + (options.branchNumber || branch.number), leftEdge + 8, upperEdge - 5, 56);
     }
     for (const {points,hits} of R.crossings(paths).values()) {
       // A thin white clearance separates bridge arcs from the crossed conductor.
@@ -336,13 +396,12 @@
       const r = poses.get(n.id),
         x = r.x,
         y = r.y;
-      const notes = cableNotes.get(n.id) || [];
       c.fillStyle = "#fff";
       c.fillRect(x, y, r.w, r.h);
       c.strokeRect(x, y, r.w, r.h);
       c.fillStyle = "#111";
       text(labels.get(n.id), x + 10, y + 20, 22);
-      const nameParts = E.nomenclature(n).split(" | ");
+      const nameParts = E.nomenclature(n, n.category === "distributor" ? {connectors:true,compactConnectors:true} : {}).split(" | ");
       function shortText(value, tx, ty, max, size) {
         c.font = `${size}px OpenGOST`;
         while (c.measureText(value).width > max && size > 9) {
@@ -358,7 +417,15 @@
       }
       shortText(nameParts[0], x + 65, y + 20, 205, 18);
       shortText(nameParts[1], x + 10, y + 41, 260, 14);
-      if (n.category !== "extender")
+      if (n.category === "distributor" && /→|->/.test(nameParts[2])) {
+        const [input, output] = nameParts[2].split(/→|->/);
+        shortText(input.trim(), x + 10, y + 62, 101, 13);
+        const arrowX = x + 16 + c.measureText(input.trim()).width;
+        line(arrowX,y + 58,arrowX + 16,y + 58);
+        line(arrowX + 12,y + 54,arrowX + 16,y + 58);
+        line(arrowX + 12,y + 62,arrowX + 16,y + 58);
+        shortText(output.trim(), arrowX + 22, y + 62, x + 270 - arrowX - 22, 13);
+      } else if (n.category !== "extender")
         shortText(nameParts[2], x + 10, y + 62, 260, 13);
       if (n.category === "extender") {
         const short = {
@@ -371,19 +438,22 @@
           },
           input = n.inputs[0],
           out = n.outputs[0];
+        const inputLabel = `${short[input?.connType] || "Вход"} ${input?.nominalA || ""} А`;
         text(
-          `${short[input?.connType] || "Вход"} ${input?.nominalA || ""} А`,
+          inputLabel,
           x + 10,
           y + 62,
           13,
         );
-        line(x + 120, y + 58, x + 151, y + 58);
-        line(x + 151, y + 58, x + 144, y + 53);
-        line(x + 151, y + 58, x + 144, y + 63);
-        text(
+        const arrowX = x + 16 + c.measureText(inputLabel).width;
+        line(arrowX, y + 58, arrowX + 16, y + 58);
+        line(arrowX + 16, y + 58, arrowX + 12, y + 54);
+        line(arrowX + 16, y + 58, arrowX + 12, y + 62);
+        shortText(
           `${n.outputs.length > 1 ? n.outputs.length + "x " : ""}${short[out?.connType] || "Выход"} ${out?.nominalA || ""} А`,
-          x + 160,
+          arrowX + 22,
           y + 62,
+          x + 270 - arrowX - 22,
           13,
         );
       }
@@ -397,7 +467,7 @@
         text(
           `${n.phases}ф; ${E.CONNECTORS[n.inputs[0]?.connType]?.name || ""} ${n.inputs[0]?.nominalA || ""} А`,
           x + 10,
-          y + r.h - 20 - 24 * notes.length,
+          y + r.h - 20,
           17,
         );
       } else {
@@ -415,6 +485,7 @@
           line(x + 35, cy, x + 53, cy - 13);
           circle(x + 57, cy, 2);
           if (n.mainBreaker.state === "closed") line(x + 35, cy, x + 65, cy);
+          text(`QF ${n.mainBreaker.curve}${n.mainBreaker.ratingA}${n.mainBreaker.state === "closed" ? "" : " ОТКЛ"}`, x + 12, cy + 16, 13);
         } else if (n.category === "extender")
           c.strokeRect(x + 35, cy - 10, 30, 20);
         else line(x + 35, cy, x + 65, cy);
@@ -445,16 +516,107 @@
         text(
           `${n.phases}ф; ввод ${n.inputs[0]?.nominalA || n.supplyA} А${n.mainBreaker ? "; QF " + n.mainBreaker.curve + n.mainBreaker.ratingA : ""}`,
           x + 10,
-          y + r.h - 12 - 24 * notes.length,
+          y + r.h - 12,
           17,
         );
       }
-      notes.forEach((note, i) => {
-        const baseline = y + r.h - 9 - 24 * (notes.length - 1 - i);
-        line(x, baseline - 15, x + r.w, baseline - 15);
-        c.font = "14px OpenGOST, sans-serif";
-        c.fillText(note, x + 10, baseline, r.w - 20);
-      });
+    }
+    const heightLimit = height;
+    const cables = options.cables || cableRows(p);
+    const occupied = [...poses.values()];
+    const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x &&
+      a.y < b.y + b.h && a.y + a.h > b.y;
+    const segments = [...paths.values()].flatMap(points => points.slice(1).map((b, i) => {
+      const a = points[i];
+      return {a, b, length:Math.abs(a.x - b.x) + Math.abs(a.y - b.y)};
+    }));
+    const wires = segments.map(({a,b}) => ({
+      x:Math.min(a.x,b.x)-3, y:Math.min(a.y,b.y)-3,
+      w:Math.abs(a.x-b.x)+6, h:Math.abs(a.y-b.y)+6,
+    }));
+    for (const [id, points] of paths) {
+      const cable = cables.get(id);
+      if (!cable) continue;
+      c.font = "12px OpenGOST, sans-serif";
+      const width = c.measureText(cable.id).width;
+      const first = points[0], last = points.at(-1);
+      for (const [x,y] of [[first.x+4,first.y-6],[last.x-width-4,last.y-6]]) {
+        text(cable.id,x,y,12);
+        occupied.push({x:x-2,y:y-13,w:width+4,h:15});
+      }
+    }
+    for (const [id, points] of paths) {
+      const cable = cables.get(id);
+      if (!cable) continue;
+      const parts = [cable.id + " · " + cable.length, cable.drop, cable.loss].filter(value => value !== "—");
+      const candidates = points.slice(1).map((b,i) => {
+        const a = points[i];
+        return {a,b,length:Math.abs(a.x-b.x)+Math.abs(a.y-b.y)};
+      }).sort((a,b)=>b.length-a.length);
+      c.font = "13px OpenGOST, sans-serif";
+      let placed = false;
+      for (const lines of [[parts.join(" · ")],parts]) {
+        const width = Math.max(...lines.map(value=>c.measureText(value).width));
+        const height = lines.length * 15;
+        for (const {a,b,length} of candidates) {
+          if (length < width + 8) continue;
+          const horizontal = a.y === b.y;
+          for (const fraction of [.5,.3,.7,.15,.85]) {
+            const cx = a.x+(b.x-a.x)*fraction, cy = a.y+(b.y-a.y)*fraction;
+            for (const side of [-1,1]) {
+              const box = horizontal
+                ? {x:cx-width/2-3,y:cy+(side<0?-height-6:6),w:width+6,h:height}
+                : {x:cx+(side<0?-height-6:6),y:cy-width/2-3,w:height,h:width+6};
+              const along = horizontal ? box.x : box.y;
+              const start = horizontal ? Math.min(a.x,b.x) : Math.min(a.y,b.y);
+              if (along < start || along + width + 6 > start + length ||
+                  box.x < left || box.y < top || box.x+box.w > left+drawingWidth ||
+                  box.y+box.h > top+heightLimit || occupied.some(other=>overlaps(box,other)) ||
+                  wires.some(other=>overlaps(box,other))) continue;
+              occupied.push(box);
+              const {x,y,w,h} = box;
+              const radius = Math.min(6, w / 2, h / 2);
+              const previousWidth = c.lineWidth;
+              c.lineWidth = .45;
+              c.beginPath();
+              c.moveTo(x+radius,y);
+              c.lineTo(x+w-radius,y);
+              c.bezierCurveTo(x+w,y,x+w,y,x+w,y+radius);
+              c.lineTo(x+w,y+h-radius);
+              c.bezierCurveTo(x+w,y+h,x+w,y+h,x+w-radius,y+h);
+              c.lineTo(x+radius,y+h);
+              c.bezierCurveTo(x,y+h,x,y+h,x,y+h-radius);
+              c.lineTo(x,y+radius);
+              c.bezierCurveTo(x,y,x,y,x+radius,y);
+              c.stroke();
+              if (horizontal) {
+                const edge = side < 0 ? y+h : y;
+                line(cx, edge, cx, cy);
+              } else {
+                const edge = side < 0 ? x+w : x;
+                line(edge, cy, cx, cy);
+              }
+              c.lineWidth = previousWidth;
+              lines.forEach((value,i)=>{
+                if (horizontal) c.fillText(value,box.x+3,box.y+12+i*15);
+                else {
+                  const x=box.x+12+i*15, y=box.y+box.h-3;
+                  if (c.fillVerticalText) c.fillVerticalText(value,x,y);
+                  else if (c.rotate) {
+                    c.save(); c.translate(x,y); c.rotate(-Math.PI/2);
+                    c.fillText(value,0,0); c.restore();
+                  }
+                }
+              });
+              placed = true;
+              break;
+            }
+            if (placed) break;
+          }
+          if (placed) break;
+        }
+        if (placed) break;
+      }
     }
     if (options.diagramOnly) return canvas;
     const fy = diagramBottom;
@@ -579,5 +741,5 @@
     );
     return canvas;
   }
-  return { summary, layout, layoutForSheet, connectionPaths, render, branches, designations };
+  return { cableRows, summary, layout, layoutForSheet, connectionPaths, render, branches, designations };
 });

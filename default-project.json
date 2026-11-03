@@ -16,7 +16,8 @@
     "frequency": 50,
     "powerFactor": 1,
     "snapToGrid": true,
-    "autoTrip": false
+    "autoTrip": false,
+    "advancedMode": true
   },
   "view": {
     "zoom": 0.058794364640022065,
@@ -1406,7 +1407,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1441,7 +1442,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1476,7 +1477,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1511,7 +1512,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1546,7 +1547,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1581,7 +1582,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2974,
       "mainBreaker": null
     },
     {
@@ -1616,7 +1617,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2546,
       "mainBreaker": null
     },
     {
@@ -1651,7 +1652,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2546,
       "mainBreaker": null
     },
     {
@@ -1686,7 +1687,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2546,
       "mainBreaker": null
     },
     {
@@ -1721,7 +1722,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2546,
       "mainBreaker": null
     },
     {
@@ -1756,7 +1757,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 2546,
       "mainBreaker": null
     },
     {
@@ -1791,7 +1792,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 1270,
       "mainBreaker": null
     },
     {
@@ -1826,7 +1827,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 1270,
       "mainBreaker": null
     },
     {
@@ -3509,7 +3510,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3544,7 +3545,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3579,7 +3580,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3614,7 +3615,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3649,7 +3650,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3684,7 +3685,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3719,7 +3720,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3754,7 +3755,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3789,7 +3790,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3824,7 +3825,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3859,7 +3860,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -3894,7 +3895,7 @@
         }
       ],
       "outputs": [],
-      "consumerWatts": 3500,
+      "consumerWatts": 3277,
       "mainBreaker": null
     },
     {
@@ -7448,6 +7449,9 @@
       "to": {
         "nodeId": "node_mvzui1ln_1a2_snuscs",
         "portId": "in_mvzui1ln_1a3_otgi35"
+      },
+      "cable": {
+        "lengthM": 10.54
       }
     },
     {
@@ -7459,6 +7463,9 @@
       "to": {
         "nodeId": "node_mvzulru7_1_yq1vl7",
         "portId": "in_mvzulru7_2_8hlyq7"
+      },
+      "cable": {
+        "lengthM": 4.21
       }
     },
     {
@@ -7470,6 +7477,9 @@
       "to": {
         "nodeId": "node_mvzuma0l_11_t6a9xq",
         "portId": "in_mvzuma0l_12_91mva1"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7481,6 +7491,9 @@
       "to": {
         "nodeId": "node_mvzum13h_u_5m28np",
         "portId": "in_mvzum13h_v_yhxr9n"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7492,6 +7505,9 @@
       "to": {
         "nodeId": "node_mvzuly11_9_5pg5cl",
         "portId": "in_mvzuly11_a_x49mc2"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7503,6 +7519,9 @@
       "to": {
         "nodeId": "node_mvzum0ot_n_eusdc6",
         "portId": "in_mvzum0ot_o_6beoyd"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7514,6 +7533,9 @@
       "to": {
         "nodeId": "node_mvzulyxx_g_tm3r1m",
         "portId": "in_mvzulyxx_h_xs4i99"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7525,6 +7547,9 @@
       "to": {
         "nodeId": "node_mvzuo4tr_1d_18isj6",
         "portId": "in_mvzuo4tr_1e_tw818l"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7536,6 +7561,9 @@
       "to": {
         "nodeId": "node_mvzuo71w_1k_d424q5",
         "portId": "in_mvzuo71w_1l_drdjii"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7547,6 +7575,9 @@
       "to": {
         "nodeId": "node_mvzuo9sc_1z_kalr8c",
         "portId": "in_mvzuo9sc_20_xwvaa8"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7558,6 +7589,9 @@
       "to": {
         "nodeId": "node_mvzuo9sc_26_1htf3r",
         "portId": "in_mvzuo9sc_27_m6ihrd"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7569,6 +7603,9 @@
       "to": {
         "nodeId": "node_mvzuoef0_2d_6aq2qk",
         "portId": "in_mvzuoef0_2e_ukr5xe"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7580,6 +7617,9 @@
       "to": {
         "nodeId": "node_mvzuoef0_2k_54xosn",
         "portId": "in_mvzuoef0_2l_qn9vjt"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7591,6 +7631,9 @@
       "to": {
         "nodeId": "node_mvzuq7bb_2z_lak9bz",
         "portId": "in_mvzuq7bb_30_9p61tn"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7602,6 +7645,9 @@
       "to": {
         "nodeId": "node_mvzuqewb_32_pdkbn3",
         "portId": "in_mvzuqewb_33_2ak27u"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7613,6 +7659,9 @@
       "to": {
         "nodeId": "node_mvzuqrr6_39_rfmf4c",
         "portId": "in_mvzuqrr6_3a_mgbmou"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7624,6 +7673,9 @@
       "to": {
         "nodeId": "node_mvzuqrr6_3b_6tkitv",
         "portId": "in_mvzuqrr6_3c_ykgz8z"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7635,6 +7687,9 @@
       "to": {
         "nodeId": "node_mvzur3yi_3f_7k94wd",
         "portId": "in_mvzur3yi_3g_rxl6e0"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7646,6 +7701,9 @@
       "to": {
         "nodeId": "node_mvzur3yi_3h_rjzply",
         "portId": "in_mvzur3yi_3i_grn3dg"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7657,6 +7715,9 @@
       "to": {
         "nodeId": "node_mvzus2x2_1_b883w8",
         "portId": "in_mvzus2x2_2_i1yydm"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7668,6 +7729,9 @@
       "to": {
         "nodeId": "node_mvzus9ca_4_37tbqf",
         "portId": "in_mvzus9ca_5_b9ixqq"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7679,6 +7743,9 @@
       "to": {
         "nodeId": "node_mvzusgiy_7_bifx2t",
         "portId": "in_mvzusgiy_8_37i40u"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7690,6 +7757,9 @@
       "to": {
         "nodeId": "node_mvzusgiy_9_6o81jb",
         "portId": "in_mvzusgiy_a_0gvsu0"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7701,6 +7771,9 @@
       "to": {
         "nodeId": "node_mvzusqnt_d_y1p599",
         "portId": "in_mvzusqnt_e_9a9g9w"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7712,6 +7785,9 @@
       "to": {
         "nodeId": "node_mvzusqnt_f_qaip0o",
         "portId": "in_mvzusqnt_g_4b0ijw"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7723,6 +7799,9 @@
       "to": {
         "nodeId": "node_mvzuvxog_gu_x93wm3",
         "portId": "in_mvzuvxog_gv_ll8r6o"
+      },
+      "cable": {
+        "lengthM": 26.36
       }
     },
     {
@@ -7734,6 +7813,9 @@
       "to": {
         "nodeId": "node_mvzuvo3q_9k_5kb4jv",
         "portId": "in_mvzuvo3q_9l_npmn68"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -7745,6 +7827,9 @@
       "to": {
         "nodeId": "node_mvzux45f_io_voeh7w",
         "portId": "in_mvzux45f_ip_wl17wc"
+      },
+      "cable": {
+        "lengthM": 28.12
       }
     },
     {
@@ -7756,6 +7841,9 @@
       "to": {
         "nodeId": "node_mvzuwiib_ig_uk5p93",
         "portId": "in_mvzuwiib_ih_hneepn"
+      },
+      "cable": {
+        "lengthM": 28.12
       }
     },
     {
@@ -7767,6 +7855,9 @@
       "to": {
         "nodeId": "node_mvzuh0p9_19u_brgqap",
         "portId": "in_mvzuh0p9_19v_zlntpp"
+      },
+      "cable": {
+        "lengthM": 17.57
       }
     },
     {
@@ -7778,6 +7869,9 @@
       "to": {
         "nodeId": "node_mvzui2b9_1aa_vp9pes",
         "portId": "in_mvzui2b9_1ab_9jnw1c"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -7789,6 +7883,9 @@
       "to": {
         "nodeId": "node_mvzut7u1_j_atz3cw",
         "portId": "in_mvzut7u1_k_j4qi4f"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7800,6 +7897,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_b_rxndnu",
         "portId": "in_mvzye8vh_c_4vb5k3"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -7811,6 +7911,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_r_9rx7mw",
         "portId": "in_mvzye8vh_s_kf461e"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7822,6 +7925,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_1q_3asn5u",
         "portId": "in_mvzye8vh_1r_vbm1bj"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7833,6 +7939,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_1j_ptieu7",
         "portId": "in_mvzye8vh_1k_sjt0xr"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7844,6 +7953,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_y_oq7oiu",
         "portId": "in_mvzye8vh_z_zrsfor"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7855,6 +7967,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_1c_1kxsqo",
         "portId": "in_mvzye8vh_1d_sj7og4"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7866,6 +7981,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_15_fcbwn1",
         "portId": "in_mvzye8vh_16_wdyrzv"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7877,6 +7995,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_1x_z473ep",
         "portId": "in_mvzye8vh_1y_tbgtke"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7888,6 +8009,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_24_hgsum1",
         "portId": "in_mvzye8vh_25_bziqqj"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7899,6 +8023,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_2b_iyiutt",
         "portId": "in_mvzye8vh_2c_8o8rbj"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7910,6 +8037,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_2i_mkgabm",
         "portId": "in_mvzye8vh_2j_z5oca2"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7921,6 +8051,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_2p_08g5ru",
         "portId": "in_mvzye8vh_2q_btxnpw"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7932,6 +8065,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_2w_yf5aa3",
         "portId": "in_mvzye8vh_2x_c15kbc"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7943,6 +8079,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_33_xgicds",
         "portId": "in_mvzye8vh_34_cgn8rk"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7954,6 +8093,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_35_rpbg4u",
         "portId": "in_mvzye8vh_36_32lva3"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7965,6 +8107,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_37_y1vybq",
         "portId": "in_mvzye8vh_38_vxeiup"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7976,6 +8121,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_39_vxaele",
         "portId": "in_mvzye8vh_3a_jzmm9j"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7987,6 +8135,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3b_gcyqbh",
         "portId": "in_mvzye8vh_3c_ywl2s1"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -7998,6 +8149,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3d_bu8knk",
         "portId": "in_mvzye8vh_3e_dtfius"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8009,6 +8163,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3f_zt3yy4",
         "portId": "in_mvzye8vh_3g_veku7l"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8020,6 +8177,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3h_16l8zf",
         "portId": "in_mvzye8vh_3i_3px88x"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8031,6 +8191,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3j_8lcoxf",
         "portId": "in_mvzye8vh_3k_kv4v9c"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8042,6 +8205,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3l_1ee2y0",
         "portId": "in_mvzye8vh_3m_022t6t"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8053,6 +8219,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3n_izymsi",
         "portId": "in_mvzye8vh_3o_rpv0f2"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8064,6 +8233,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_3p_mas47m",
         "portId": "in_mvzye8vh_3q_ib77vu"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8075,6 +8247,9 @@
       "to": {
         "nodeId": "node_mvzye8vh_j_u7bq51",
         "portId": "in_mvzye8vh_k_vt9wol"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -8086,6 +8261,9 @@
       "to": {
         "nodeId": "node_mvzye8vg_7_mbkajz",
         "portId": "in_mvzye8vh_8_v09iff"
+      },
+      "cable": {
+        "lengthM": 26.36
       }
     },
     {
@@ -8097,6 +8275,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_4p_uj3d78",
         "portId": "in_mvzyf5c4_4q_v63ol8"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -8108,6 +8289,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_55_h62fh2",
         "portId": "in_mvzyf5c4_56_q7gruw"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8119,6 +8303,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_64_ynyea6",
         "portId": "in_mvzyf5c4_65_f8arhd"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8130,6 +8317,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_5x_vf9juu",
         "portId": "in_mvzyf5c4_5y_7h5bd5"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8141,6 +8331,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_5c_xlybmp",
         "portId": "in_mvzyf5c4_5d_pywzr9"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8152,6 +8345,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_5q_fw4dah",
         "portId": "in_mvzyf5c4_5r_ay9yff"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8163,6 +8359,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_5j_3mr5x6",
         "portId": "in_mvzyf5c4_5k_kfhtz9"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8174,6 +8373,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_6b_4z1l0q",
         "portId": "in_mvzyf5c4_6c_0de8wv"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8185,6 +8387,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_6i_t54904",
         "portId": "in_mvzyf5c4_6j_adym7f"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8196,6 +8401,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_6p_z44prn",
         "portId": "in_mvzyf5c4_6q_qij1ka"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8207,6 +8415,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_6w_veuf49",
         "portId": "in_mvzyf5c4_6x_ng3z2a"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8218,6 +8429,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_73_zyuv9j",
         "portId": "in_mvzyf5c4_74_nhgv08"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8229,6 +8443,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7a_gqh1fn",
         "portId": "in_mvzyf5c4_7b_iig2xa"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8240,6 +8457,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7h_p91nec",
         "portId": "in_mvzyf5c4_7i_0kx7mn"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8251,6 +8471,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7j_60v95h",
         "portId": "in_mvzyf5c4_7k_fxokhm"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8262,6 +8485,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7l_iwkzvg",
         "portId": "in_mvzyf5c4_7m_htucdv"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8273,6 +8499,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7n_tmezvq",
         "portId": "in_mvzyf5c4_7o_anbia0"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8284,6 +8513,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7p_2mevb0",
         "portId": "in_mvzyf5c4_7q_xn747d"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8295,6 +8527,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7r_djxpvs",
         "portId": "in_mvzyf5c4_7s_dnu5v3"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8306,6 +8541,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7t_hcjczo",
         "portId": "in_mvzyf5c4_7u_rfh6o2"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8317,6 +8555,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7v_uhg8lp",
         "portId": "in_mvzyf5c4_7w_unyctm"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8328,6 +8569,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7x_jxrl6q",
         "portId": "in_mvzyf5c4_7y_f037fj"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8339,6 +8583,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_7z_nhxxtl",
         "portId": "in_mvzyf5c4_80_trdowp"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8350,6 +8597,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_81_11h4fs",
         "portId": "in_mvzyf5c4_82_z1ysl6"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8361,6 +8611,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_83_nb8vlf",
         "portId": "in_mvzyf5c4_84_muny4n"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8372,6 +8625,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_4x_yvery7",
         "portId": "in_mvzyf5c4_4y_rjtrx5"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -8383,6 +8639,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_8b_0pun3a",
         "portId": "in_mvzyf5c4_8c_5i9vaz"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -8394,6 +8653,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_8r_f0vrbr",
         "portId": "in_mvzyf5c4_8s_38ae5a"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8405,6 +8667,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_9q_yguu73",
         "portId": "in_mvzyf5c4_9r_boqlil"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8416,6 +8681,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_9j_z0pk3u",
         "portId": "in_mvzyf5c4_9k_rjrtfi"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8427,6 +8695,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_8y_g470u7",
         "portId": "in_mvzyf5c4_8z_fpykps"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8438,6 +8709,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_9c_evg3vp",
         "portId": "in_mvzyf5c4_9d_kyuosu"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8449,6 +8723,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_95_wjqcji",
         "portId": "in_mvzyf5c4_96_x5k8to"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8460,6 +8737,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_9x_sn731f",
         "portId": "in_mvzyf5c4_9y_p0hdcu"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8471,6 +8751,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_a4_b5jyht",
         "portId": "in_mvzyf5c4_a5_64ehw0"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8482,6 +8765,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_ab_tncw5t",
         "portId": "in_mvzyf5c4_ac_c5mwx9"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8493,6 +8779,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_ai_2lvjvl",
         "portId": "in_mvzyf5c4_aj_gvnct3"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8504,6 +8793,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_ap_ivgynn",
         "portId": "in_mvzyf5c4_aq_vms53w"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8515,6 +8807,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_aw_ki9ccm",
         "portId": "in_mvzyf5c4_ax_ea8xdh"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8526,6 +8821,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_b3_2lseng",
         "portId": "in_mvzyf5c4_b4_v9p8fl"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8537,6 +8835,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_b5_0ao41m",
         "portId": "in_mvzyf5c4_b6_7datie"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8548,6 +8849,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_b7_ezs39c",
         "portId": "in_mvzyf5c4_b8_s1pbff"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8559,6 +8863,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_b9_k8i9se",
         "portId": "in_mvzyf5c4_ba_2qki8q"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8570,6 +8877,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bb_2lxu13",
         "portId": "in_mvzyf5c4_bc_avlptv"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8581,6 +8891,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bd_22wfgm",
         "portId": "in_mvzyf5c4_be_kfvxn1"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8592,6 +8905,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bf_e8n0r4",
         "portId": "in_mvzyf5c4_bg_wnbatf"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8603,6 +8919,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bh_bji0cy",
         "portId": "in_mvzyf5c4_bi_ixax42"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8614,6 +8933,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bj_574hec",
         "portId": "in_mvzyf5c4_bk_qi4vru"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8625,6 +8947,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bl_q2f40a",
         "portId": "in_mvzyf5c4_bm_fdz7d9"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8636,6 +8961,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bn_8cynrj",
         "portId": "in_mvzyf5c4_bo_r2rcc0"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8647,6 +8975,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_bp_ua8joc",
         "portId": "in_mvzyf5c4_bq_l7bq7z"
+      },
+      "cable": {
+        "lengthM": 8.43
       }
     },
     {
@@ -8658,6 +8989,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_8j_vnlr13",
         "portId": "in_mvzyf5c4_8k_llnj1k"
+      },
+      "cable": {
+        "lengthM": 21.09
       }
     },
     {
@@ -8669,6 +9003,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_4l_q4hai2",
         "portId": "in_mvzyf5c4_4m_axsj64"
+      },
+      "cable": {
+        "lengthM": 26.36
       }
     },
     {
@@ -8680,6 +9017,9 @@
       "to": {
         "nodeId": "node_mvzyf5c4_87_t6pwku",
         "portId": "in_mvzyf5c4_88_puyfxt"
+      },
+      "cable": {
+        "lengthM": 26.36
       }
     }
   ]
