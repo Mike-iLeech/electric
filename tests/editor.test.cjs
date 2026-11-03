@@ -946,7 +946,7 @@ test("импорт каталога принимает экспортирова�
   assert.equal(saved[0].name, template.name);
   assert.equal(s.$("btnExportTemplates").disabled, false);
   const {outputs, ...invalid} = template;
-  contents = JSON.stringify([{...invalid, name:"Неполный потребитель", category:"consumer"}]);
+  contents = JSON.stringify([{...invalid, name:"Неполный потребитель", category:"consumer", outputs:[null]}]);
   await importFile();
   assert.deepEqual(JSON.parse(s.w.localStorage.getItem("electriccad.templates.v32")), saved);
   s.dom.window.close();

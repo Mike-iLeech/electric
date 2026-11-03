@@ -1651,17 +1651,27 @@
       notify(e.message);
     }
   }
-  function validateCustomTemplate(template) {
+  function normalizeCustomTemplate(template) {
     if (!template || typeof template !== "object" || Array.isArray(template) ||
-        !Array.isArray(template.outputs) || ![1, 3].includes(template.phases) ||
+        !Array.isArray(template.outputs) || template.outputs.some(output => !output || typeof output !== "object") ||
+        (template.category === "consumer" && template.outputs.length !== 0) || ![1, 3].includes(template.phases) ||
         !["input", "distributor", "extender", "consumer"].includes(template.category) ||
         !E.CONNECTORS[template.inConnType] || !Number.isFinite(template.inA) ||
         (template.catalogPath != null && (!Array.isArray(template.catalogPath) ||
           template.catalogPath.some(part => typeof part !== "string"))) ||
         E.obsoleteCable(template)) throw Error("В файле есть неподдерживаемый шаблон");
     const sample = E.project();
-    sample.nodes.push(E.makeNode(template));
+    const node = E.makeNode(template);
+    sample.nodes.push(node);
     E.validate(sample);
+    return {
+      id: typeof template.id === "string" ? template.id : E.uid("custom"),
+      name: node.name, category: node.category, phases: node.phases,
+      inConnType: template.inConnType, inA: node.supplyA,
+      outputs: node.outputs.map(({connType, nominalA, phase, breaker}) => ({connType, nominalA, phase, breaker})),
+      watts: node.consumerWatts, shield: Boolean(node.shield), transition: Boolean(node.transition),
+      mainA: node.mainBreaker?.ratingA, catalogPath: template.catalogPath ?? null,
+    };
   }
 
   async function importTemplates(file) {
@@ -1674,8 +1684,8 @@
       const next = [...custom];
       const signature = ({id, ...template}) => JSON.stringify(template);
       const known = new Set(custom.map(signature));
-      for (const template of incoming) {
-        validateCustomTemplate(template);
+      for (const raw of incoming) {
+        const template = normalizeCustomTemplate(raw);
         const key = signature(template);
         if (known.has(key)) continue;
         known.add(key);
@@ -1710,7 +1720,7 @@
           shield: n.shield,
           mainA: n.mainBreaker?.ratingA,
         };
-      custom.push(t);
+      custom.push(normalizeCustomTemplate(t));
       localStorage.setItem(CUSTOM, JSON.stringify(custom));
       renderCatalog();
       notify("Шаблон сохранён в локальном каталоге");
@@ -2119,7 +2129,7 @@
       if (Array.isArray(raw))
         custom = raw.filter((t) => {
           try {
-            validateCustomTemplate(t);
+            normalizeCustomTemplate(t);
             return true;
           } catch {
             return false;
