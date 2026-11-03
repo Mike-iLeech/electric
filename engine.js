@@ -639,7 +639,9 @@
           n.phases === 3
             ? Math.max(...Object.values(c.loadA))
             : c.loadA[c.inPhase || "L1"];
-        c.overload = mx > (n.inputs[0]?.nominalA ?? n.supplyA) + 1e-8;
+        const active = activeInputs.get(id);
+        const inlet = active ? ix.ports.get(active.to.portId).port : n.inputs[0];
+        c.overload = mx > (inlet?.nominalA ?? n.supplyA) + 1e-8;
       }
       for (const o of n.outputs) {
         const l = (ix.outgoing.get(id) || []).find(
@@ -784,7 +786,9 @@
     return p.nodes.filter(n => bad.has(n.id) && !downstream(n.id)).map(n => {
       const c = calc.nodes.get(n.id), phases = new Set();
       const check = (values, limit) => { for (const phase of PHASES) if ((values?.[phase] || 0) > limit + 1e-8) phases.add(phase); };
-      if(n.inputs[0]) check(c.loadA, n.inputs[0].nominalA);
+      const active = calc.activeInputs.get(n.id);
+      const inlet = active ? n.inputs.find(port => port.id === active.to.portId) : n.inputs[0];
+      if (inlet) check(c.loadA, inlet.nominalA);
       if(n.mainBreaker) check(c.loadA, n.mainBreaker.ratingA);
       for (const out of n.outputs) check(calc.ports.get(out.id)?.loadA, Math.min(out.nominalA, out.breaker?.ratingA ?? Infinity));
       return {nodeId:n.id, phases:[...phases]};

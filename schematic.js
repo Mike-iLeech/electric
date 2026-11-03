@@ -368,12 +368,6 @@
       const cy = y + 85;
       if (n.category === "consumer") {
         line(x, cy, x + 35, cy);
-        if (n.transfer) {
-          line(x, cy + 28, x + 35, cy + 28);
-          circle(x + 35, cy + 28, 3);
-          line(x + 35, cy + 28, x + 51, cy + 14);
-          text("АВР", x + 55, cy + 32, 14);
-        }
         circle(x + 50, cy, 15);
         line(x + 40, cy - 10, x + 60, cy + 10);
         line(x + 40, cy + 10, x + 60, cy - 10);
@@ -386,6 +380,12 @@
         );
       } else {
         line(x, cy, x + 35, cy);
+        if (n.transfer) {
+          line(x, cy + 28, x + 35, cy + 28);
+          circle(x + 35, cy + 28, 3);
+          line(x + 35, cy + 28, x + 51, cy + 14);
+          text("АВР", x + 55, cy + 32, 14);
+        }
         if (n.category === "input") {
           circle(x + 50, cy, 14);
           text("~", x + 41, cy + 7, 24);

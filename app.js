@@ -2302,13 +2302,9 @@
     try {
       const raw = JSON.parse(localStorage.getItem(CUSTOM) || "[]");
       if (Array.isArray(raw))
-        custom = raw.filter((t) => {
-          try {
-            normalizeCustomTemplate(t);
-            return true;
-          } catch {
-            return false;
-          }
+        custom = raw.flatMap(template => {
+          try { return [normalizeCustomTemplate(template)]; }
+          catch { return []; }
         });
     } catch {}
     calc = E.calculate(p);
