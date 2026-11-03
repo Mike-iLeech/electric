@@ -1014,13 +1014,16 @@
     const r = rect(n),
       ports = v.kind === "in" ? n.inputs : n.outputs,
       i = ports.findIndex((p) => p.id === v.id);
-    const grid = coordinate => Math.round(coordinate / 12) * 12;
+    // Keep port offsets fixed within a cached module sprite. When the module
+    // centre is on the grid, the ports are on it too; free dragging remains
+    // continuous instead of making the wire jump independently of its pin.
+    const gridOffset = coordinate => Math.round(coordinate / 12) * 12;
     return {
       x:
         v.kind === "in"
-          ? grid(r.left + (v.connType.startsWith("terminal") ? 20 : 38))
-          : grid(r.right - (v.connType.startsWith("terminal") ? 20 : 38)),
-      y: grid(r.top + (n.category === "consumer" ? 180 : 132)) + i * 48,
+          ? n.pos.x + gridOffset(r.left - n.pos.x + (v.connType.startsWith("terminal") ? 20 : 38))
+          : n.pos.x + gridOffset(r.right - n.pos.x - (v.connType.startsWith("terminal") ? 20 : 38)),
+      y: n.pos.y + gridOffset(r.top - n.pos.y + (n.category === "consumer" ? 180 : 132)) + i * 48,
     };
   }
   function routeWire(p, l, reserved = []) {

@@ -141,6 +141,16 @@ test("геометрия капсулы порта совпадает с обл�
     assert.ok(g.w >= 80 && g.w <= 220);
   }
 });
+test("при положении модуля на сетке все его порты соосны сетке", () => {
+  for (const template of E.catalog()) {
+    const n = E.makeNode(template, {x:120, y:240});
+    for (const port of [...n.inputs, ...n.outputs]) {
+      const pin = E.portPosition(n, port);
+      assert.ok(pin.x % 12 === 0, template.name);
+      assert.ok(pin.y % 12 === 0, template.name);
+    }
+  }
+});
 test("пересечения проводов получают дуги, касание конца не считается пересечением", () => {
   const paths = new Map([
       [

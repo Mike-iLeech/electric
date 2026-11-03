@@ -686,7 +686,8 @@ test("во время переноса провода видны, меняютс
   const get = (id) =>
     s.$("wireLayer").querySelector(`[data-link-id="${id}"]`).lastElementChild;
   const fixedD = get(fixed).getAttribute("d"),
-    activeD = get(active).getAttribute("d");
+    activeD = get(active).getAttribute("d"),
+    initialPin = E.portPosition(target, target.inputs[0]);
   for (let i = 1; i <= 20; i++) {
     s.pointer("pointermove", 900 + i * 5, -50 + i * 2);
     s.flush();
@@ -696,14 +697,18 @@ test("во время переноса провода видны, меняютс
       n = d.project.nodes.find((n) => n.id === target.id),
       route = d.routes.find((l) => l.id === active).points;
     assert.deepEqual(route.at(-1), E.portPosition(n, n.inputs[0]));
+    // The cached sprite moves by the node delta without repainting: its pin
+    // must remain attached to the actual SVG endpoint on every move.
+    const visiblePin = {x:initialPin.x + n.pos.x - target.pos.x, y:initialPin.y + n.pos.y - target.pos.y};
+    assert.deepEqual(route.at(-1), visiblePin);
+    const f = value => Number(value.toFixed(3));
+    assert.ok(get(active).getAttribute("d").endsWith(`L${f(visiblePin.x)} ${f(visiblePin.y)}`));
   }
   const after = s.state().rendering;
   assert.notEqual(get(active).getAttribute("d"), activeD);
   assert.equal(after.staticPaints, before.staticPaints);
   assert.equal(after.modulePaints, before.modulePaints);
-  // Несколько движений могут попасть в одну ячейку сетки и не менять путь.
-  assert.ok(after.wireUpdates > before.wireUpdates);
-  assert.ok(after.wireUpdates <= before.wireUpdates + 20);
+  assert.equal(after.wireUpdates, before.wireUpdates + 20);
   s.pointer("pointerup", 1000, -10);
   s.flush();
   assert.equal(s.state().undo, 1);
