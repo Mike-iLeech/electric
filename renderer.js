@@ -8,6 +8,8 @@
   else root.ElectricRender = api;
 })(globalThis, function (E) {
   "use strict";
+  const tr = value => globalThis.ElectricI18n?.t(value) ?? value;
+  let catalogNames;
   const W = 354,
     PAD = 26;
   const phaseColor = (k) =>
@@ -623,7 +625,9 @@
     align = "center",
     weight = "normal",
     family = "monospace",
+    translate = true,
   ) {
+    if (translate) s = tr(s);
     ctx.fillStyle = color;
     ctx.font = `${weight} ${size}px ${family}`;
     ctx.textAlign = align;
@@ -644,6 +648,7 @@
       family = "monospace",
     } = {},
   ) {
+    s = tr(s);
     ctx.font = `bold ${size}px ${family}`;
     while (ctx.measureText(s).width > max - 16 && s.length > 1)
       s = s.slice(0, -2) + "…";
@@ -805,10 +810,13 @@
       ui.selected ? "#ffaa44" : "#3a5a7a",
     );
     // Layer 1: body. Layer 2: all capsules and text. Layer 3: terminal pins.
+    catalogNames ??= new Set(E.catalog().map(template => template.name));
+    const predefined = catalogNames.has(n.templateName || n.name) && (!n.templateName || n.name === n.templateName);
     const titleParts = E.nomenclature(n, {connectors:true,compactConnectors:true})
       .split(" | ")
       .map((value, i) => {
         value = value.replaceAll(" -> ", " → ");
+        if (i > 0 || predefined) value = tr(value);
         let size = i === 0 ? 13 : 10.5;
         ctx.font = `bold ${size}px system-ui`;
         while (ctx.measureText(value).width > W - 40 && size > 7) {
@@ -835,6 +843,7 @@
         "center",
         "bold",
         "system-ui",
+        false,
       ),
     );
     if (c.overload)
@@ -960,7 +969,7 @@
           this.records.set(n.id, r);
         }
         const nr = E.rect(n);
-        const buttons=breakerButtons(n),buttonKey=JSON.stringify(buttons);
+        const buttons=breakerButtons(n),buttonKey=JSON.stringify([globalThis.ElectricI18n?.language,buttons]);
         if(r.buttonKey!==buttonKey || r.el.querySelectorAll(".portBreakerButton").length!==buttons.length){
           r.el.querySelectorAll(".portBreakerButton").forEach(b=>b.remove());
           for(const item of buttons){
@@ -1010,6 +1019,7 @@
           continue;
         }
         const signature = JSON.stringify({
+          language: globalThis.ElectricI18n?.language,
           ...n,
           pos: null,
           computed: calc.nodes.get(n.id),

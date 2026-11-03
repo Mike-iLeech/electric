@@ -135,7 +135,7 @@ test("каталог группирует содержимое каждой ве
   }
   s.w.close();
 });
-async function setup(session) {
+async function setup(session, prepare) {
   const dom = new JSDOM(html, {
     url: "https://electric.example/",
     runScripts: "outside-only",
@@ -180,6 +180,7 @@ async function setup(session) {
   w.HTMLElement.prototype.setPointerCapture = () => {};
   if (session)
     w.localStorage.setItem("electriccad.session.v32", JSON.stringify(session));
+  if (prepare) prepare(w);
   w.eval(
     fs.readFileSync(
       require("node:path").join(__dirname, "../engine.js"),
@@ -1190,5 +1191,29 @@ test("длина кабеля включает расчёт и плашку бе
   assert.match(warning.textContent, /Увеличьте сечение/);
   s.flush();
   assert.ok(s.w.document.querySelector(".cableMetricWarning"));
+  s.dom.window.close();
+});
+
+test("запрет localStorage не мешает запуску и не даёт ложного подтверждения сохранения", async () => {
+  const s = await setup(null, w => {
+    Object.defineProperty(w, "localStorage", { get() { throw new w.DOMException("Storage blocked", "SecurityError"); } });
+  });
+  assert.equal(s.state().project.nodes.length, 0);
+  assert.equal(s.$("sessionStatus").textContent, "Ошибка локального сохранения");
+  s.$("btnSave").click();
+  assert.match(s.$("toastMsg").textContent, /Не удалось сохранить/);
+  s.dom.window.close();
+});
+
+test("сохранение восстановленного проекта не затирает исправную резервную копию", async () => {
+  const backup = JSON.stringify(single());
+  const s = await setup(null, w => {
+    w.localStorage.setItem("electriccad.session.v32", "{broken");
+    w.localStorage.setItem("electriccad.session.v32.backup", backup);
+  });
+  assert.equal(s.state().project.nodes.length, 1);
+  s.$("btnSave").click();
+  assert.equal(s.w.localStorage.getItem("electriccad.session.v32.backup"), backup);
+  assert.equal(JSON.parse(s.w.localStorage.getItem("electriccad.session.v32")).nodes.length, 1);
   s.dom.window.close();
 });

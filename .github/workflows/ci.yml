@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11.25.0
           run_install: false
       - uses: actions/setup-node@v4
         with:
@@ -32,3 +32,38 @@ jobs:
         run: pnpm test
       - name: Build standalone application
         run: pnpm build
+
+  windows-desktop:
+    name: Windows EXE and installer
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run tests
+        run: pnpm test
+      - name: Build standalone application
+        run: pnpm build
+      - name: Test desktop persistence and exports
+        run: node scripts/desktop-smoke.cjs
+      - name: Build Windows installer
+        run: pnpm desktop:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElectricCAD-Easy-Windows-x64-preview
+          path: |
+            release/*-Setup-x64.exe
+            release/*.blockmap
+            release/latest.yml
+          if-no-files-found: error
