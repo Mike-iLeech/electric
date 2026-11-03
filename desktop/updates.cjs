@@ -59,8 +59,8 @@ function createUpdateService({
     let code = stage + "-failed";
     if (/signature|publisher|certificate/i.test(text)) code = "signature";
     else if (/checksum|sha512|sha256/i.test(text)) code = "checksum";
-    else if (stage === "check" && /404|ERR_UPDATER_LATEST_VERSION_NOT_FOUND|ERR_UPDATER_NO_PUBLISHED_VERSIONS/i.test(text)) code = "no-release";
-    else if (/ERR_UPDATER_INVALID|YAML|parse/i.test(text)) code = "invalid-release";
+    else if (/ERR_UPDATER_CHANNEL_FILE_NOT_FOUND|ERR_UPDATER_INVALID|YAML|parse/i.test(text)) code = "invalid-release";
+    else if (stage === "check" && /404|ERR_UPDATER_LATEST_VERSION_NOT_FOUND|ERR_UPDATER_NO_PUBLISHED_VERSIONS|No published versions on GitHub/i.test(text)) code = "no-release";
     else if (/ENOTFOUND|ECONN|ETIMEDOUT|ERR_INTERNET|ERR_NETWORK|net::|offline/i.test(text)) code = "network";
     update({ status: code === "no-release" ? "no-release" : "error", errorCode: code, errorStage: stage });
   }

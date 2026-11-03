@@ -115,6 +115,32 @@ test("updates: ошибка сети и отсутствие релиза не �
   }
 });
 
+test("updates: GitHub без опубликованных версий возвращает no-release даже без кода ошибки", async t => {
+  const f = fixture(t);
+  f.updater.checkForUpdates = async () => { throw new Error("No published versions on GitHub"); };
+  const state = await f.service.check({ manual: true });
+  assert.equal(state.status, "no-release");
+  assert.equal(state.errorCode, "no-release");
+  assert.equal(state.errorStage, "check");
+  assert.equal(state.canCheck, true);
+  assert.equal(state.canDownload, false);
+});
+
+test("updates: отсутствие файла канала у релиза считается invalid-release, даже при HTTP 404", async t => {
+  const f = fixture(t);
+  f.updater.checkForUpdates = async () => {
+    throw Object.assign(new Error("Cannot find latest.yml in the latest release artifacts (404 Not Found)"), {
+      code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND",
+    });
+  };
+  const state = await f.service.check({ manual: true });
+  assert.equal(state.status, "error");
+  assert.equal(state.errorCode, "invalid-release");
+  assert.equal(state.errorStage, "check");
+  assert.equal(state.canCheck, true);
+  assert.equal(state.canDownload, false);
+});
+
 test("updates: фоновая загрузка доступной версии не устанавливает её при обычном закрытии", async t => {
   const f = fixture(t, { failObserver: true });
   f.available();
