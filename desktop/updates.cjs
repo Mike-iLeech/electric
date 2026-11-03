@@ -6,7 +6,6 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // The renderer never supplies a feed, installer URL, path, or publisher name.
 function createUpdateService({
   updater, app, readPreferences, patchPreferences, onChange = () => {},
-  securityReady = () => false,
   now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout,
 }) {
   updater.autoDownload = false;
@@ -23,7 +22,6 @@ function createUpdateService({
     errorCode: null, errorStage: null,
   };
   const enabled = () => readPreferences().autoUpdate === true;
-  const signingReady = () => { try { return securityReady() === true; } catch { return false; } };
   function lastChecked() {
     const saved = readPreferences().lastUpdateCheck;
     return Math.max(lastAttempt, Number.isFinite(saved) && saved >= 0 ? saved : 0);
@@ -35,17 +33,16 @@ function createUpdateService({
     return !last || last > time ? time : last + WEEK_MS;
   }
   function state() {
-    const ready = signingReady();
     return {
       ...current,
       version: current.availableVersion || current.currentVersion,
       progress: current.progress?.percent || 0,
       downloadStats: current.progress ? { ...current.progress } : null,
-      enabled: enabled(), signingReady: ready,
+      enabled: enabled(),
       lastCheckedAt: lastChecked() || null, nextCheckAt: nextCheck(),
       canCheck: !!app.isPackaged && !checking && !downloading && !downloaded && current.status !== "installing",
-      canDownload: !!app.isPackaged && ready && !!current.availableVersion && !checking && !downloading && !downloaded,
-      canInstall: !!app.isPackaged && ready && downloaded && !downloading && current.status !== "installing",
+      canDownload: !!app.isPackaged && !!current.availableVersion && !checking && !downloading && !downloaded,
+      canInstall: !!app.isPackaged && downloaded && !downloading && current.status !== "installing",
     };
   }
   function publish() {
@@ -102,17 +99,13 @@ function createUpdateService({
       checking = null;
       schedule();
       publish();
-      if (!disposed && started && current.status === "available" && enabled() && signingReady())
+      if (!disposed && started && current.status === "available" && enabled())
         void download();
     }).then(state);
     return checking;
   }
   function download() {
     if (disposed || !app.isPackaged) return Promise.resolve(state());
-    if (!signingReady()) {
-      update({ status: "signing-required", errorCode: "signing-required", errorStage: "download" });
-      return Promise.resolve(state());
-    }
     if (downloading) return downloading;
     if (checking || downloaded || !current.availableVersion) return Promise.resolve(state());
     cancelTimer();
@@ -127,10 +120,6 @@ function createUpdateService({
   }
   function install() {
     if (disposed || !app.isPackaged || !downloaded || downloading || current.status === "installing") return false;
-    if (!signingReady()) {
-      update({ status: "signing-required", errorCode: "signing-required", errorStage: "install" });
-      return false;
-    }
     // The main process must flush/confirm the editor BEFORE calling install().
     // Ordinary window close never installs an update.
     cancelTimer();

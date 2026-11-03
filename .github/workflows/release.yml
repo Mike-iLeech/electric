@@ -1,14 +1,19 @@
-name: Signed Windows release
+name: Windows release
 
 on:
   workflow_dispatch:
+    inputs:
+      signed:
+        description: Sign with the configured publisher certificate
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   release:
-    name: Sign, verify and publish Windows release
+    name: Build and publish Windows release
     if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     environment: desktop-release
@@ -33,6 +38,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - name: Validate signing configuration
+        if: inputs.signed
         shell: pwsh
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
@@ -46,7 +52,11 @@ jobs:
         run: pnpm test
       - name: Test desktop persistence and exports
         run: node scripts/desktop-smoke.cjs
+      - name: Build unsigned release
+        if: '!inputs.signed'
+        run: pnpm desktop:build
       - name: Build and verify signed release
+        if: inputs.signed
         run: pnpm desktop:release
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
@@ -67,7 +77,9 @@ jobs:
           $existing = gh release view $tag --repo Mike-iLeech/electric --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; never replace published update files." }
           $setup = "release/ElectricCAD-Easy-$version-Setup-x64.exe"
-          gh release create $tag $setup "$setup.blockmap" release/latest.yml release/SHA256SUMS.txt --repo Mike-iLeech/electric --target '${{ github.sha }}' --title "ElectricCAD Easy $version" --generate-notes --draft
+          $assets = @($setup, "$setup.blockmap", "release/latest.yml")
+          if (Test-Path release/SHA256SUMS.txt) { $assets += "release/SHA256SUMS.txt" }
+          gh release create $tag @assets --repo Mike-iLeech/electric --target '${{ github.sha }}' --title "ElectricCAD Easy $version" --generate-notes --draft
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release edit $tag --repo Mike-iLeech/electric --draft=false --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
