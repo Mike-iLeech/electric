@@ -19,7 +19,7 @@ app.setPath("sessionData", path.join(root, "Browser"));
 app.setAppUserModelId("org.ileech.electriccad");
 protocol.registerSchemesAsPrivileged([{ scheme: "electriccad", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
-let mainWindow, settingsWindow, preferences, updates, signingReady = false;
+let mainWindow, settingsWindow, preferences, updates;
 const t = value => translate(preferences?.read().language || "ru", value);
 function isAppURL(value) {
   try { const url = new URL(value); url.hash = ""; return url.href === APP_URL; }
@@ -36,7 +36,7 @@ function trustedSettings(event) {
 function trustedWindow(event) { return trusted(event) || trustedSettings(event); }
 function snapshot() {
   return { preferences: preferences.read(), update: updates.state(), version: app.getVersion(),
-    dataDirectory: root, signingReady, packaged: app.isPackaged };
+    dataDirectory: root, packaged: app.isPackaged };
 }
 function publishSettings() {
   if (!updates) return;
@@ -90,16 +90,9 @@ if (!app.requestSingleInstanceLock()) {
     preferences = createPreferences(root);
     const { autoUpdater } = require("electron-updater");
     updates = createUpdateService({ updater: autoUpdater, app, readPreferences: preferences.read,
-      patchPreferences: changes => preferences.patch(changes), securityReady: () => signingReady,
+      patchPreferences: changes => preferences.patch(changes),
       onChange: () => publishSettings(),
     });
-    if (app.isPackaged) {
-      try {
-        const config = await autoUpdater.configOnDisk.value;
-        const names = Array.isArray(config.publisherName) ? config.publisherName : [config.publisherName];
-        signingReady = config.verifyUpdateCodeSignature !== false && names.some(name => typeof name === "string" && name.trim());
-      } catch { signingReady = false; }
-    }
     const html = fs.readFileSync(path.join(__dirname, "../dist/index.html"), "utf8").replace(/\r\n?/g, "\n");
     const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(([, source]) =>
       "'sha256-" + crypto.createHash("sha256").update(source).digest("base64") + "'");

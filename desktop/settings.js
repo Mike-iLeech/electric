@@ -7,18 +7,16 @@
       updatesTitle:"Обновления", automatic:"Автоматические обновления", weekly:"Проверять GitHub Releases раз в неделю",
       updateHint:"Новая версия загружается в фоне. Установка и перезапуск — по вашей команде, после сохранения проекта.",
       check:"Проверить сейчас", download:"Скачать обновление", install:"Установить и перезапустить", releases:"Релизы на GitHub ↗",
-      signatureNote:"Тестовая сборка без подписи издателя. Проверка версий доступна; загрузка и установка обновлений включатся в подписанном выпуске.",
       dataTitle:"Данные приложения", openData:"Открыть папку данных", dataHint:"Проекты, настройки и резервные копии хранятся отдельно от программы. При удалении их можно сохранить или удалить.",
-      saved:"Настройки сохраняются автоматически", idle:"Проверка ещё не выполнена", checking:"Проверяем наличие обновлений…", available:"Доступна версия", downloading:"Загружаем обновление…", downloaded:"Обновление готово к установке", "up-to-date":"Установлена актуальная версия", error:"Не удалось проверить или загрузить обновление. Проверьте подключение и наличие опубликованного релиза.", dev:"Проверка обновлений доступна в установленном приложении", "signing-required":"Для установки обновлений нужен подписанный выпуск приложения", disabled:"Автоматическая проверка отключена", never:"Последняя проверка: ещё не выполнялась", last:"Последняя проверка: ", failure:"Не удалось сохранить настройки или выполнить действие. Проверьте доступ к папке данных.",
+      saved:"Настройки сохраняются автоматически", idle:"Проверка ещё не выполнена", checking:"Проверяем наличие обновлений…", available:"Доступна версия", downloading:"Загружаем обновление…", downloaded:"Обновление готово к установке", "up-to-date":"Установлена актуальная версия", error:"Не удалось проверить или загрузить обновление. Проверьте подключение и наличие опубликованного релиза.", dev:"Проверка обновлений доступна в установленном приложении", disabled:"Автоматическая проверка отключена", never:"Последняя проверка: ещё не выполнялась", last:"Последняя проверка: ", failure:"Не удалось сохранить настройки или выполнить действие. Проверьте доступ к папке данных.",
     },
     en: {
       title:"Settings", languageTitle:"Application language", languageLabel:"Interface language", languageHint:"Applied immediately. Your project and module names are preserved.",
       updatesTitle:"Updates", automatic:"Automatic updates", weekly:"Check GitHub Releases once a week",
       updateHint:"New versions download in the background. Installation and restart happen when you choose, after saving your project.",
       check:"Check now", download:"Download update", install:"Install and restart", releases:"GitHub releases ↗",
-      signatureNote:"This test build has no publisher signature. Version checks are available; update downloads and installation will be enabled in a signed release.",
       dataTitle:"Application data", openData:"Open data folder", dataHint:"Projects, settings and backups are stored separately from the application. You can keep or delete them during uninstall.",
-      saved:"Settings are saved automatically", idle:"No update check yet", checking:"Checking for updates…", available:"Version available:", downloading:"Downloading update…", downloaded:"Update ready to install", "up-to-date":"You have the latest version", error:"Could not check for or download an update. Check your connection and whether a release has been published.", dev:"Update checks are available in the installed application", "signing-required":"A signed application release is required to install updates", disabled:"Automatic checks are disabled", never:"Last checked: never", last:"Last checked: ", failure:"Could not save settings or complete the action. Check access to the data folder.",
+      saved:"Settings are saved automatically", idle:"No update check yet", checking:"Checking for updates…", available:"Version available:", downloading:"Downloading update…", downloaded:"Update ready to install", "up-to-date":"You have the latest version", error:"Could not check for or download an update. Check your connection and whether a release has been published.", dev:"Update checks are available in the installed application", disabled:"Automatic checks are disabled", never:"Last checked: never", last:"Last checked: ", failure:"Could not save settings or complete the action. Check access to the data folder.",
     },
   };
   Object.assign(messages.ru, {"no-release":"В GitHub пока нет опубликованного обновления", installing:"Устанавливаем обновление…"});
@@ -36,7 +34,6 @@
     $("version").textContent = "ElectricCAD Easy " + value.version;
     $("language").value = p.language; $("autoUpdate").checked = p.autoUpdate;
     $("dataPath").textContent = value.dataDirectory;
-    $("signatureNote").hidden = value.signingReady;
     $("lastCheck").textContent = p.lastUpdateCheck ? m.last + new Date(p.lastUpdateCheck).toLocaleString(p.language === "ru" ? "ru-RU" : "en-US") : m.never;
     $("updateStatus").textContent = ((u.status === "error" && errors[p.language]?.[u.errorCode]) || m[u.status] || m.idle) +
       (u.availableVersion && ["available","downloading","downloaded","installing"].includes(u.status) ? " " + u.availableVersion : "");

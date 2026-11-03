@@ -13,7 +13,6 @@ function fixture(t, options = {}) {
   const updater = new EventEmitter();
   let checks = 0, downloads = 0, installs = 0, time = 1800000000000;
   let preferences = { autoUpdate: true, lastUpdateCheck: 0, ...options.preferences };
-  let ready = options.ready ?? true;
   const timers = new Map(), changes = [];
   let timerID = 0;
   updater.checkForUpdates = async () => { checks++; updater.emit("update-not-available", { version: "32.0.0" }); return {}; };
@@ -24,7 +23,6 @@ function fixture(t, options = {}) {
     app: { isPackaged: options.packaged ?? true, getVersion: () => "32.0.0" },
     readPreferences: () => preferences,
     patchPreferences: patch => { if (options.failWrite) throw new Error("readonly"); preferences = { ...preferences, ...patch }; },
-    securityReady: () => ready,
     now: () => time,
     setTimer: (callback, delay) => { const id = ++timerID; timers.set(id, { callback, due: time + delay }); return id; },
     clearTimer: id => timers.delete(id),
@@ -36,7 +34,6 @@ function fixture(t, options = {}) {
     counts: () => ({ checks, downloads, installs }),
     preferences: () => preferences,
     setPreferences: patch => { preferences = { ...preferences, ...patch }; service.refreshSchedule(); },
-    setReady: value => { ready = value; },
     available() {
       updater.checkForUpdates = async () => { checks++; updater.emit("update-available", { version: "32.1.0", releaseNotes: "<script>ignored</script>" }); return {}; };
     },
@@ -162,20 +159,15 @@ test("updates: фоновая загрузка доступной версии �
   assert.equal(f.service.install(), false);
 });
 
-test("updates: неподписанная сборка проверяет версии, но не загружает и не устанавливает", async t => {
-  const f = fixture(t, { ready: false });
+test("updates: обновление загружается без сертификата и устанавливается по команде", async t => {
+  const f = fixture(t);
   f.available();
   f.service.start();
   await f.advance(0);
-  assert.equal(f.counts().checks, 1);
-  assert.equal(f.counts().downloads, 0);
-  assert.equal(f.service.state().status, "available");
-  assert.equal(f.service.state().signingReady, false);
-  assert.equal(f.service.state().canDownload, false);
-  await f.service.download();
-  assert.equal(f.service.state().status, "signing-required");
-  assert.equal(f.service.install(), false);
+  assert.equal(f.counts().downloads, 1);
+  assert.equal(f.service.state().canInstall, true);
   assert.equal(f.counts().installs, 0);
+  assert.equal(f.service.install(), true);
 });
 
 test("updates: прогресс нормализуется; ошибка подписи не превращается в готовый установщик", async t => {
