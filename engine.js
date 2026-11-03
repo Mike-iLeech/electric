@@ -406,6 +406,15 @@
       ])
         for (const v of ports) {
           unique(v.id);
+          if (v.hardware !== undefined) {
+            if (!v.hardware || typeof v.hardware !== "object" || Array.isArray(v.hardware))
+              throw Error("Неверные данные разъёма");
+            for (const key of ["manufacturer", "partNumber", "ip", "mechanicalKey"]) {
+              const value = v.hardware[key];
+              if (value !== undefined && (typeof value !== "string" || value.length > 120))
+                throw Error("Неверное поле разъёма: " + key);
+            }
+          }
           const c = CONNECTORS[v.connType];
           if (!c || c.phases !== v.phases || v.kind !== kind)
             throw Error("Неверный разъём");
@@ -443,6 +452,12 @@
       unique(l.id);
       if (l.protection !== undefined && (!l.protection || typeof l.protection !== "object" || Array.isArray(l.protection)))
         throw Error("Неверные параметры защиты");
+      if (l.protection) {
+        const settings = l.protection;
+        if (settings.earthing !== undefined && !["TN","TT","IT"].includes(settings.earthing)) throw Error("Неверная система заземления");
+        for (const key of ["loopOhm","earthOhm","rcdMa","residualMa","measuredTripSeconds","targetSeconds","startA","startSeconds","starts","pauseSeconds","coolingSeconds"])
+          if (settings[key] !== undefined) finite(settings[key], 0, 1000000, "Параметр защиты: " + key);
+      }
       if (l.cable !== undefined) {
         if (!l.cable || typeof l.cable !== "object" || Array.isArray(l.cable)) throw Error("Неверные параметры кабеля");
         const {lengthM, sectionMm2, ampacityA, material} = l.cable;

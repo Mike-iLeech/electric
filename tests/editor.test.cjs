@@ -945,8 +945,23 @@ test("импорт каталога принимает экспортирова�
   assert.equal(saved[0].name, template.name);
   assert.equal(s.$("btnExportTemplates").disabled, false);
   const {outputs, ...invalid} = template;
-  contents = JSON.stringify([{...invalid, name:"Неполный потребитель", category:"consumer"}]);
+  contents = JSON.stringify([{...invalid, name:"Неполный потребитель", category:"consumer", outputs:[null]}]);
   await importFile();
   assert.deepEqual(JSON.parse(s.w.localStorage.getItem("electriccad.templates.v32")), saved);
+  s.dom.window.close();
+});
+test("продвинутый режим добавляет резервный ввод из свойств дистрибьютора", async () => {
+  const p = E.project();
+  p.settings.advancedMode = true;
+  const n = E.makeNode(E.catalog().find(t => t.category === "distributor"), {x:400, y:350});
+  p.nodes = [n];
+  const s = await setup(p);
+  s.pointer("pointerdown", 400, 300);
+  s.pointer("pointerup", 400, 300);
+  const add = [...s.$("propsBody").querySelectorAll("button")].find(b => b.textContent.includes("Добавить резервный ввод"));
+  assert.ok(add);
+  add.click();
+  assert.equal(s.state().project.nodes[0].inputs.length, 2);
+  assert.ok(s.state().project.nodes[0].transfer);
   s.dom.window.close();
 });

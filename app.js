@@ -906,7 +906,27 @@
         (dropV === null ? "Для несимметричной трёхфазной нагрузки падение напряжения и потери не оценены."
           : "Падение на участке " + dropV.toFixed(2) + " В. Потери " + lossW.toFixed(1) + " Вт.");
     }
+    if (estimate?.lossW != null && Number.isFinite(cable.ambientC) && cable.thermalResistance > 0) {
+      const temperature = cable.ambientC + estimate.lossW * cable.thermalResistance;
+      result.textContent += " Оценка установившейся температуры: " + temperature.toFixed(1) + " °C.";
+    }
     panel.append(result);
+    if (calc.nodes.get(link.to.nodeId).powered && calc.activeInputs.get(link.to.nodeId) === link) {
+      const route = [];
+      for (let segment = link; segment; segment = calc.activeInputs.get(segment.from.nodeId)) route.push(segment);
+      if (route.length > 1) {
+        const total = document.createElement("p");
+        const estimates = route.map(segment => segment.cable && E.cableEstimate(segment.cable,
+          port(segment.from).phases, calc.ports.get(segment.from.portId).loadA));
+        if (estimates.every(item => item?.dropV != null)) {
+          const dropLN = estimates.reduce((sum, item, i) => sum + item.dropV / (port(route[i].from).phases === 3 ? Math.sqrt(3) : 1), 0);
+          const voltage = Math.max(0, p.settings.voltageLN - dropLN) * (out.phases === 3 ? Math.sqrt(3) : 1);
+          const losses = estimates.reduce((sum, item) => sum + item.lossW, 0);
+          total.textContent = "По пути от ввода: " + voltage.toFixed(2) + " В на конце, потери " + losses.toFixed(1) + " Вт.";
+        } else total.textContent = "Для оценки всей ветки заполните параметры участков. Падение для несимметричной трёхфазной нагрузки не оценивается.";
+        panel.append(total);
+      }
+    }
     return panel;
   }
   function renderProps() {
@@ -937,6 +957,26 @@
       desc.textContent = `${c.status}. X ${n.pos.x.toFixed(1)}; Y ${n.pos.y.toFixed(1)}. Требуется ${(E.sum(c.demandW) / 1000).toFixed(2)} кВт; подано ${(E.sum(c.loadW) / 1000).toFixed(2)} кВт.`;
       body.append(desc);
       body.append(button("Изменить модуль / порты", () => openBuilder(n)));
+      if (p.settings.advancedMode && n.category === "distributor") {
+        const backup = n.inputs[1];
+        body.append(button(backup ? "Убрать резервный ввод" : "Добавить резервный ввод (АВР)", () => transaction(() => {
+          if (backup) {
+            if (p.links.some(link => link.to.portId === backup.id)) throw Error("Сначала разъедините резервный ввод");
+            n.inputs.pop();
+            delete n.transfer;
+          } else {
+            const main = n.inputs[0];
+            n.inputs.push(E.port("in", main.connType, main.nominalA));
+            n.transfer = true;
+          }
+        })));
+        if (backup) {
+          const status = document.createElement("p");
+          const feed = calc.activeInputs.get(n.id);
+          status.textContent = c.powered ? (feed?.to.portId === backup.id ? "АВР: резервный ввод" : "АВР: основной ввод") : "АВР: питание отсутствует";
+          body.append(status);
+        }
+      }
       if (n.mainBreaker)
         body.append(renderBreaker(n.mainBreaker, "Вводной автомат"));
       for (const v of [...n.inputs, ...n.outputs]) {
@@ -1786,17 +1826,27 @@
       notify(e.message);
     }
   }
-  function validateCustomTemplate(template) {
+  function normalizeCustomTemplate(template) {
     if (!template || typeof template !== "object" || Array.isArray(template) ||
-        !Array.isArray(template.outputs) || ![1, 3].includes(template.phases) ||
+        !Array.isArray(template.outputs) || template.outputs.some(output => !output || typeof output !== "object") ||
+        (template.category === "consumer" && template.outputs.length !== 0) || ![1, 3].includes(template.phases) ||
         !["input", "distributor", "extender", "consumer"].includes(template.category) ||
         !E.CONNECTORS[template.inConnType] || !Number.isFinite(template.inA) ||
         (template.catalogPath != null && (!Array.isArray(template.catalogPath) ||
           template.catalogPath.some(part => typeof part !== "string"))) ||
         E.obsoleteCable(template)) throw Error("В файле есть неподдерживаемый шаблон");
     const sample = E.project();
-    sample.nodes.push(E.makeNode(template));
+    const node = E.makeNode(template);
+    sample.nodes.push(node);
     E.validate(sample);
+    return {
+      id: typeof template.id === "string" ? template.id : E.uid("custom"),
+      name: node.name, category: node.category, phases: node.phases,
+      inConnType: template.inConnType, inA: node.supplyA,
+      outputs: node.outputs.map(({connType, nominalA, phase, breaker}) => ({connType, nominalA, phase, breaker})),
+      watts: node.consumerWatts, shield: Boolean(node.shield), transition: Boolean(node.transition),
+      mainA: node.mainBreaker?.ratingA, catalogPath: template.catalogPath ?? null,
+    };
   }
 
   async function importTemplates(file) {
@@ -1809,8 +1859,8 @@
       const next = [...custom];
       const signature = ({id, ...template}) => JSON.stringify(template);
       const known = new Set(custom.map(signature));
-      for (const template of incoming) {
-        validateCustomTemplate(template);
+      for (const raw of incoming) {
+        const template = normalizeCustomTemplate(raw);
         const key = signature(template);
         if (known.has(key)) continue;
         known.add(key);
@@ -1845,7 +1895,7 @@
           shield: n.shield,
           mainA: n.mainBreaker?.ratingA,
         };
-      custom.push(t);
+      custom.push(normalizeCustomTemplate(t));
       localStorage.setItem(CUSTOM, JSON.stringify(custom));
       renderCatalog();
       notify("Шаблон сохранён в локальном каталоге");
@@ -2254,7 +2304,7 @@
       if (Array.isArray(raw))
         custom = raw.filter((t) => {
           try {
-            validateCustomTemplate(t);
+            normalizeCustomTemplate(t);
             return true;
           } catch {
             return false;
