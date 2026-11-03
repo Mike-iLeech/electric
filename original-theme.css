@@ -1,0 +1,588 @@
+/* Original v31 visual language; layout changes requested by the owner. */
+.schemeExport {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000b;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+}
+.schemeExport section {
+  background: #101723;
+  color: #e6edf7;
+  padding: 20px;
+  border: 1px solid #3a5a7a;
+  border-radius: 16px;
+  max-width: 1100px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-sizing: border-box;
+}
+.schemeExport h2 {
+  margin: 0 0 10px;
+}
+.schemeExport p {
+  font-size: 13px;
+  color: #b5c1d2;
+}
+.schemeExport section > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.schemeExport img {
+  display: block;
+  max-width: 100%;
+  max-height: 65vh;
+  margin: auto;
+  object-fit: contain;
+}
+.drawingMetadata label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.drawingMetadata input,
+.drawingMetadata select {
+  border: 1px solid #3a5a7a;
+  border-radius: 8px;
+  background: #0b0f14;
+  color: #e6edf7;
+  padding: 9px;
+  min-width: 170px;
+}
+.drawingMetadata .branchPageToggle {
+  flex-direction: row;
+  align-items: center;
+  max-width: 260px;
+}
+.drawingMetadata input[type="checkbox"] {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+}
+#propsBody .field,
+#nodeModal .field {
+  display: block;
+  margin: 12px 0;
+}
+#propsBody > .btn {
+  margin-top: 12px;
+}
+#propsBody > .field + .btn {
+  margin-top: 14px;
+}
+.breakerBox > label {
+  display: block;
+  margin: 10px 0;
+}
+.breakerBox .btnRow {
+  margin: 10px 0;
+  gap: 8px;
+}
+@keyframes overloadPulse {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.4;
+  }
+}
+@keyframes overloadPortPulse {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.5;
+  }
+}
+.overload-wire path:nth-of-type(2) {
+  stroke: #ff4747 !important;
+  animation: overloadPulse 0.8s steps(1, end) infinite;
+  animation-delay: var(--alarm-delay, 0s);
+}
+.overload-port rect,
+.overload-port circle,
+.overload-node-outline {
+  stroke: #ff3434;
+  fill: none;
+  stroke-width: 5;
+  animation: overloadPortPulse 0.8s steps(1, end) infinite;
+  animation-delay: var(--alarm-delay, 0s);
+}
+.overload-port rect,
+.overload-port circle,
+.overload-port path {
+  stroke: #ff3434;
+  fill: none;
+  stroke-width: 5;
+}
+.overload-wire path:first-of-type {
+  stroke: #000 !important;
+  stroke-width: 4;
+}
+.overload-port {
+  stroke: #ff1515;
+  stroke-width: 5;
+  fill: none;
+  filter: drop-shadow(0 0 3px #ff2020);
+  animation: overloadPortPulse 0.8s steps(1, end) infinite;
+  animation-delay: var(--alarm-delay, 0s);
+}
+.overload-pin {
+  animation: overloadPortPulse 0.8s steps(1, end) infinite;
+  animation-delay: var(--alarm-delay, 0s);
+}
+.overload-node-outline {
+  stroke: #ff1010;
+  stroke-width: 9;
+  filter: drop-shadow(0 0 5px #ff2020);
+}
+.overload-wave {
+  display: none;
+}
+.overload-wire .overload-wave {
+  display: block;
+  stroke: #ff2020;
+  stroke-width: 4;
+  stroke-dasharray: 18 82;
+  animation: overloadTravel 0.8s linear infinite;
+  animation-delay: var(--alarm-delay, 0s);
+}
+@keyframes overloadTravel {
+  0% {
+    stroke-dashoffset: 18;
+    opacity: 1;
+  }
+  11.25% {
+    stroke-dashoffset: 118;
+    opacity: 1;
+  }
+  11.26%,
+  100% {
+    stroke-dashoffset: 118;
+    opacity: 0;
+  }
+}
+.portAlarmLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .overload-wire path,
+  .overload-port,
+  .overload-port rect,
+  .overload-port circle,
+  .overload-node-outline {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+#wireLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+#workspace > #canvas {
+  z-index: 0;
+}
+#wireLayer path {
+  pointer-events: none;
+}
+@media (min-width: 1251px) {
+  .app {
+    grid-template-columns: 320px minmax(0, 1fr) 360px;
+    padding: 12px;
+    gap: 12px;
+  }
+}
+.compactActions {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px !important;
+  margin-bottom: 12px;
+}
+.compactActions .btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 2px;
+  min-height: 47px;
+  border-radius: 10px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.compactActions .btn svg {
+  width: 18px;
+  height: 18px;
+}
+.voltageFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.voltageFields input {
+  font: 12px var(--mono);
+  padding: 9px;
+}
+.voltageFields .field {
+  min-width: 0;
+  margin-bottom: 6px;
+}
+#generalSettings {
+  padding: 12px 0;
+  border-top: 1px solid rgba(60, 85, 126, 0.28);
+  border-bottom: 1px solid rgba(60, 85, 126, 0.28);
+  margin: 10px 0;
+}
+#modelInfo {
+  font: 10px var(--mono);
+  color: var(--muted);
+}
+.modelAssumptions {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px 0 14px;
+}
+.modelAssumptions summary {
+  cursor: pointer;
+}
+#catalogBlock > .sectionTitle {
+  margin: 12px 0 8px;
+}
+#catalogBlock .createModule {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+#catalogBlock .catalogTabs .btn {
+  min-height: 32px;
+}
+.nodeItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(60, 85, 126, 0.28);
+  border-radius: 12px;
+  background: rgba(10, 14, 22, 0.35);
+  color: var(--text);
+  margin: 7px 0;
+  text-align: left;
+}
+.nodeItem:hover {
+  background: rgba(88, 132, 255, 0.13);
+  border-color: rgba(88, 132, 255, 0.5);
+}
+.nodeItem .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.nodeItem .name {
+  font-size: 12px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.nodeItem .desc {
+  font-size: 10px;
+  color: var(--muted);
+}
+.nodeItem .badge {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.tree details {
+  margin: 6px 0;
+}
+.tree details > details {
+  margin-left: 10px;
+  border-left: 1px solid rgba(60, 85, 126, 0.2);
+  padding-left: 7px;
+}
+.tree summary {
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.tree details > button.nodeItem {
+  margin-left: 3px;
+  width: calc(100% - 3px);
+}
+#outlinerBlock {
+  overflow: auto;
+  min-height: 100px;
+  max-height: 34vh;
+  flex: 0 1 auto;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(60, 85, 126, 0.28);
+  resize: vertical;
+}
+.moduleNavigator {
+  margin: 0 0 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.moduleNavigator select {
+  margin-top: 5px;
+  padding: 7px;
+  font-size: 11px;
+}
+.outlinerNode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  background: rgba(10, 14, 22, 0.35);
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin: 3px 0;
+  font-size: 11px;
+  text-align: left;
+  min-height: 34px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.outlinerNode small {
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+.outlinerNode.selected {
+  border-color: #ffaa44;
+  background: rgba(255, 170, 68, 0.08);
+}
+#propsScroll {
+  flex: 1;
+  min-height: 100px;
+}
+#routeStatus {
+  padding: 5px 12px;
+}
+#moduleLayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.moduleSprite {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  transform-origin: 0 0;
+  contain: layout style;
+}
+.moduleSprite canvas {
+  display: block;
+  pointer-events: none;
+}
+#canvas {
+  z-index: 1;
+}
+#connectionOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+#lasso {
+  z-index: 6;
+}
+#toast {
+  z-index: 9;
+}
+@media (max-width: 760px) {
+  #outlinerBlock {
+    max-height: 32dvh;
+  }
+  .compactActions .btn {
+    min-height: 44px;
+  }
+  .voltageFields input {
+    font-size: 16px;
+  }
+  .outlinerNode {
+    min-height: 42px;
+  }
+  #catalogBlock .createModule {
+    min-height: 44px;
+  }
+}
+
+.portBreakerButton{position:absolute;z-index:6;width:32px;height:26px;min-height:26px;max-height:26px;padding:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:1.5px solid #35dc69;border-radius:7px;background:#07341d;color:#66f38c;font:700 10px monospace;pointer-events:auto;cursor:pointer;box-sizing:border-box;line-height:1.1;}
+.portBreakerButton small{font:700 6px system-ui;letter-spacing:.2px;}
+.portBreakerButton[data-state="open"]{border-color:#682329;color:#9ba1a6;background:#0a0e12;}
+.portBreakerButton[data-state="tripped"]{border-color:#ff3434;color:#ff9292;background:#390c10;box-shadow:0 0 9px #ff2020;animation:breakerTripPulse .8s steps(1,end) infinite;}
+.portBreakerButton:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+@keyframes breakerTripPulse{0%,49%{box-shadow:0 0 10px #ff2020;border-color:#ff3434;color:#ffaaaa;}50%,100%{box-shadow:0 0 2px #ff202055;border-color:#992525;color:#e35d5d;}}
+@media(prefers-reduced-motion:reduce){.portBreakerButton[data-state="tripped"]{animation:none;}}
+/* Compact controls and connected module trees. */
+.editorToolbar .btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 9px; min-height:34px; font-size:11px; }
+.editorToolbar .btn svg { width:18px; height:18px; flex:none; }
+.editorToolbar .btn span { white-space:nowrap; }
+#generalSettings { display:flex; align-items:center; gap:10px; padding:4px 9px; margin:0; border:1px solid rgba(60,85,126,.35); border-radius:14px; background:rgba(10,14,22,.55); }
+.worldSettingsTitle { font-size:10px; color:var(--muted); white-space:nowrap; }
+#generalSettings .voltageFields { display:flex; gap:8px; }
+#generalSettings .field { display:flex; align-items:center; gap:5px; margin:0; font-size:10px; white-space:nowrap; }
+#generalSettings input { width:75px; min-height:28px; padding:4px 5px; font-size:11px; }
+.topBar { flex-wrap:wrap; }
+#catalog .nodeItem { border:0; border-radius:5px; padding:6px 7px; margin:2px 0; gap:6px; min-height:32px; }
+#catalog .nodeItem .name { font-size:11px; font-weight:500; }
+#catalog .nodeItem .desc { font-size:9px; }
+.tree details { margin:2px 0; }
+.tree summary { padding:5px 3px; font-size:11px; }
+.tree details > details, .tree .outlinerBranch > .outlinerBranch { margin-left:10px; padding-left:7px; border-left:1px solid #34445f; }
+#outlinerTree { min-width:220px; }
+#outlinerTree summary { display:flex; align-items:center; gap:3px; list-style:none; cursor:pointer; padding:0; }
+#outlinerTree summary::before { content:'›'; width:12px; flex:none; color:#9eacc4; font-size:18px; text-align:center; }
+#outlinerTree details[open] > summary::before { transform:rotate(90deg); }
+#outlinerTree .outlinerNode { padding:4px 5px; margin:1px 0; min-height:30px; font-size:10px; gap:1px; }
+#outlinerTree .outlinerNode small { font-size:9px; }
+#outlinerTree div.outlinerBranch { padding-left:15px; }
+#propsBody h3 { font-size:12px; line-height:1.4; margin:0 0 8px; }
+#propsBody .field { margin:6px 0; font-size:11px; gap:4px; }
+#propsBody .input, #propsBody .select { min-height:30px; padding:5px 7px; font-size:11px; }
+#propsBody .btn { min-height:30px; padding:5px 8px; font-size:10px; margin:3px 0; }
+#propsBody p { margin:5px 0; font-size:10px; line-height:1.4; overflow-wrap:anywhere; }
+#propsBody .portProps { margin:5px 0; padding:6px 8px; border-radius:7px; }
+#propsBody .portProps > summary { font-size:11px; cursor:pointer; }
+#propsBody .breakerBox { display:flex; flex-wrap:wrap; gap:5px; align-items:center; padding:6px; margin:5px 0; }
+#propsBody .breakerBox strong { font-size:10px; flex:1 0 100%; }
+#propsBody .breakerBox label { display:flex; align-items:center; gap:4px; font-size:10px; }
+#propsBody .breakerBox input { width:62px; }
+#propsBody .breakerBox select { width:auto; max-width:150px; }
+@media(max-width:760px) {
+  #generalSettings { flex-wrap:wrap; width:100%; }
+  #generalSettings input { font-size:16px; width:90px; }
+  .editorToolbar .btn { min-height:40px; }
+  #catalog .nodeItem, #outlinerTree .outlinerNode { min-height:40px; }
+}
+#catalog.tree details, #outlinerTree.tree details { border:0; border-radius:0; background:transparent; overflow:visible; }
+#catalog.tree details > details { border-left:1px solid #34445f; }
+#catalog.tree summary::before { content:'›'; display:inline-block; width:12px; flex:none; color:#9eacc4; font-size:16px; }
+#catalog.tree details[open] > summary::before { transform:rotate(90deg); }
+#propsBody .breakerBox strong { margin:0; }
+#propsBody .breakerBox .select { margin:0; }
+#propsBody .breakerBox .btnRow { gap:4px; }
+#propsBody .breakerBox { border-radius:7px; }
+#propsBody .breakerBox > .btnRow, #propsBody .breakerBox > label { margin:0; }
+.worldModelCard { display:flex; flex-direction:column; justify-content:center; gap:3px; padding:6px 10px; border:1px solid rgba(60,85,126,.35); border-radius:12px; background:rgba(10,14,22,.55); position:relative; font-size:10px; }
+.worldModelCard #sessionStatus { margin:0; padding:0; font-size:10px; }
+.worldModelCard .modelAssumptions { margin:0; font-size:10px; }
+.worldModelCard .modelAssumptions summary { white-space:nowrap; }
+.worldModelCard .modelExplanation { position:absolute; right:0; top:calc(100% + 6px); width:min(340px,80vw); padding:12px; border:1px solid #405779; border-radius:10px; background:#111c2d; box-shadow:0 8px 24px #0009; z-index:30; font-size:11px; line-height:1.5; }
+.worldModelCard .modelExplanation p { margin:7px 0; }
+.topBar { z-index:10; overflow:visible; }
+/* Keep navigation and project electrical settings on one compact row. */
+.topBar { flex-wrap:nowrap; gap:6px; padding:6px 8px; }
+.topBar > .chip { flex-shrink:0; }
+.topBar > .chip:first-child { gap:5px; font-size:10px; padding:6px 8px; }
+.topBar > .chip:nth-child(2) { gap:5px; padding:6px 8px; font-size:10px; }
+#generalSettings { flex-shrink:0; padding:4px 7px; border-radius:10px; }
+#generalSettings .voltageFields { gap:7px; }
+#generalSettings .field { flex-direction:row; gap:4px; font-size:10px; }
+#generalSettings input { width:68px; }
+.worldModelCard { flex-shrink:0; padding:5px 8px; }
+.topBar .githubChip { margin-left:auto; }
+@media (max-width:1550px) and (min-width:761px) {
+  .topBar .githubChip { padding:6px; font-size:0; gap:0; }
+}
+@media (max-width:1550px) {
+  .topBar { flex-wrap:wrap; }
+  #generalSettings .field { flex-direction:column; }
+}
+.navigationSettings { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.navigationSettings > .chip { gap:4px; padding:5px 7px; font-size:10px; white-space:nowrap; }
+.navigationSettings #generalSettings .field { flex-direction:column; }
+.navigationSettings #generalSettings .voltageFields { gap:6px; }
+.navigationSettings #generalSettings input { width:66px; }
+.navigationSettings .worldModelCard { font-size:9px; }
+.navigationSettings .worldModelCard #sessionStatus, .navigationSettings .modelAssumptions { font-size:9px; }
+@media(max-width:760px) { .navigationSettings { flex-wrap:wrap; flex-shrink:1; } }
+@media (max-width:1550px) and (min-width:761px) {
+  .topBar .githubChip { position:absolute; right:8px; top:6px; margin:0; }
+}
+/* Voltage labels and values share a single horizontal baseline. */
+.navigationSettings #generalSettings .field { flex-direction:row; align-items:center; gap:5px; }
+.navigationSettings #generalSettings .voltageFields { align-items:center; gap:10px; }
+.navigationSettings #generalSettings { padding:5px 8px; }
+.navigationSettings #generalSettings input { min-height:28px; }
+@media (max-width:1550px) { .navigationSettings { flex-wrap:wrap; flex-shrink:1; min-width:0; } }
+.editorToolbar .btn[data-tooltip] { width:34px; padding:7px; }
+.editorToolbar .btn[data-tooltip]:hover::after { content:attr(data-tooltip); position:fixed; top:auto; margin-top:62px; background:#172439; padding:5px 8px; border:1px solid #405779; border-radius:6px; z-index:60; pointer-events:none; white-space:nowrap; }
+.worldSettingsPopup { position:relative; flex:none; }
+.worldSettingsPopup > summary { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid #304565; border-radius:9px; cursor:pointer; list-style:none; background:#101c2d; }
+.worldSettingsPopup > summary::-webkit-details-marker { display:none; }
+.worldSettingsPopup svg { width:18px; height:18px; }
+.settingsPopover { position:absolute; top:calc(100% + 7px); right:0; width:260px; padding:12px; background:#111c2d; border:1px solid #405779; border-radius:12px; box-shadow:0 8px 24px #0009; z-index:40; }
+.settingsPopover strong { font-size:12px; }
+.settingsPopover p { font-size:10px; color:var(--muted); line-height:1.4; }
+.settingsPopover .btn { width:100%; margin-top:6px; padding:7px; font-size:11px; display:flex; align-items:center; gap:7px; }
+.tripModeField { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:11px; }
+.tripModeField input { width:16px; height:16px; }
+#sidebarSplitter { height:9px; flex:none; cursor:row-resize; touch-action:none; display:flex; align-items:center; justify-content:center; background:#0d1521; border-top:1px solid #26384e; border-bottom:1px solid #26384e; }
+#sidebarSplitter::after { content:''; width:44px; height:3px; background:#627895; border-radius:3px; }
+#sidebarSplitter:hover, #sidebarSplitter:focus-visible { background:#20334e; }
+#outlinerBlock { height:240px; max-height:calc(100% - 210px); min-height:100px; flex:0 0 auto; resize:none; }
+.headerHelp { display:flex; align-items:center; justify-content:center; min-height:28px; width:28px; padding:5px !important; cursor:pointer; }
+.headerHelp svg, .sidebarToggle svg { width:18px; height:18px; flex:none; }
+.sidebarToggle { width:34px; }
+@media(min-width:1251px) {
+ .app.hideLeftSidebar { grid-template-columns:minmax(0,1fr) 360px; }
+ .app.hideRightSidebar { grid-template-columns:320px minmax(0,1fr); }
+ .app.hideLeftSidebar.hideRightSidebar { grid-template-columns:minmax(0,1fr); }
+}
+@media(min-width:761px) and (max-width:1250px) { .app.hideLeftSidebar { grid-template-columns:minmax(0,1fr); } }
+@media(min-width:761px) { .app.hideLeftSidebar #leftPanel { display:none; } }
+@media(min-width:1251px) { .app.hideRightSidebar #rightPanel { display:none; } }
+@media(max-width:1550px) and (min-width:761px) { .topBar .headerHelp { position:absolute; right:43px; top:6px; margin:0; } }
+
+#helpTip.headerHelp { width:28px; min-width:28px; height:28px; min-height:28px; margin:0; }
+.overload-node-outline { stroke-width:var(--zoom-node-outline,9px); }
+.selected-node-outline { fill:none; stroke:#ffb348; stroke-width:var(--zoom-selection-outline,3px); }
+.portAlarmLayer svg { overflow:visible; }
+.overloadSourceLink { border:0; padding:2px 0; background:transparent; color:#ffc581; text-decoration:underline; cursor:pointer; font:inherit; text-align:left; min-height:24px; }
+@keyframes overloadFade { 0%,100% { opacity:.25; } 80%,90% { opacity:1; } }
+.overload-node-outline, .overload-port, .overload-wire path:nth-of-type(2) { animation:overloadFade 2.4s linear infinite; }
+.overload-origin-pulse, .overload-contour-wave { fill:none; stroke:#ff2525; stroke-width:var(--zoom-node-outline,9px); filter:drop-shadow(0 0 4px #ff2020); }
+.overload-origin-pulse { transform-box:fill-box; transform-origin:center; pointer-events:none; }
+.overload-node-outline, .overload-contour-wave, .overload-origin-pulse, .overload-wire .overload-wave { stroke:#ff2020; filter:drop-shadow(0 0 var(--alarm-glow,4px) #ff2020); stroke-linecap:round; stroke-linejoin:round; }
+.overload-wire path:nth-of-type(2) { stroke:#ff2020 !important; animation:none; opacity:1; }
+.overload-wire .wire-end { fill:#ff2020; }
+.overload-origin-pulse { stroke:#ff4540; fill:#ff3020; fill-opacity:.08; filter:drop-shadow(0 0 var(--alarm-glow,5px) #ff3020) drop-shadow(0 0 var(--alarm-glow,5px) #ff5010); }
+.overload-wire path:nth-of-type(2) { opacity:.28; }
+.overload-wire .overload-wave { stroke:#ff2020; filter:drop-shadow(0 0 var(--alarm-glow,4px) #ff2020); }
+.overload-wire path:nth-of-type(2) { opacity:1; animation:none; }
+.overload-wire .overload-wave { display:none !important; }
+.overload-wire path:nth-of-type(2) { stroke:#ff5555 !important; opacity:1; }
+.overload-wire .wire-end { fill:#ff5555; }
+.overload-wire path:nth-of-type(2) { stroke:#ff0000 !important; }
+.overload-wire .wire-end { fill:#ff0000; }
+.overload-origin-pulse { fill-opacity:.12; filter:drop-shadow(0 0 var(--alarm-glow,5px) #ff3020) drop-shadow(0 0 var(--alarm-glow,5px) #ff3020) drop-shadow(0 0 var(--alarm-glow,5px) #ff5010); }
+.branch-node-outline { fill:none; stroke:#4ce4ff; stroke-width:var(--zoom-selection-outline,3px); }
