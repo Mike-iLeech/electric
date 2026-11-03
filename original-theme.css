@@ -749,6 +749,18 @@
 .helpImageDialog > .btn { display:block; margin:0 0 10px auto; }
 .helpImageDialog img { display:block; width:auto; max-width:100%; height:auto; max-height:calc(100dvh - 160px); object-fit:contain; margin:0 auto; }
 .helpImageDialog p { margin:10px 0 0; color:#bac9dd; font-size:12px; }
+.helpControlsNav { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.helpControlsNav a { padding:5px 9px; border:1px solid #344b6a; border-radius:7px; color:#a9c9ff; text-decoration:none; }
+.helpControlsNav a:hover { background:#192c46; }
+#helpNavigate h3[id], .helpGif { scroll-margin-top:8px; }
+.helpGifGallery { display:grid; grid-template-columns:minmax(0,1fr); width:100%; max-width:960px; gap:12px; margin:12px 0 18px; }
+.helpGuide .helpGif { display:flex; flex-direction:column; min-width:0; margin:0; padding:12px; border:1px solid #344b6a; border-radius:10px; background:#0b1420; }
+.helpGif h4 { margin:0 0 6px; font-size:14px; color:#e6edf7; }
+.helpGif figcaption { margin:0 0 10px; }
+.helpGif figcaption p { margin:0; }
+.helpGif img { display:block; width:auto; max-width:100%; height:auto; margin:auto; border-radius:6px; }
+.helpGif .helpGifButton { align-self:flex-start; margin-top:10px; }
+.helpGifButton[aria-pressed="true"] { background:#243e62; border-color:#80b6ff; }
 #cableSectionsFields .field, .cableSectionsHead {
   display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:12px;
   margin:0; padding:4px 0; border-bottom:1px solid #24344a;

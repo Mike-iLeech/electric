@@ -15,6 +15,10 @@ test("автономная сборка запускается без внешн
   console.on("jsdomError", (e) => errors.push(e));
   assert.equal(/<script[^>]+src=/.test(html), false);
   assert.equal(/href="editor.css"/.test(html), false);
+  const animations = [...html.matchAll(/data-gif="([^"]+)"/g)];
+  assert.equal(animations.length, 5);
+  for (const [, source] of animations) assert.match(source, /^data:image\/gif;base64,R0lGOD/);
+  assert.equal(/(?:src|data-gif)="help-images\//.test(html), false);
   const dom = new JSDOM(html, {
     url: "https://electric.example/",
     runScripts: "dangerously",

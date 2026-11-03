@@ -44,10 +44,10 @@ if (
   )
 )
   throw Error("Не все локальные ресурсы встроены");
-html = html.replace(/src="(help-images\/[a-z-]+\.(png|jpg))"/g, (_, file, extension) => {
-  const mime = extension === "jpg" ? "jpeg" : "png";
+html = html.replace(/\b(src|data-gif)="(help-images\/[a-z-]+\.(png|jpg|gif))"/g, (_, attribute, file, extension) => {
+  const mime = extension === "jpg" ? "jpeg" : extension;
   const image = fs.readFileSync(path.join(__dirname, file)).toString("base64");
-  return `src="data:image/${mime};base64,${image}"`;
+  return `${attribute}="data:image/${mime};base64,${image}"`;
 });
 fs.mkdirSync(path.join(__dirname, "dist"), { recursive: true });
 fs.writeFileSync(path.join(__dirname, "dist/index.html"), html);
