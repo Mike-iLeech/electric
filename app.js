@@ -1,6 +1,7 @@
 /* ElectricCAD Easy v32 — DOM, pointer editing and local session. No network requests. */
 (function () {
   "use strict";
+  const tr = text => window.ElectricI18n?.t(text) ?? text;
   const E = ElectricEngine,
     $ = (id) => document.getElementById(id),
     esc = (s) =>
@@ -19,10 +20,28 @@
     BACKUP = "electriccad.session.v32.backup",
     CUSTOM = "electriccad.templates.v32";
   const UI_KEY = "electriccad.ui.v32";
+  const desktop = window.electricDesktop;
+  const storage = desktop?.storage || {
+    getItem: key => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+  };
+  let uiSaveTimer = 0, uiStorageError = false, skipBackupOnce = false;
   let uiPrefs = {};
-  try { uiPrefs = JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}; } catch {}
+  try { uiPrefs = JSON.parse(storage.getItem(UI_KEY) || "{}") || {}; } catch {}
   E.setCableSections(uiPrefs.cableSections);
-  const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch {} };
+  function writeUI() {
+    clearTimeout(uiSaveTimer); uiSaveTimer = 0;
+    try { storage.setItem(UI_KEY, JSON.stringify(uiPrefs)); uiStorageError = false; return true; }
+    catch { uiStorageError = true; return false; }
+  }
+  const saveUI = () => {
+    if (!desktop) { writeUI(); return; }
+    clearTimeout(uiSaveTimer);
+    uiSaveTimer = setTimeout(() => {
+      if (!writeUI()) notify("Не удалось сохранить настройки. Проверьте доступ к папке данных.");
+      updateStatus();
+    }, 150);
+  };
   let p = E.project(),
     calc = E.calculate(p),
     selection = new Set(),
@@ -59,6 +78,12 @@
   };
   const ctx = $("canvas").getContext("2d"),
     ws = $("workspace");
+  function moduleCaption(item, options) {
+    const predefined = templates.some(template => template.name === (item.templateName || item.name)) &&
+      (!item.templateName || item.name === item.templateName);
+    return E.nomenclature(item, options).split(" | ").map((part, index) =>
+      index === 0 && !predefined ? part : tr(part)).join(" | ");
+  }
   const node = (id) => p.nodes.find((n) => n.id === id),
     port = (ref) => {
       const n = node(ref?.nodeId);
@@ -141,7 +166,7 @@
     for (const origin of origins) {
       const n = node(origin.nodeId), row = document.createElement("div");
       row.append(document.createTextNode("Перегрузка на фазе: " + origin.phases.join(", ") + ". Источник: "));
-      const link = button(E.nomenclature(n, {connectors:true}), () => {
+      const link = button(moduleCaption(n, {connectors:true}), () => {
         select(n.id); const r = ws.getBoundingClientRect();
         const fit = Math.min((r.width - 48) / E.nodeWidth(n), (r.height - 48) / E.nodeHeight(n));
         p.view.zoom = Math.max(.01, Math.min(1.25, fit));
@@ -227,16 +252,25 @@
     clearTimeout(saveTimer);
     try {
       const text = serial(),
-        old = localStorage.getItem(SESSION);
-      if (old && old !== text) localStorage.setItem(BACKUP, old);
-      localStorage.setItem(SESSION, text);
+        old = storage.getItem(SESSION);
+      if (!skipBackupOnce && old && old !== text) {
+        // Keep a usable backup when the current file was damaged or hand-edited.
+        let valid = false;
+        try { E.migrate(JSON.parse(old)); valid = true; } catch {}
+        if (valid) storage.setItem(BACKUP, old);
+      }
+      storage.setItem(SESSION, text);
+      skipBackupOnce = false;
       dirty = false;
       storageError = false;
       updateStatus();
+      return true;
     } catch (e) {
       storageError = true;
       updateStatus();
-      notify("Не удалось сохранить сессию в браузере. Экспортируйте JSON.");
+      notify(desktop ? "Не удалось сохранить проект на диск. Сохраните копию JSON и проверьте папку данных."
+        : "Не удалось сохранить сессию в браузере. Экспортируйте JSON.");
+      return false;
     }
   }
   function scheduleSave() {
@@ -254,7 +288,10 @@
       const watts = E.sum(calc.nodes.get(source.id).loadW);
       total += watts;
       const row = document.createElement("li");
-      row.textContent = source.name + " · " + format(watts);
+      const name = document.createElement("span");
+      name.dataset.noTranslate = "true";
+      name.textContent = source.name;
+      row.append(name, document.createTextNode(" · " + format(watts)));
       return row;
     });
     $("powerSummaryTotal").textContent = format(total);
@@ -281,11 +318,11 @@
     }
 
     $("projectPill").textContent = p.meta.name;
-    $("sessionStatus").textContent = storageError
+    $("sessionStatus").textContent = (storageError || uiStorageError)
       ? "Ошибка локального сохранения"
       : dirty
         ? "Сохраняется…"
-        : "Сохранено в этом браузере";
+        : desktop ? "Сохранено на этом компьютере" : "Сохранено в этом браузере";
     $("btnUndo").disabled = !undo.length;
     $("btnRedo").disabled = !redo.length;
     const z = p.view.zoom;
@@ -1090,8 +1127,9 @@
     const ns = p.nodes.filter((n) => selection.has(n.id));
     if (!ns.length) return;
     const header = document.createElement("h3");
+    if (ns.length === 1) header.dataset.noTranslate = "true";
     header.textContent =
-      ns.length === 1 ? E.nomenclature(ns[0]) : "Выбрано модулей: " + ns.length;
+      ns.length === 1 ? moduleCaption(ns[0]) : "Выбрано модулей: " + ns.length;
     body.append(header);
     if (ns.length === 1) {
       const n = ns[0],
@@ -1222,7 +1260,7 @@
     const nav = $("moduleNavigator"),
       previous = nav.value;
     nav.replaceChildren(new Option("Выберите модуль…", ""));
-    for (const n of p.nodes) nav.add(new Option(E.nomenclature(n), n.id));
+    for (const n of p.nodes) nav.add(new Option(moduleCaption(n), n.id));
     nav.value =
       selection.size === 1 ? [...selection][0] : node(previous) ? previous : "";
     const tree = $("outlinerTree"),
@@ -1258,7 +1296,7 @@
         row = document.createElement("summary");
         branch.append(row);
       }
-      const b = button(E.nomenclature(n, {connectors:true}), e => {
+      const b = button(moduleCaption(n, {connectors:true}), e => {
         e.preventDefault();
         select(n.id, e.shiftKey || e.ctrlKey || e.metaKey);
       }, "outlinerNode");
@@ -1298,7 +1336,7 @@
     for (const t of [...templates, ...custom]) {
       const path = E.catalogPath(t);
       if (
-        !(E.nomenclature(t, { connectors: true }) + " " + path.join(" "))
+        !(E.nomenclature(t, { connectors: true }) + " " + path.join(" ") + " " + tr(E.nomenclature(t, {connectors:true}) + " " + path.join(" ")))
           .toLowerCase()
           .includes(query)
       )
@@ -1357,7 +1395,7 @@
         const el = button("", () => addTemplate(t), "nodeItem");
         el.innerHTML =
           '<span class="meta"><span class="name">' +
-          esc(E.nomenclature(t, { connectors: true }).replace(" -> ", " → ")) +
+          esc(moduleCaption(t, { connectors: true }).replace(" -> ", " → ")) +
           '</span><span class="desc">' +
           t.phases +
           "ф · " +
@@ -1375,10 +1413,10 @@
         const row = document.createElement("div");
         row.className = "catalogItem customCatalogRow";
         const remove = button("×", () => {
-          if (!confirm("Удалить шаблон «" + t.name + "» из каталога?")) return;
+          if (!confirm(tr("Удалить шаблон «" + t.name + "» из каталога?"))) return;
           const next = custom.filter(template => template !== t);
           try {
-            localStorage.setItem(CUSTOM, JSON.stringify(next));
+            storage.setItem(CUSTOM, JSON.stringify(next));
           } catch {
             notify("Не удалось сохранить каталог");
             return;
@@ -1614,7 +1652,10 @@
       wrapper.textContent = label;
       input.type = type;
       input.value = initial;
-      if (key === "drawingTitle") input.placeholder = p.meta.name + " — Схема электрическая однолинейная";
+      if (key === "drawingTitle") {
+        input.placeholder = p.meta.name + " — Схема электрическая однолинейная";
+        input.dataset.i18nUserPrefix = p.meta.name;
+      }
       if (key === "designation") input.placeholder = "Э3";
       input.maxLength = 120;
       input.setAttribute("aria-label", label);
@@ -1976,7 +2017,8 @@
         container = $("builderPreview");
       container.replaceChildren();
       const title = document.createElement("strong");
-      title.textContent = E.nomenclature(n);
+      title.dataset.noTranslate = "true";
+      title.textContent = moduleCaption(n);
       const ports = document.createElement("div");
       ports.className = "previewPorts";
       const left = document.createElement("div"),
@@ -2139,7 +2181,7 @@
         known.add(key);
         next.push({...template, id:E.uid("custom")});
       }
-      localStorage.setItem(CUSTOM, JSON.stringify(next));
+      storage.setItem(CUSTOM, JSON.stringify(next));
       const count = next.length - custom.length;
       custom = next;
       renderCatalog();
@@ -2168,8 +2210,9 @@
           shield: n.shield,
           mainA: n.mainBreaker?.ratingA,
         };
-      custom.push(normalizeCustomTemplate(t));
-      localStorage.setItem(CUSTOM, JSON.stringify(custom));
+      const next = [...custom, normalizeCustomTemplate(t)];
+      storage.setItem(CUSTOM, JSON.stringify(next));
+      custom = next;
       renderCatalog();
       notify("Шаблон сохранён в локальном каталоге");
     } catch (e) {
@@ -2553,6 +2596,15 @@
     });
   }
   function boot() {
+    if (desktop) {
+      document.body.classList.add("desktopApp");
+      $("desktopData").hidden = false;
+      $("btnDataFolder").title = "Открыть папку данных: " + desktop.info.dataDirectory;
+      $("desktopDataPath").textContent = desktop.info.dataDirectory;
+      $("btnDesktopSettings").onclick = () => desktop.openSettings?.();
+      $("btnDataFolder").onclick = () => desktop.openDataFolder().catch(() => notify("Не удалось открыть папку данных"));
+      document.querySelector(".hub-back").href = "https://ileech.mywire.org/";
+    }
     const actionLog = $("actionLog");
     $("btnActionLog").onclick = () => {
       $("actionLogCopyStatus").textContent = "";
@@ -2585,14 +2637,15 @@
     recordAction("Редактор запущен");
     let fitInitialProject = false;
     try {
-      const raw = localStorage.getItem(SESSION);
+      const raw = storage.getItem(SESSION);
       if (raw) {
         try {
           p = E.migrate(JSON.parse(raw));
         } catch (e) {
-          const backup = localStorage.getItem(BACKUP);
+          const backup = storage.getItem(BACKUP);
           if (!backup) throw e;
           p = E.migrate(JSON.parse(backup));
+          skipBackupOnce = true;
           notify("Восстановлена резервная локальная сессия");
         }
       } else {
@@ -2606,7 +2659,7 @@
       );
     }
     try {
-      const raw = JSON.parse(localStorage.getItem(CUSTOM) || "[]");
+      const raw = JSON.parse(storage.getItem(CUSTOM) || "[]");
       if (Array.isArray(raw))
         custom = raw.flatMap(template => {
           try { return [normalizeCustomTemplate(template)]; }
@@ -2624,10 +2677,9 @@
     logProjectChanges();
     initPointers();
     $("btnSave").onclick = () => {
-      save();
-      notify(
-        "Сессия сохранена локально. Для переноса используйте Экспорт JSON.",
-      );
+      if (save()) notify(desktop
+        ? "Проект сохранён на компьютере. Для отдельной копии используйте «Скачать»."
+        : "Сессия сохранена локально. Для переноса используйте Экспорт JSON.");
     };
     $("btnExport").onclick = exportScheme;
     $("btnDownloadProject").onclick = exportProject;
@@ -2858,13 +2910,13 @@
       const image = figure.querySelector("img"),
         button = figure.querySelector(".helpGifButton"),
         poster = image.getAttribute("src"),
-        title = figure.querySelector("h4").textContent;
+        title = () => figure.querySelector("h4").textContent;
       const stop = () => {
         if (button.getAttribute("aria-pressed") !== "true") return;
         image.setAttribute("src", poster);
         button.setAttribute("aria-pressed", "false");
         button.textContent = "Воспроизвести GIF";
-        button.setAttribute("aria-label", "Воспроизвести GIF: " + title);
+        button.setAttribute("aria-label", "Воспроизвести GIF: " + title());
       };
       helpAnimations.push(stop);
       button.onclick = () => {
@@ -2875,7 +2927,7 @@
         image.setAttribute("src", image.dataset.gif);
         button.setAttribute("aria-pressed", "true");
         button.textContent = "Остановить";
-        button.setAttribute("aria-label", "Остановить GIF: " + title);
+        button.setAttribute("aria-label", "Остановить GIF: " + title());
       };
     }
     const helpImageDialog = document.createElement("dialog");
@@ -3023,7 +3075,10 @@
       splitter.setPointerCapture(e.pointerId);
     };
     splitter.onpointermove = e => { if(splitDrag) setTreeHeight(splitDrag.height + e.clientY - splitDrag.y); };
-    splitter.onpointerup = splitter.onpointercancel = () => { splitDrag = null; };
+    splitter.onpointerup = splitter.onpointercancel = () => {
+      splitDrag = null;
+      if (desktop && uiSaveTimer) { writeUI(); updateStatus(); }
+    };
     splitter.onkeydown = e => {
       if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.code)) {
         e.preventDefault();
@@ -3198,7 +3253,12 @@
       if (document.hidden && !storageError) save();
     });
     window.addEventListener("beforeunload", (e) => {
-      if (storageError && dirty) {
+      // Flush debounced changes before Electron can close the renderer.
+      if (desktop) {
+        if (!storageError || dirty) save();
+        if (uiSaveTimer || uiStorageError) writeUI();
+      }
+      if ((storageError && dirty) || (desktop && uiStorageError)) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -3226,12 +3286,28 @@
   }
   function localStorageAvailable() {
     try {
-      localStorage.getItem(SESSION);
+      storage.getItem(SESSION);
       return true;
     } catch {
       return false;
     }
   }
+  // Called by the desktop host before an update may close the editor.
+  window.electricPrepareToExit = () => {
+    document.activeElement?.blur();
+    // A corrupt initial session is deliberately left untouched; changed projects must save.
+    const projectSaved = (!storageError || dirty) ? save() : !dirty;
+    const preferencesSaved = writeUI();
+    return projectSaved && preferencesSaved;
+  };
+  window.addEventListener("electric-language-changed", () => {
+    staticKey = "";
+    overloadMessageKey = ""; announceOverloads();
+    renderCatalog(); renderProps(); renderNavigator(); updateStatus();
+    requestDraw();
+    window.ElectricI18n?.scan();
+    $("helpSearch").dispatchEvent(new Event("input"));
+  });
   // Public read-only diagnostic snapshot for manual regression checks, without mutable state access.
   window.electricDiagnostics = () => ({
     version: E.VERSION,

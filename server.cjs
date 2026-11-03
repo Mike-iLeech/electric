@@ -3,6 +3,8 @@ const http = require("node:http"),
   path = require("node:path");
 const files = new Set([
   "index.html",
+  "i18n-help.js",
+  "i18n.js",
   "engine.js",
   "default-project.js",
   "app.js",

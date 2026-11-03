@@ -14,6 +14,8 @@ html = html.replace(
     "</style>",
 );
 for (const name of [
+  "i18n-help.js",
+  "i18n.js",
   "engine.js",
   "default-project.js",
   "routing.js",

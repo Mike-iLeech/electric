@@ -1,0 +1,73 @@
+name: Signed Windows release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Sign, verify and publish Windows release
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    environment: desktop-release
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      ELECTRICCAD_PUBLISHER_NAME: ${{ vars.ELECTRICCAD_PUBLISHER_NAME }}
+      ELECTRICCAD_AZURE_ENDPOINT: ${{ vars.ELECTRICCAD_AZURE_ENDPOINT }}
+      ELECTRICCAD_AZURE_ACCOUNT: ${{ vars.ELECTRICCAD_AZURE_ACCOUNT }}
+      ELECTRICCAD_AZURE_PROFILE: ${{ vars.ELECTRICCAD_AZURE_PROFILE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate signing configuration
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+        run: |
+          $env:ELECTRICCAD_SIGNED_RELEASE = '1'
+          node -e "require('./scripts/signing-config.cjs').signingConfig()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Test and build
+        run: pnpm test
+      - name: Test desktop persistence and exports
+        run: node scripts/desktop-smoke.cjs
+      - name: Build and verify signed release
+        run: pnpm desktop:release
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      - name: Publish verified assets atomically through a draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "v$version"
+          $refs = gh api "repos/Mike-iLeech/electric/git/matching-refs/tags/$tag" --jq '.[].ref'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify existing release tags.' }
+          if ($refs -contains "refs/tags/$tag") { throw "Tag $tag already exists; increase the version before publishing." }
+          $existing = gh release view $tag --repo Mike-iLeech/electric --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; never replace published update files." }
+          $setup = "release/ElectricCAD-Easy-$version-Setup-x64.exe"
+          gh release create $tag $setup "$setup.blockmap" release/latest.yml release/SHA256SUMS.txt --repo Mike-iLeech/electric --target '${{ github.sha }}' --title "ElectricCAD Easy $version" --generate-notes --draft
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release edit $tag --repo Mike-iLeech/electric --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
