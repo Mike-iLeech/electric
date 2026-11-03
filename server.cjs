@@ -31,6 +31,16 @@ const files = new Set([
   "help-images/alerts.jpg",
   "help-images/calculations.jpg",
   "help-images/protection.jpg",
+  "help-images/connect-ports.jpg",
+  "help-images/connect-ports.gif",
+  "help-images/move-nodes.jpg",
+  "help-images/move-nodes.gif",
+  "help-images/move-cables.jpg",
+  "help-images/move-cables.gif",
+  "help-images/zoom.jpg",
+  "help-images/zoom.gif",
+  "help-images/pan.jpg",
+  "help-images/pan.gif",
 ]);
 http
   .createServer((req, res) => {
@@ -49,7 +59,9 @@ http
             ? "image/jpeg"
             : name.endsWith(".png")
               ? "image/png"
-              : "text/javascript; charset=utf-8",
+              : name.endsWith(".gif")
+                ? "image/gif"
+                : "text/javascript; charset=utf-8",
     );
     res.setHeader("Cache-Control", "no-store");
     res.end(fs.readFileSync(path.join(__dirname, name)));

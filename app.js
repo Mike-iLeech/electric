@@ -1801,6 +1801,10 @@
       button.setAttribute("aria-label", label);
     }
   }
+  const helpAnimations = [];
+  function stopHelpAnimations() {
+    for (const stop of helpAnimations) stop();
+  }
   function openModal(id) {
     lastFocus = document.activeElement;
     $("overlay").style.display = "block";
@@ -1810,6 +1814,7 @@
     f?.focus();
   }
   function closeModal() {
+    stopHelpAnimations();
     for (const id of ["helpModal", "nodeModal"]) {
       $(id).style.display = "none";
       $(id).setAttribute("aria-hidden", "true");
@@ -2849,6 +2854,30 @@
     };
     $("btnNewNode").onclick = () => openBuilder();
     $("helpTip").onclick = () => openModal("helpModal");
+    for (const figure of $("helpModal").querySelectorAll(".helpGif")) {
+      const image = figure.querySelector("img"),
+        button = figure.querySelector(".helpGifButton"),
+        poster = image.getAttribute("src"),
+        title = figure.querySelector("h4").textContent;
+      const stop = () => {
+        if (button.getAttribute("aria-pressed") !== "true") return;
+        image.setAttribute("src", poster);
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = "Воспроизвести GIF";
+        button.setAttribute("aria-label", "Воспроизвести GIF: " + title);
+      };
+      helpAnimations.push(stop);
+      button.onclick = () => {
+        const play = button.getAttribute("aria-pressed") !== "true";
+        stopHelpAnimations();
+        if (!play) return;
+        figure.scrollIntoView?.({block: "start", behavior: "auto"});
+        image.setAttribute("src", image.dataset.gif);
+        button.setAttribute("aria-pressed", "true");
+        button.textContent = "Остановить";
+        button.setAttribute("aria-label", "Остановить GIF: " + title);
+      };
+    }
     const helpImageDialog = document.createElement("dialog");
     helpImageDialog.className = "helpImageDialog";
     helpImageDialog.setAttribute("aria-label", "Изображение из справки");
@@ -2890,6 +2919,7 @@
       };
     }
     $("helpSearch").oninput = event => {
+      stopHelpAnimations();
       const query = event.target.value.trim().toLocaleLowerCase("ru-RU");
       const sections = [...$("helpModal").querySelectorAll(".helpGuide")];
       let visible = 0;

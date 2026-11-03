@@ -51,6 +51,59 @@ test("все разделы справки иллюстрированы, сни�
   assert.equal(s.w.document.activeElement, trigger);
   s.dom.window.close();
 });
+test("GIF справки запускаются по запросу, играют по одной и останавливаются при закрытии", async () => {
+  const s = await setup();
+  s.$("helpTip").focus();
+  s.$("helpTip").click();
+  const figures = [...s.$("helpNavigate").querySelectorAll(".helpGif")];
+  assert.equal(figures.length, 5);
+  const players = figures.map(figure => ({
+    button: figure.querySelector(".helpGifButton"),
+    image: figure.querySelector("img"),
+    poster: figure.querySelector("img").getAttribute("src"),
+  }));
+  for (const {button, image, poster} of players) {
+    assert.equal(button.getAttribute("aria-pressed"), "false");
+    assert.match(poster, /\.jpg$/);
+    assert.match(image.dataset.gif, /\.gif$/);
+  }
+  const [first, second] = players;
+  let firstScrolls = 0;
+  figures[0].scrollIntoView = options => {
+    firstScrolls++;
+    assert.equal(options.block, "start");
+    assert.equal(options.behavior, "auto");
+  };
+  first.button.focus();
+  first.button.click();
+  assert.equal(first.image.getAttribute("src"), first.image.dataset.gif);
+  assert.equal(first.button.getAttribute("aria-pressed"), "true");
+  assert.equal(s.w.document.activeElement, first.button);
+  assert.equal(firstScrolls, 1);
+  second.button.click();
+  assert.equal(first.image.getAttribute("src"), first.poster);
+  assert.equal(first.button.getAttribute("aria-pressed"), "false");
+  assert.equal(firstScrolls, 1);
+  assert.equal(second.image.getAttribute("src"), second.image.dataset.gif);
+  second.button.click();
+  assert.equal(second.image.getAttribute("src"), second.poster);
+  second.button.click();
+  assert.equal(second.image.getAttribute("src"), second.image.dataset.gif);
+  assert.equal(second.button.getAttribute("aria-pressed"), "true");
+  first.button.click();
+  s.$("btnCloseHelp").click();
+  assert.equal(first.image.getAttribute("src"), first.poster);
+  assert.equal(first.button.getAttribute("aria-pressed"), "false");
+  assert.equal(s.w.document.activeElement, s.$("helpTip"));
+  s.$("helpTip").click();
+  assert.equal(players.every(player => player.button.getAttribute("aria-pressed") === "false"), true);
+  second.button.click();
+  s.$("helpSearch").value = "неттакогослова";
+  s.$("helpSearch").dispatchEvent(new s.w.Event("input", {bubbles:true}));
+  assert.equal(second.image.getAttribute("src"), second.poster);
+  assert.equal(second.button.getAttribute("aria-pressed"), "false");
+  s.dom.window.close();
+});
 test("разделители остаются доступными и раскрывают соседние блоки с клавиатуры", async () => {
   const s = await setup();
   for (const [upper, lower, splitter] of [
