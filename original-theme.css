@@ -605,6 +605,9 @@
 .cableLengthDialog .btnRow { margin-top:10px; }
 .cableSettingsDialog { max-height:85dvh; overflow:auto; }
 .cableSettingsDialog .field { margin:6px 0; }
+#btnActionLog { position:fixed; right:8px; bottom:8px; z-index:20; display:grid; place-items:center; width:28px; height:28px; min-height:0; padding:0; }
+#actionLog { width:min(560px, calc(100vw - 32px)); max-width:none; }
+#actionLogEntries { max-height:55vh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
 .helpTopics { display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:16px; }
 .helpTopics a { color:#a9c9ff; }
 .helpGuide { padding:12px 0; border-top:1px solid #26364c; }

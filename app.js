@@ -66,7 +66,52 @@
         (v) => v.id === ref.portId,
       );
     };
+  const recentActions = [];
+  let lastLoggedState;
+  function updateActionLog() {
+    if ($("actionLog")?.open) $("actionLogEntries").textContent = recentActions.join("\n");
+  }
+  function recordAction(message) {
+    recentActions.unshift(new Date().toLocaleTimeString("ru-RU") + "  " + message);
+    updateActionLog();
+  }
+  function logProjectChanges() {
+    const nodeLabel = id => {
+      const node = p.nodes.find(item => item.id === id);
+      return node ? `«${node.name}» [${id}]` : id;
+    };
+    const indexed = items => Object.fromEntries(items.map(item => [item.id, item]));
+    const nodes = Object.fromEntries(p.nodes.map(node => [node.id, {
+      ...node, inputs: indexed(node.inputs), outputs: indexed(node.outputs),
+      расчёт: calc.nodes.get(node.id),
+      расчётПортов: Object.fromEntries(node.outputs.map(out => [out.id, calc.ports.get(out.id)])),
+      активныйВвод: calc.activeInputs.get(node.id)?.id,
+    }]));
+    const links = indexed(p.links.map(link => {
+      const out = port(link.from), inlet = port(link.to);
+      const cable = E.cableParameters(link, out, inlet);
+      return {...link, трасса: `${nodeLabel(link.from.nodeId)} → ${nodeLabel(link.to.nodeId)}`,
+        профиль: cable, расчёт: E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA)};
+    }));
+    const snapshot = JSON.parse(JSON.stringify({метаданные:p.meta, настройки:p.settings, модули:nodes, линии:links}));
+    const lines = [];
+    const format = value => value === undefined ? "—" : JSON.stringify(value);
+    function compare(before, after, path) {
+      if (before === after) return;
+      if (before && after && typeof before === "object" && typeof after === "object") {
+        for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+          const label = path === "модули" ? `«${after[key]?.name ?? before[key]?.name}» [${key}]`
+            : path === "линии" ? `${after[key]?.трасса ?? before[key]?.трасса} [${key}]` : key;
+          compare(before[key], after[key], path ? path + " / " + label : label);
+        }
+      } else lines.push(`${path}: ${format(before)} → ${format(after)}`);
+    }
+    if (lastLoggedState) compare(lastLoggedState, snapshot, "");
+    lastLoggedState = snapshot;
+    if (lines.length) recordAction("Изменения проекта и расчёта\n" + lines.join("\n"));
+  }
   function notify(s) {
+    recordAction(s);
     if (E.overloadOrigins(p, calc).length) { announceOverloads(); return; }
     $("toast").dataset.kind = "info";
     $("toastMsg").textContent = s;
@@ -131,6 +176,7 @@
   function changed({ geometry = true, props = true } = {}) {
     if (p.settings.autoTrip) E.tripOverloads(p);
     calc = E.calculate(p);
+    logProjectChanges();
     announceOverloads();
     if (geometry) {
       routeCache.clear();
@@ -2367,6 +2413,21 @@
     });
   }
   function boot() {
+    const actionLog = $("actionLog");
+    $("btnActionLog").onclick = () => {
+      actionLog.showModal();
+      updateActionLog();
+    };
+    $("btnCloseActionLog").onclick = () => actionLog.close();
+    document.addEventListener("click", event => {
+      const button = event.target.closest?.("button");
+      if (!button || button.id === "btnActionLog" || actionLog.contains(button)) return;
+      const label = button.getAttribute("aria-label") || button.title || button.textContent.trim();
+      if (label) recordAction(label.replace(/\s+/g, " ").slice(0, 160));
+    }, true);
+    window.addEventListener("error", event => recordAction("Ошибка: " + (event.message || "ресурс недоступен")));
+    window.addEventListener("unhandledrejection", event => recordAction("Ошибка: " + (event.reason?.message || String(event.reason))));
+    recordAction("Редактор запущен");
     try {
       const raw = localStorage.getItem(SESSION);
       if (raw) {
@@ -2402,6 +2463,7 @@
     renderProps();
     renderNavigator();
     updateStatus();
+    logProjectChanges();
     initPointers();
     $("btnBack").onclick = () => historyBack();
     $("btnSave").onclick = () => {
@@ -2474,11 +2536,33 @@
           lengthInput.setCustomValidity(error);
           if (error) warnings.unshift(error);
           const draftProject = {...p, links: p.links.map(item => item === link ? draft : item)};
-          const receiving = E.calculate(draftProject).nodes.get(link.to.nodeId);
+          const receivingAt = length => {
+            draft.cable.lengthM = length;
+            return E.calculate(draftProject).nodes.get(link.to.nodeId);
+          };
+          const receiving = receivingAt(cable.lengthM);
           if (receiving.voltagePowerDeficit) {
             const required = (E.sum(receiving.loadW) / 1000).toFixed(2);
             const available = (receiving.availableWatts / 1000).toFixed(2);
-            warnings.unshift(`Из-за падения напряжения доступно ${available} кВт при нагрузке ${required} кВт. Увеличьте сечение, сократите длину трассы или снизьте нагрузку.`);
+            warnings.unshift(`Из-за падения напряжения доступно ${available} кВт при нагрузке ${required} кВт.`);
+          }
+          if (estimate?.dropV > 0 && (receiving.voltagePowerDeficit || estimate.dropV >
+              p.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1) * cable.maxDropPercent / 100)) {
+            const voltage = p.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
+            let low = 0;
+            let high = Math.min(cable.lengthM, cable.lengthM * voltage * cable.maxDropPercent / (100 * estimate.dropV));
+            const atLimit = receivingAt(high);
+            if (E.sum(atLimit.loadW) <= atLimit.availableWatts + 1e-8) low = high;
+            for (let i = 0; i < 32 && low < high; i++) {
+              const middle = (low + high) / 2;
+              const node = receivingAt(middle);
+              if (E.sum(node.loadW) <= node.availableWatts + 1e-8) low = middle;
+              else high = middle;
+            }
+            const limit = Math.floor(low * 100) / 100;
+            warnings.unshift(limit >= 0.01
+              ? `Максимальная длина этой трассы при текущей нагрузке: ${limit.toLocaleString("ru-RU")} м.`
+              : "При текущей нагрузке допустимой длины для этой трассы нет.");
           }
         }
       }

@@ -1053,7 +1053,9 @@
           (PAD - nr.left) * dpr,
           (PAD - nr.top) * dpr,
         );
-        paintNode(ctx, n, calc.nodes.get(n.id), {
+        const power = calc.nodes.get(n.id);
+        r.canvas.style.filter = power.connected && !power.powered ? "brightness(0.55)" : "";
+        paintNode(ctx, n, power, {
           project,
           selected: selection.has(n.id),
           hover,
