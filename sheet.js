@@ -20,7 +20,9 @@
     };
     const gap=5*mm,sideWidth=stamp.x-frame.x-3*gap;
     const side=sideWidth>=70*mm;
-    const notesWidth=Math.min(125*mm,side?sideWidth:frame.w-2*gap);
+    // A3 is the reference size; smaller sheets shrink the entire notes block.
+    const notesScale=Math.min(1,(Math.min(pw,ph)/(297*mm)) ** 2);
+    const notesWidth=Math.min(125*mm*notesScale,side?sideWidth:frame.w-2*gap);
     const h=notesWidth*4/5;
     const notes={x:frame.x+gap,y:side?frame.y+frame.h-gap-h:stamp.y-gap-h,
       w:notesWidth,h,requiredHeight:(76+Math.max(0,S.summary(p).points.length-1)*5.5)*mm,narrow:false};
@@ -142,7 +144,7 @@
     if (p.meta.revision)
       fit(p.meta.revision, b.x + 176 * mm, b.y + 11 * mm, 8 * mm, 2.5);
     lines(
-      p.meta.name + " — Схема электрическая однолинейная",
+      p.meta.drawingTitle || p.meta.name + " — Схема электрическая однолинейная",
       b.x + 67 * mm,
       b.y + 20 * mm,
       66 * mm,
@@ -258,7 +260,7 @@
       return;
     }
     c.strokeRect(n.x, n.y, n.w, n.h);
-    const u = Math.min(1, n.h / n.requiredHeight),
+    const u = Math.min(1, n.w / (125 * mm), n.h / n.requiredHeight),
       W = n.w / mm / u - 8;
     const X = (x) => n.x + x * mm * u,
       Y = (y) => n.y + y * mm * u;

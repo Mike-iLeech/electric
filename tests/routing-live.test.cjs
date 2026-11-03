@@ -130,14 +130,14 @@ test("при диагональном движении модуль скольз
     b = E.makeNode(t, { x: 500, y: 0 });
   p.nodes = [a, b];
   const delta = E.slideGroup(p, [a.id], 300, 60);
-  assert.equal(delta.x, 130);
+  assert.equal(delta.x, 500 - E.nodeWidth(a) - 16);
   assert.equal(delta.y, 60);
   assert.ok(!E.overlaps(E.rect(a), E.rect(b), 16));
   for (let i = 0; i < 5; i++) E.slideGroup(p, [a.id], 20, 10);
   assert.equal(a.pos.y, 110);
-  assert.equal(a.pos.x, 130);
+  assert.equal(a.pos.x, 500 - E.nodeWidth(a) - 16);
   E.slideGroup(p, [a.id], -20, 0);
-  assert.equal(a.pos.x, 110);
+  assert.equal(a.pos.x, 500 - E.nodeWidth(a) - 36);
 });
 test("быстрый перенос не проходит сквозь препятствие", () => {
   const p = E.project(),
@@ -153,7 +153,7 @@ test("быстрый перенос не проходит сквозь преп�
     b = E.makeNode(t, { x: 500, y: 0 });
   p.nodes = [a, b];
   E.slideGroup(p, [a.id], 1500, 0);
-  assert.equal(a.pos.x, 130);
+  assert.equal(a.pos.x, 500 - E.nodeWidth(a) - 16);
 });
 test("свободный порт не рисует вывод за пределами модуля", () => {
   const p = E.project(),

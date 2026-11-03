@@ -207,18 +207,22 @@
       const offsets = [0,-24,24,-48,48,-72,72];
       for(const mid of offsets.flatMap(offset => [lead+offset,entry+offset]).filter(x=>x>start.x && x<end.x))
         candidates.push([start,{x:mid,y:start.y},{x:mid,y:end.y},end]);
+      const laneYs = new Set();
       for(const y of [b.routeTop-35-i*10,...rects.flatMap(r=>[r.y-20-i*8,r.y+r.h+20+i*8])]) {
         for (const offset of offsets)
-          {
-            const laneY = Math.round(y / 24) * 24 + offset;
-            candidates.push([start,{x:lead,y:start.y},{x:lead,y:laneY},{x:entry,y:laneY},{x:entry,y:end.y},end]);
-          }
+          if (Number.isFinite(y)) laneYs.add(Math.round(y / 24) * 24 + offset);
       }
+      for (const laneY of laneYs)
+        candidates.push([start,{x:lead,y:start.y},{x:lead,y:laneY},{x:entry,y:laneY},{x:entry,y:end.y},end]);
       const length=points=>points.slice(1).reduce((sum,b,i)=>sum+Math.abs(b.x-points[i].x)+Math.abs(b.y-points[i].y)+15,0);
-      const best = candidates.filter(clear).map(points => {
+      let best;
+      for (const points of candidates.sort((a,b)=>length(a)-length(b))) {
+        if (!clear(points)) continue;
         const route = runs(points);
-        return {points, route, overlap:overlap(route), length:length(points)};
-      }).sort((a,b)=>a.overlap-b.overlap || a.length-b.length)[0];
+        const penalty = overlap(route);
+        if (!best || penalty < best.penalty) best = {points, route, penalty};
+        if (penalty === 0) break;
+      }
       const points = best?.points;
       if(!points)throw Error('Не найден маршрут печатной схемы: '+l.id);
       for (const run of best.route) {

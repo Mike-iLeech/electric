@@ -458,6 +458,14 @@
         for (const key of ["loopOhm","earthOhm","rcdMa","residualMa","measuredTripSeconds","targetSeconds","startA","startSeconds","starts","pauseSeconds","coolingSeconds"])
           if (settings[key] !== undefined) finite(settings[key], 0, 1000000, "Параметр защиты: " + key);
       }
+      if (l.manualRoute !== undefined) {
+        if (!Array.isArray(l.manualRoute) || l.manualRoute.length < 2 || l.manualRoute.length > 512)
+          throw Error("Неверная трасса кабеля");
+        for (const point of l.manualRoute) {
+          finite(point?.x, -1e8, 1e8, "Координата трассы X");
+          finite(point?.y, -1e8, 1e8, "Координата трассы Y");
+        }
+      }
       if (l.cable !== undefined) {
         if (!l.cable || typeof l.cable !== "object" || Array.isArray(l.cable)) throw Error("Неверные параметры кабеля");
         const {lengthM, sectionMm2, ampacityA, material} = l.cable;
@@ -900,16 +908,16 @@
     return 43+(label.length*5.5+16)+(phase?6+23:0);
   }
   function nodeWidth(n){
-    if(!n.inputs.length||!n.outputs.length)return 354;
+    if(!n.inputs.length||!n.outputs.length)return 360;
     const input=Math.max(...n.inputs.map(v=>portBodyWidth(n,v)+38*(Number(!!v.breaker)+Number(!!n.mainBreaker))));
     const output=Math.max(...n.outputs.map(v=>portBodyWidth(n,v)+(v.breaker?38:0)));
-    return Math.max(354,Math.ceil((input+output+60)/20)*20);
+    return Math.max(360,Math.ceil((input+output+60)/24)*24);
   }
   function nodeHeight(n) {
     return (
       (n.category === "consumer" ? 180 : 132) +
-      Math.max(1, n.inputs.length, n.outputs.length) * 44 +
-      80
+      Math.max(1, n.inputs.length, n.outputs.length) * 48 +
+      84
     );
   }
   function overlaps(a, b, gap = 16) {
@@ -921,12 +929,13 @@
     );
   }
   function placeNode(p, n) {
-    const original = { ...n.pos };
+    const snap = value => p.settings?.snapToGrid ? Math.round(value / 12) * 12 : value;
+    const original = { x:snap(n.pos.x), y:snap(n.pos.y) };
     for (let ring = 0; ring < 100; ring++) {
       for (let col = 0; col <= ring; col++) {
         n.pos = {
-          x: original.x + col * 440,
-          y: original.y + (ring - col) * (nodeHeight(n) + 64),
+          x: snap(original.x + col * 440),
+          y: snap(original.y + (ring - col) * (nodeHeight(n) + 64)),
         };
         if (
           !p.nodes.some(
@@ -1005,12 +1014,13 @@
     const r = rect(n),
       ports = v.kind === "in" ? n.inputs : n.outputs,
       i = ports.findIndex((p) => p.id === v.id);
+    const grid = coordinate => Math.round(coordinate / 12) * 12;
     return {
       x:
         v.kind === "in"
-          ? r.left + (v.connType.startsWith("terminal") ? 20 : 38)
-          : r.right - (v.connType.startsWith("terminal") ? 20 : 38),
-      y: r.top + (n.category === "consumer" ? 180 : 132) + i * 44,
+          ? grid(r.left + (v.connType.startsWith("terminal") ? 20 : 38))
+          : grid(r.right - (v.connType.startsWith("terminal") ? 20 : 38)),
+      y: grid(r.top + (n.category === "consumer" ? 180 : 132)) + i * 48,
     };
   }
   function routeWire(p, l, reserved = []) {

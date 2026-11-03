@@ -13,7 +13,7 @@
     const sizes = { a4: [210, 297], a3: [297, 420], a2: [420, 594], a1: [594, 841], a0: [841, 1189] },
       paper = sizes[options.paper] || (project.nodes.length > 60 ? sizes.a0 : project.nodes.length > 30 ? sizes.a1 : sizes.a3);
     const landscape =
-        options.paper !== "a4" && options.orientation !== "portrait",
+        options.orientation !== "portrait",
       pw = paper[landscape ? 1 : 0] * mm,
       ph = paper[landscape ? 0 : 1] * mm;
     const pages = groups.map((branch, i) => {

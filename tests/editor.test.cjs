@@ -7,6 +7,54 @@ const html = fs.readFileSync(
   require("node:path").join(__dirname, "../index.html"),
   "utf8",
 );
+test("справка открывается и поиск показывает подходящие разделы", async () => {
+  const s = await setup();
+  s.$("helpTip").click();
+  assert.equal(s.$("helpModal").getAttribute("aria-hidden"), "false");
+  const search = s.$("helpSearch");
+  search.value = "дисбаланс";
+  search.dispatchEvent(new s.w.Event("input", {bubbles:true}));
+  assert.equal(s.$("helpCalculations").hidden, false);
+  assert.equal(s.$("helpExport").hidden, true);
+  search.value = "неттакогослова";
+  search.dispatchEvent(new s.w.Event("input", {bubbles:true}));
+  assert.equal(s.$("helpNoResults").hidden, false);
+  search.value = "";
+  search.dispatchEvent(new s.w.Event("input", {bubbles:true}));
+  assert.equal(s.$("helpExport").hidden, false);
+  s.dom.window.close();
+});
+test("разделители остаются доступными и раскрывают соседние блоки с клавиатуры", async () => {
+  const s = await setup();
+  for (const [upper, lower, splitter] of [
+    ["projectBlock", "catalogBlock", "leftSidebarSplitter"],
+    ["outlinerBlock", "propsScroll", "sidebarSplitter"],
+  ]) {
+    const toggle = id => s.w.document.querySelector(`[aria-controls="${id}"]`);
+    toggle(upper).click();
+    toggle(lower).click();
+    assert.equal(s.$(upper).hidden, true);
+    assert.equal(s.$(lower).hidden, true);
+    assert.equal(s.$(splitter).hidden, false);
+    s.$(splitter).dispatchEvent(new s.w.KeyboardEvent("keydown", {code: "ArrowDown", bubbles: true}));
+    assert.equal(s.$(upper).hidden, false);
+    assert.equal(s.$(lower).hidden, false);
+    assert.equal(toggle(upper).getAttribute("aria-expanded"), "true");
+    assert.equal(toggle(lower).getAttribute("aria-expanded"), "true");
+  }
+  s.w.close();
+});
+test("каталог группирует содержимое каждой ветки внутри отдельной направляющей", async () => {
+  const s = await setup();
+  const branches = [...s.$("catalog").querySelectorAll("details")];
+  assert.ok(branches.length > 1);
+  for (const branch of branches) {
+    assert.equal(branch.firstElementChild.tagName, "SUMMARY");
+    assert.ok(branch.children[1].classList.contains("catalogChildren"));
+    assert.ok(branch.children[1].children.length > 0);
+  }
+  s.w.close();
+});
 async function setup(session) {
   const dom = new JSDOM(html, {
     url: "https://electric.example/",
@@ -156,10 +204,27 @@ test("экспорт показывает настройки листов и р�
     panel.querySelector('[aria-label="Лист превью"]').options.length,
     2,
   );
-  const orientation = panel.querySelector('[aria-label="Ориентация"]');
-  orientation.value = "portrait";
-  orientation.dispatchEvent(new s.w.Event("change"));
+  panel.querySelector('[data-orientation="portrait"]').click();
   assert.equal(s.state().project.meta.exportSettings.orientation, "portrait");
+  const title = panel.querySelector('[aria-label="Название детали"]');
+  title.value = "Вводной щит";
+  title.dispatchEvent(new s.w.Event("change"));
+  assert.equal(s.state().project.meta.drawingTitle, "Вводной щит");
+  assert.ok(panel.querySelector('.exportPreview .exportSlider input[aria-label="Масштаб схемы"]'));
+  assert.ok(panel.querySelector('.exportPreview .exportSlider input[aria-label^="Компоновка"]'));
+  const preview = panel.querySelector(".exportPreviewFrame");
+  panel.querySelector('[aria-label="Увеличить предпросмотр"]').click();
+  assert.equal(preview.querySelector("output").textContent, "125%");
+  assert.match(preview.querySelector("img").style.transform, /scale\(1\.25\)/);
+  panel.querySelector('[aria-label="Показать весь лист"]').click();
+  assert.equal(preview.querySelector("output").textContent, "100%");
+  const paper = panel.querySelector('[aria-label="Формат листа"]');
+  paper.value = "a4";
+  paper.dispatchEvent(new s.w.Event("change"));
+  const landscape = panel.querySelector('[data-orientation="landscape"]');
+  assert.equal(landscape.disabled, false);
+  landscape.click();
+  assert.equal(s.state().project.meta.exportSettings.orientation, "landscape");
   assert.equal(s.state().undo, 0);
   s.dom.window.close();
 });
@@ -253,8 +318,11 @@ test("ренейм не засоряет историю и русское имя
   s.change("projectName", "Мой щит");
   s.$("btnExport").click();
   [...s.w.document.querySelectorAll(".schemeExport button")]
-    .find((b) => b.textContent === "Проект JSON")
+    .find((b) => b.getAttribute("aria-label") === "Сохранить проект JSON")
     .click();
+  assert.equal(filename, "Мой щит.json");
+  filename = null;
+  s.$("btnDownloadProject").click();
   assert.equal(filename, "Мой щит.json");
   s.dom.window.close();
 });
@@ -633,7 +701,9 @@ test("во время переноса провода видны, меняютс
   assert.notEqual(get(active).getAttribute("d"), activeD);
   assert.equal(after.staticPaints, before.staticPaints);
   assert.equal(after.modulePaints, before.modulePaints);
-  assert.equal(after.wireUpdates, before.wireUpdates + 20);
+  // Несколько движений могут попасть в одну ячейку сетки и не менять путь.
+  assert.ok(after.wireUpdates > before.wireUpdates);
+  assert.ok(after.wireUpdates <= before.wireUpdates + 20);
   s.pointer("pointerup", 1000, -10);
   s.flush();
   assert.equal(s.state().undo, 1);

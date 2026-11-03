@@ -448,7 +448,7 @@
           x: centerPoint.x + o.x * step,
           y: centerPoint.y + o.y * step,
         };
-        if (p.settings.snapToGrid) { n.pos.x = Math.round(n.pos.x / 24) * 24; n.pos.y = Math.round(n.pos.y / 24) * 24; }
+        if (p.settings.snapToGrid) { n.pos.x = Math.round(n.pos.x / 12) * 12; n.pos.y = Math.round(n.pos.y / 12) * 12; }
         const box = E.rect(n);
         if (
           box.left >= bounds.left + 12 / v.zoom &&
@@ -481,7 +481,7 @@
       anchor = node(ids[0]),
       origin = drag.positions.get(ids[0]),
       beforePositions = new Map(ids.map((id) => [id, { ...node(id).pos }]));
-    const snap = v => p.settings.snapToGrid ? Math.round(v / 24) * 24 : v;
+    const snap = v => p.settings.snapToGrid ? Math.round(v / 12) * 12 : v;
     const dx = snap(origin.x + drag.target.x - drag.start.x) - anchor.pos.x,
       dy = snap(origin.y + drag.target.y - drag.start.y) - anchor.pos.y;
     drag.target = null;
@@ -626,7 +626,7 @@
       };
       ctx.lineWidth = 1 / p.view.zoom;
       ctx.strokeStyle = "rgba(70,95,140,.18)";
-      const step = p.view.zoom < 0.3 ? 120 : 24;
+      const step = p.view.zoom < 0.3 ? 120 : 12;
       ctx.beginPath();
       for (
         let x = Math.floor(visible.left / step) * step;
@@ -1276,7 +1276,12 @@
       });
       row.append(b);
       parent.append(branch);
-      for (const id of ids) appendNode(node(id), branch);
+      if (ids.length) {
+        const children = document.createElement("div");
+        children.className = "outlinerChildren";
+        branch.append(children);
+        for (const id of ids) appendNode(node(id), children);
+      }
     };
     for (const n of p.nodes.filter(n => !incoming.has(n.id))) appendNode(n, tree);
     for (const n of p.nodes) if (!visited.has(n.id)) appendNode(n, tree);
@@ -1340,7 +1345,10 @@
         });
         summary.textContent = name + " · " + count(child);
         d.append(summary);
-        append(d, child, next);
+        const children = document.createElement("div");
+        children.className = "catalogChildren";
+        append(children, child, next);
+        d.append(children);
         parent.append(d);
       }
       for (const t of branch.items.sort(
@@ -1358,11 +1366,14 @@
           t.inA +
           "A</span>";
         if (!custom.includes(t)) {
-          parent.append(el);
+          const row = document.createElement("div");
+          row.className = "catalogItem";
+          row.append(el);
+          parent.append(row);
           continue;
         }
         const row = document.createElement("div");
-        row.className = "customCatalogRow";
+        row.className = "catalogItem customCatalogRow";
         const remove = button("×", () => {
           if (!confirm("Удалить шаблон «" + t.name + "» из каталога?")) return;
           const next = custom.filter(template => template !== t);
@@ -1419,22 +1430,85 @@
       separateBranches: false,
       ...p.meta.exportSettings,
     };
-    if (drawingOptions.paper === "a4") drawingOptions.orientation = "portrait";
-    let pagePlans = ElectricExport.plans(p, drawingOptions),
-      selectedPage = 0,
-      canvas = ElectricExport.pageCanvas(pagePlans[0], 120);
+    let pagePlans, selectedPage = 0;
     const backdrop = document.createElement("div");
     backdrop.className = "schemeExport";
     const panel = document.createElement("section"),
       title = document.createElement("h2"),
       image = document.createElement("img"),
       actions = document.createElement("div");
+    const header = document.createElement("div"),
+      preview = document.createElement("div"),
+      previewFrame = document.createElement("div"),
+      stampFields = document.createElement("div");
+    header.className = "exportHeader";
+    actions.className = "exportActions";
+    preview.className = "exportPreview";
+    previewFrame.className = "exportPreviewFrame";
+    previewFrame.setAttribute("aria-label", "Предпросмотр листа: колесо мыши — масштаб, перетаскивание — панорама");
+    stampFields.className = "exportStampFields";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
     panel.setAttribute("aria-label", "Экспорт схемы");
     title.textContent = "Превью экспорта схемы";
     image.alt = "Вся электрическая схема для экспорта";
-    image.src = canvas.toDataURL("image/png");
+    image.draggable = false;
+    let previewZoom = 1, previewX = 0, previewY = 0, previewDrag = null, previewDetailTimer = null, previewDetailed = false;
+    const zoomBar = document.createElement("div"), zoomValue = document.createElement("output");
+    zoomBar.className = "exportPreviewControls";
+    zoomBar.setAttribute("aria-label", "Масштаб предпросмотра");
+    const applyPreviewView = () => {
+      image.style.transform = `translate(${previewX}px, ${previewY}px) scale(${previewZoom})`;
+      zoomValue.textContent = Math.round(previewZoom * 100) + "%";
+    };
+    const setPreviewZoom = (next, px = 0, py = 0) => {
+      const zoom = Math.max(1, Math.min(8, next));
+      const factor = zoom / previewZoom;
+      previewX = px - (px - previewX) * factor;
+      previewY = py - (py - previewY) * factor;
+      previewZoom = zoom;
+      if (zoom === 1) previewX = previewY = 0;
+      applyPreviewView();
+      clearTimeout(previewDetailTimer);
+      if (zoom > 1 && !previewDetailed) previewDetailTimer = setTimeout(() => {
+        if (!backdrop.isConnected) return;
+        const canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 120);
+        image.src = canvas.toDataURL("image/png");
+        previewDetailed = true;
+      }, 250);
+    };
+    for (const [label, caption, action] of [
+      ["Уменьшить предпросмотр", "−", () => setPreviewZoom(previewZoom / 1.25)],
+      ["Увеличить предпросмотр", "+", () => setPreviewZoom(previewZoom * 1.25)],
+      ["Показать весь лист", "⛶", () => setPreviewZoom(1)],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "btn"; button.textContent = caption;
+      button.title = label; button.setAttribute("aria-label", label); button.onclick = action;
+      zoomBar.append(button);
+    }
+    zoomValue.setAttribute("aria-live", "polite");
+    zoomBar.insertBefore(zoomValue, zoomBar.lastChild);
+    previewFrame.onwheel = event => {
+      event.preventDefault();
+      const r = previewFrame.getBoundingClientRect();
+      setPreviewZoom(previewZoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2), event.clientX - (r.left + r.width / 2), event.clientY - (r.top + r.height / 2));
+    };
+    previewFrame.onpointerdown = event => {
+      if (event.target.closest("button")) return;
+      event.preventDefault();
+      previewDrag = {x:event.clientX, y:event.clientY, panX:previewX, panY:previewY};
+      previewFrame.setPointerCapture(event.pointerId);
+      previewFrame.classList.add("isPanning");
+    };
+    previewFrame.onpointermove = event => {
+      if (!previewDrag) return;
+      previewX = previewDrag.panX + event.clientX - previewDrag.x;
+      previewY = previewDrag.panY + event.clientY - previewDrag.y;
+      applyPreviewView();
+    };
+    previewFrame.onpointerup = previewFrame.onpointercancel = () => { previewDrag = null; previewFrame.classList.remove("isPanning"); };
+    applyPreviewView();
     const close = () => {
       backdrop.remove();
       $("btnExport").focus();
@@ -1468,16 +1542,23 @@
         1,
       );
     };
-    for (const [label, action] of [
-      ["PNG", () => downloadRaster("png", "image/png")],
-      ["JPG", () => downloadRaster("jpg", "image/jpeg")],
-      ["PDF", () => download(ElectricExport.pdf(p, drawingOptions), "pdf")],
-      ["Проект JSON", exportProject],
-      ["Закрыть", close],
+    for (const [label, glyph, action] of [
+      ["Сохранить PNG", "PNG", () => downloadRaster("png", "image/png")],
+      ["Сохранить JPG", "JPG", () => downloadRaster("jpg", "image/jpeg")],
+      ["Сохранить PDF", "PDF", () => download(ElectricExport.pdf(p, drawingOptions), "pdf")],
+      ["Сохранить проект JSON", "{}", exportProject],
+      ["Закрыть", "×", close],
     ]) {
       const button = document.createElement("button");
-      button.className = "btn";
-      button.textContent = label;
+      button.className = "btn exportIconButton";
+      if (glyph !== "×") button.dataset.format = glyph === "{}" ? "json" : glyph.toLowerCase();
+      if (label === "Закрыть") button.textContent = glyph;
+      else {
+        button.innerHTML = '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 2h9l5 5v15H5zM14 2v5h5"/></svg><span class="exportIconBadge"></span>';
+        button.querySelector("span").textContent = glyph;
+      }
+      button.title = label;
+      button.setAttribute("aria-label", label);
       button.onclick = action;
       actions.append(button);
     }
@@ -1489,16 +1570,9 @@
     sheetSelect.setAttribute("aria-label", "Лист превью");
     sheetLabel.append(sheetSelect);
     function refreshDrawing() {
-      const orientationControl = fields.querySelector(
-        '[aria-label="Ориентация"]',
-      );
-      if (orientationControl) {
-        orientationControl.options[0].disabled = drawingOptions.paper === "a4";
-        if (drawingOptions.paper === "a4") {
-          drawingOptions.orientation = "portrait";
-          orientationControl.value = "portrait";
-        }
-      }
+      fields.querySelectorAll("[data-orientation]").forEach(button => {
+        button.setAttribute("aria-pressed", String(button.dataset.orientation === drawingOptions.orientation));
+      });
       pagePlans = ElectricExport.plans(p, drawingOptions);
       selectedPage = Math.min(selectedPage, pagePlans.length - 1);
       sheetSelect.replaceChildren(
@@ -1514,14 +1588,19 @@
         }),
       );
       sheetSelect.value = selectedPage;
-      canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 120);
+      const canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 85);
+      clearTimeout(previewDetailTimer);
+      previewDetailed = false;
       image.src = canvas.toDataURL("image/png");
+      if (previewZoom > 1) setPreviewZoom(previewZoom);
     }
     sheetSelect.onchange = () => {
       selectedPage = Number(sheetSelect.value);
       refreshDrawing();
     };
     for (const [key, label, type, initial] of [
+      ["drawingTitle", "Название детали", "text", p.meta.drawingTitle || ""],
+      ["designation", "Обозначение", "text", p.meta.designation || ""],
       ["designer", "Проектировщик", "text", p.meta.designer || ""],
       [
         "drawingDate",
@@ -1535,10 +1614,12 @@
       wrapper.textContent = label;
       input.type = type;
       input.value = initial;
+      if (key === "drawingTitle") input.placeholder = p.meta.name + " — Схема электрическая однолинейная";
+      if (key === "designation") input.placeholder = "Э3";
       input.maxLength = 120;
       input.setAttribute("aria-label", label);
       wrapper.append(input);
-      fields.append(wrapper);
+      stampFields.append(wrapper);
       input.onchange = () => {
         p.meta[key] = input.value.trim();
         dirty = true;
@@ -1557,14 +1638,6 @@
           ["a2", "A2"],
           ["a1", "A1"],
           ["a0", "A0"],
-        ],
-      ],
-      [
-        "orientation",
-        "Ориентация",
-        [
-          ["landscape", "Альбомная"],
-          ["portrait", "Книжная"],
         ],
       ],
     ]) {
@@ -1589,6 +1662,28 @@
         refreshDrawing();
       };
     }
+    const orientation = document.createElement("div");
+    orientation.className = "exportOrientation";
+    orientation.setAttribute("role", "group");
+    orientation.setAttribute("aria-label", "Ориентация");
+    orientation.append(document.createTextNode("Ориентация"));
+    const orientationButtons = document.createElement("div");
+    for (const [value, label] of [["portrait", "Книжная"], ["landscape", "Альбомная"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn";
+      button.dataset.orientation = value;
+      button.textContent = label;
+      button.onclick = () => {
+        drawingOptions.orientation = value;
+        p.meta.exportSettings = {...drawingOptions};
+        dirty = true; scheduleSave(); refreshDrawing();
+      };
+      orientationButtons.append(button);
+    }
+    orientation.append(orientationButtons);
+    fields.append(orientation);
+    const sliders = [];
     for (const [key,label,min,max,initial] of [
       ["scale","Масштаб схемы",25,100,100],
       ["layoutBalance","Компоновка: вертикаль ↔ горизонталь",25,200,100],
@@ -1596,7 +1691,8 @@
       const wrapper=document.createElement("label"), slider=document.createElement("input"),value=document.createElement("output");
       slider.type="range"; slider.min=min;slider.max=max;slider.step="1";slider.value=drawingOptions[key]||initial;
       slider.setAttribute("aria-label",label);value.textContent=slider.value+"%";
-      wrapper.append(document.createTextNode(label+" "),value,slider);fields.append(wrapper);
+      wrapper.className = "exportSlider";
+      wrapper.append(document.createTextNode(label),value,slider);sliders.push(wrapper);
       let frame=null;
       slider.oninput=()=>{
         value.textContent=slider.value+"%";drawingOptions[key]=slider.value;
@@ -1614,7 +1710,7 @@
         checkbox,
         document.createTextNode("Каждая ветка на отдельном листе"),
       );
-      wrapper.className = "branchPageToggle";
+      wrapper.className = "branchPageToggle exportSwitch";
       fields.append(wrapper);
       checkbox.onchange = () => {
         drawingOptions.separateBranches = checkbox.checked;
@@ -1626,7 +1722,7 @@
       };
     }
     const journalToggle = document.createElement("label");
-    journalToggle.className = "branchPageToggle";
+    journalToggle.className = "branchPageToggle exportSwitch";
     const journalCheckbox = document.createElement("input");
     journalCheckbox.type = "checkbox";
     journalCheckbox.checked = !!drawingOptions.cableJournal;
@@ -1636,17 +1732,17 @@
       p.meta.exportSettings = {...drawingOptions};
       dirty = true;
       scheduleSave();
-      selectedPage = 0;
+      selectedPage = journalCheckbox.checked ? Number.MAX_SAFE_INTEGER : 0;
       refreshDrawing();
     };
     fields.append(journalToggle, sheetLabel);
-    refreshDrawing();
-    const note = document.createElement("p");
-    note.textContent =
-      "Векторный PDF · рамка ЕСКД и штамп фиксированного размера. Масштаб меняет только схему. A4 — книжный; A3–A0 — обе ориентации. PNG/JPG — текущий лист, до 300 dpi.";
-    panel.append(title, note, fields, actions, image);
+    header.append(title, actions);
+    previewFrame.append(image, zoomBar);
+    preview.append(sliders[0], previewFrame, sliders[1]);
+    panel.append(header, fields, preview, stampFields);
     backdrop.append(panel);
     document.body.append(backdrop);
+    refreshDrawing();
     backdrop.onclick = (e) => {
       if (e.target === backdrop) close();
     };
@@ -1654,7 +1750,7 @@
       e.stopPropagation();
       if (e.key === "Escape") close();
       if (e.key === "Tab") {
-        const buttons = [...panel.querySelectorAll("input,select,button")],
+        const buttons = [...panel.querySelectorAll("input,select,button")].filter(el => !el.disabled),
           i = buttons.indexOf(document.activeElement);
         e.preventDefault();
         buttons[
@@ -1672,7 +1768,6 @@
     }
     try {
       const next = E.migrate(JSON.parse(await file.text()));
-      normalizeLayout(next);
       const before = serial();
       p = next;
       selection.clear();
@@ -1688,17 +1783,23 @@
       $("fileImport").value = "";
     }
   }
-  function normalizeLayout(target) {
-    const placed = [];
-    for (const n of target.nodes) {
-      E.placeNode({ ...target, nodes: placed }, n);
-      placed.push(n);
-    }
-  }
   function showPanel(which) {
     document.body.dataset.panel = which || "";
+    positionSidebarToggles();
     $("mobileShade").hidden = !which;
     requestDraw();
+  }
+  function positionSidebarToggles() {
+    for (const [side, breakpoint] of [["Left", 760], ["Right", 1250]]) {
+      const button = $("toggle" + side + "Sidebar");
+      const visible = window.innerWidth <= breakpoint
+        ? document.body.dataset.panel === side.toLowerCase()
+        : !$("app").classList.contains("hide" + side + "Sidebar");
+      button.setAttribute("aria-expanded", String(visible));
+      const label = (visible ? "Скрыть" : "Показать") + (side === "Left" ? " левую панель" : " правую панель");
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    }
   }
   function openModal(id) {
     lastFocus = document.activeElement;
@@ -2424,7 +2525,7 @@
       selection.size
     ) {
       e.preventDefault();
-      const step = p.settings.snapToGrid ? (e.shiftKey ? 120 : 24) : e.shiftKey ? 50 : 10;
+      const step = p.settings.snapToGrid ? (e.shiftKey ? 120 : 12) : e.shiftKey ? 50 : 10;
       const anchor = node([...selection][0]);
       const dx = code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0,
         dy = code === "ArrowUp" ? -step : code === "ArrowDown" ? step : 0;
@@ -2432,8 +2533,8 @@
         E.moveGroup(
           p,
           [...selection],
-          p.settings.snapToGrid ? Math.round((anchor.pos.x + dx) / 24) * 24 - anchor.pos.x : dx,
-          p.settings.snapToGrid ? Math.round((anchor.pos.y + dy) / 24) * 24 - anchor.pos.y : dy,
+          p.settings.snapToGrid ? Math.round((anchor.pos.x + dx) / 12) * 12 - anchor.pos.x : dx,
+          p.settings.snapToGrid ? Math.round((anchor.pos.y + dy) / 12) * 12 - anchor.pos.y : dy,
         ),
       );
     }
@@ -2477,19 +2578,22 @@
     window.addEventListener("error", event => recordAction("Ошибка: " + (event.message || "ресурс недоступен")));
     window.addEventListener("unhandledrejection", event => recordAction("Ошибка: " + (event.reason?.message || String(event.reason))));
     recordAction("Редактор запущен");
+    let fitInitialProject = false;
     try {
       const raw = localStorage.getItem(SESSION);
       if (raw) {
         try {
           p = E.migrate(JSON.parse(raw));
-          normalizeLayout(p);
         } catch (e) {
           const backup = localStorage.getItem(BACKUP);
           if (!backup) throw e;
           p = E.migrate(JSON.parse(backup));
           notify("Восстановлена резервная локальная сессия");
         }
-      } else p = window.ElectricDefaultProject.create();
+      } else {
+        p = window.ElectricDefaultProject.create();
+        fitInitialProject = true;
+      }
     } catch (e) {
       storageError = true;
       notify(
@@ -2514,7 +2618,6 @@
     updateStatus();
     logProjectChanges();
     initPointers();
-    $("btnBack").onclick = () => historyBack();
     $("btnSave").onclick = () => {
       save();
       notify(
@@ -2522,10 +2625,96 @@
       );
     };
     $("btnExport").onclick = exportScheme;
+    $("btnDownloadProject").onclick = exportProject;
     $("btnImport").onclick = () => $("fileImport").click();
     $("fileImport").onchange = (e) => importFile(e.target.files[0]);
     $("btnClear").onclick = clearProject;
     const cableSettings = $("cableSettingsDialog");
+    scene.onRouteDrag = (id, event) => {
+      if (drag) return;
+      ensureRoutes();
+      const link = p.links.find(item => item.id === id);
+      const path = routeCache.get(id);
+      if (!link || !path?.length) return;
+      const viewport = ws.getBoundingClientRect();
+      const start = toWorld({x:event.clientX - viewport.left, y:event.clientY - viewport.top});
+      const segments = ElectricRouting.segments(path);
+      const distance = ({a,b}) => Math.hypot(
+        start.x - Math.max(Math.min(a.x,b.x), Math.min(Math.max(a.x,b.x),start.x)),
+        start.y - Math.max(Math.min(a.y,b.y), Math.min(Math.max(a.y,b.y),start.y)),
+      );
+      let index = 0;
+      for (let i = 1; i < segments.length; i++)
+        if (distance(segments[i]) < distance(segments[index])) index = i;
+      const {a,b,h} = segments[index];
+      const reserved = [...routeCache].filter(([key]) => key !== id).map(([,route]) => route);
+      let preview = path;
+      return {
+        move(pointer) {
+          const screenDelta = h ? pointer.clientY - event.clientY : pointer.clientX - event.clientX;
+          if (Math.abs(screenDelta) < 3 && preview === path) return;
+          let delta = screenDelta / p.view.zoom;
+          if (p.settings.snapToGrid) delta = Math.round(delta / 12) * 12;
+          const shifted = point => h ? {x:point.x,y:point.y + delta} : {x:point.x + delta,y:point.y};
+          const stub = Math.min(20, Math.abs(b.x-a.x)/3);
+          const first = index === 0 ? {x:a.x+stub,y:a.y} : a;
+          const last = index === segments.length-1 ? {x:b.x-stub,y:b.y} : b;
+          const candidate = ElectricRouting.clean([...path.slice(0,index+1), first,
+            shifted(first), shifted(last), last, ...path.slice(index+1)]);
+          if (ElectricRouting.valid(p, link, candidate, reserved)) {
+            preview = delta ? candidate : path;
+            routeCache.set(id, preview);
+            requestDraw();
+          }
+        },
+        finish(save) {
+          routeCache.set(id, path);
+          if (save && preview !== path) {
+            if (transaction(() => { link.manualRoute = preview; }, {geometry:false}))
+              routeCache.set(id, preview);
+          }
+          requestDraw();
+        },
+      };
+    };
+    scene.onRouteReset = id => {
+      const link = p.links.find(item => item.id === id);
+      if (link?.manualRoute) transaction(() => { delete link.manualRoute; });
+    };
+    const rebuildRoutes = button("Перестроить все трассы", () => {
+      if (!p.links.length) return;
+      transaction(() => {
+        for (const link of p.links) delete link.manualRoute;
+      });
+      $("worldSettingsPopup").open = false;
+    });
+    rebuildRoutes.title = "Пересчитать маршруты всех кабелей и сбросить ручные изгибы";
+    const arrangeNodes = button("Авторасстановка модулей", () => {
+      if (!p.nodes.length) return;
+      const applied = transaction(() => {
+        const gap = 96;
+        const placed = [];
+        const ordered = [...p.nodes].sort((a, b) => a.pos.y - b.pos.y || a.pos.x - b.pos.x);
+        for (const node of ordered) {
+          let bounds = E.rect(node);
+          let obstacle;
+          while ((obstacle = placed.find(other =>
+            bounds.left < other.right + gap && bounds.right > other.left - gap &&
+            bounds.top < other.bottom + gap && bounds.bottom > other.top - gap))) {
+            const dx = obstacle.right + gap - bounds.left;
+            const dy = obstacle.bottom + gap - bounds.top;
+            const snapUp = value => p.settings.snapToGrid ? Math.ceil(value / 12) * 12 : value;
+            if (dx < dy) node.pos.x = snapUp(node.pos.x + dx);
+            else node.pos.y = snapUp(node.pos.y + dy);
+            bounds = E.rect(node);
+          }
+          placed.push(bounds);
+        }
+      });
+      if (applied) $("worldSettingsPopup").open = false;
+    });
+    arrangeNodes.title = "Раздвинуть модули там, где зазор меньше 96 единиц";
+    $("worldSettingsPopup").querySelector(".settingsPopover").append(rebuildRoutes, arrangeNodes);
     scene.onCableSettings = id => {
       if (!p.settings.advancedMode || !p.links.some(link => link.id === id)) return;
       cableSettings.dataset.linkId = id;
@@ -2660,6 +2849,20 @@
     };
     $("btnNewNode").onclick = () => openBuilder();
     $("helpTip").onclick = () => openModal("helpModal");
+    $("helpSearch").oninput = event => {
+      const query = event.target.value.trim().toLocaleLowerCase("ru-RU");
+      const sections = [...$("helpModal").querySelectorAll(".helpGuide")];
+      let visible = 0;
+      for (const section of sections) {
+        section.hidden = !!query && !section.textContent.toLocaleLowerCase("ru-RU").includes(query);
+        if (!section.hidden) visible++;
+      }
+      $("helpNoResults").hidden = visible > 0;
+      for (const link of $("helpModal").querySelectorAll(".helpTopics a")) {
+        const target = $(link.getAttribute("href").slice(1));
+        link.hidden = !target || target.hidden;
+      }
+    };
     for (const side of ["Left", "Right"]) {
       const b = $("toggle" + side + "Sidebar");
       $("app").classList.toggle("hide" + side + "Sidebar", !!uiPrefs["hide" + side]);
@@ -2676,25 +2879,77 @@
         const label = (hidden ? "Показать" : "Скрыть") + (side === "Left" ? " левую панель" : " правую панель");
         uiPrefs["hide" + side] = hidden; saveUI();
         b.title = label; b.setAttribute("aria-label", label); b.setAttribute("aria-expanded", !hidden);
+        positionSidebarToggles();
       };
     }
-    const splitter = $("sidebarSplitter");
+    positionSidebarToggles();
+    window.addEventListener("resize", positionSidebarToggles);
+    const blocks = ["projectBlock", "catalogBlock", "powerSummaryBody", "outlinerBlock", "propsScroll"];
+    const collapsed = new Set(Array.isArray(uiPrefs.collapsedSidebarBlocks) ? uiPrefs.collapsedSidebarBlocks : []);
+    const syncDividers = () => {
+      $("leftPanel").classList.toggle("catalogCollapsed", collapsed.has("catalogBlock"));
+      $("rightPanel").classList.toggle("propertiesCollapsed", collapsed.has("propsScroll"));
+    };
+    const blockSync = new Map();
+    for (const id of blocks) {
+      const body = $(id);
+      const title = body.previousElementSibling.querySelector(".title");
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "sidebarSectionToggle";
+      toggle.setAttribute("aria-controls", id);
+      toggle.textContent = title.textContent;
+      title.replaceChildren(toggle);
+      const sync = () => {
+        body.hidden = collapsed.has(id);
+        toggle.setAttribute("aria-expanded", String(!body.hidden));
+      };
+      blockSync.set(id, sync);
+      toggle.onclick = () => {
+        if (collapsed.has(id)) collapsed.delete(id);
+        else collapsed.add(id);
+        uiPrefs.collapsedSidebarBlocks = [...collapsed];
+        sync();
+        syncDividers();
+        saveUI();
+      };
+      sync();
+    }
+    syncDividers();
+    function bindSidebarSplitter(splitter, body, lowerId, panel, preference, minimum, reserve) {
+    const expandAdjacent = () => {
+      let changed = false;
+      for (const id of [body.id, lowerId]) {
+        if (collapsed.delete(id)) {
+          blockSync.get(id)();
+          changed = true;
+        }
+      }
+      if (changed) {
+        uiPrefs.collapsedSidebarBlocks = [...collapsed];
+        syncDividers();
+        saveUI();
+      }
+    };
     const setTreeHeight = value => {
-      const max = Math.max(100, $("rightPanel").getBoundingClientRect().height - 210);
-      const height = Math.max(100, Math.min(max, value));
-      $("outlinerBlock").style.height = height + "px";
-      uiPrefs.treeHeight = height; saveUI();
+      const max = Math.max(minimum, panel.getBoundingClientRect().height - reserve);
+      const height = Math.max(minimum, Math.min(max, value));
+      body.style.height = height + "px";
+      uiPrefs[preference] = height;
+      saveUI();
+      splitter.setAttribute("aria-valuemin", minimum);
       splitter.setAttribute("aria-valuemax", Math.round(max));
       splitter.setAttribute("aria-valuenow", Math.round(height));
     };
-    if (Number.isFinite(uiPrefs.treeHeight)) {
-      $("outlinerBlock").style.height = Math.max(100, uiPrefs.treeHeight) + "px";
-      splitter.setAttribute("aria-valuenow", Math.round(uiPrefs.treeHeight));
+    if (Number.isFinite(uiPrefs[preference])) {
+      body.style.height = Math.max(minimum, uiPrefs[preference]) + "px";
+      splitter.setAttribute("aria-valuenow", Math.round(uiPrefs[preference]));
     }
     let splitDrag = null;
     splitter.onpointerdown = e => {
       e.preventDefault();
-      splitDrag = {y:e.clientY, height:$("outlinerBlock").getBoundingClientRect().height};
+      expandAdjacent();
+      splitDrag = {y:e.clientY, height:body.getBoundingClientRect().height};
       splitter.setPointerCapture(e.pointerId);
     };
     splitter.onpointermove = e => { if(splitDrag) setTreeHeight(splitDrag.height + e.clientY - splitDrag.y); };
@@ -2702,10 +2957,14 @@
     splitter.onkeydown = e => {
       if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.code)) {
         e.preventDefault();
-        const height = $("outlinerBlock").getBoundingClientRect().height;
-        setTreeHeight(e.code === "Home" ? 100 : e.code === "End" ? 1e5 : height + (e.code === "ArrowDown" ? 24 : -24));
+        expandAdjacent();
+        const height = body.getBoundingClientRect().height;
+        setTreeHeight(e.code === "Home" ? minimum : e.code === "End" ? 1e5 : height + (e.code === "ArrowDown" ? 24 : -24));
       }
     };
+    }
+    bindSidebarSplitter($("sidebarSplitter"), $("outlinerBlock"), "propsScroll", $("rightPanel"), "treeHeight", 100, 240);
+    bindSidebarSplitter($("leftSidebarSplitter"), $("projectBlock"), "catalogBlock", $("leftPanel"), "projectHeight", 72, 150);
     $("btnCloseHelp").onclick = closeModal;
     $("btnCloseNodeModal").onclick = closeModal;
     $("overlay").onclick = closeModal;
@@ -2891,7 +3150,7 @@
       requestDraw();
     }).observe(ws);
     if (!localStorageAvailable()) storageError = true;
-    if (!p.view.panX && !p.view.panY) requestAnimationFrame(fitAll);
+    if (fitInitialProject) requestAnimationFrame(fitAll);
     else requestDraw();
     updateStatus();
   }
@@ -2902,11 +3161,6 @@
     } catch {
       return false;
     }
-  }
-  function historyBack() {
-    if (dirty) save();
-    if (window.history.length > 1) window.history.back();
-    else location.href = "/";
   }
   // Public read-only diagnostic snapshot for manual regression checks, without mutable state access.
   window.electricDiagnostics = () => ({

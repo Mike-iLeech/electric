@@ -1215,9 +1215,30 @@
         if (!record.hit) {
           const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
           hit.classList.add("cableHitArea");
+          hit.style.touchAction = "none";
           hit.setAttribute("vector-effect", "non-scaling-stroke");
-          hit.addEventListener("pointerdown", event => { if (event.button === 0) event.stopPropagation(); });
-          hit.addEventListener("pointerup", event => { if (event.button === 0) event.stopPropagation(); });
+          hit.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            event.stopPropagation();
+            hit.routeDrag = this.onRouteDrag?.(l.id, event);
+            if (hit.routeDrag) hit.setPointerCapture?.(event.pointerId);
+          });
+          hit.addEventListener("pointermove", event => hit.routeDrag?.move(event));
+          hit.addEventListener("pointerup", event => {
+            if (event.button !== 0) return;
+            event.stopPropagation();
+            hit.routeDrag?.finish(true);
+            hit.routeDrag = null;
+          });
+          hit.addEventListener("lostpointercapture", () => {
+            hit.routeDrag?.finish(false);
+            hit.routeDrag = null;
+          });
+          hit.addEventListener("contextmenu", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.onRouteReset?.(l.id);
+          });
           hit.addEventListener("dblclick", event => {
             event.stopPropagation();
             this.onCableEdit?.(l.id);
@@ -1225,7 +1246,6 @@
           record.el.append(hit);
           record.hit = hit;
         }
-        record.hit.style.display = project.settings.advancedMode ? "" : "none";
         if (key === record.key) continue;
         record.hit.setAttribute("d", d);
         record.halo.setAttribute("d", d);

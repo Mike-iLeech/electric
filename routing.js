@@ -10,7 +10,7 @@
   "use strict";
   const STEP = 12,
     CLEAR = 10,
-    LEAD = 28,
+    LEAD = 24,
     EPS = 1e-6;
   function clean(points) {
     const out = [];
@@ -459,6 +459,7 @@
     return [];
   }
   function routeOne(p, l, reserved = [], guide = null) {
+    if (l.manualRoute && valid(p, l, l.manualRoute, reserved)) return l.manualRoute;
     const plan = guide || groupPlans(p).get(l.id)?.guide;
     if (!plan) return [];
     const i = info(p, l),
@@ -494,6 +495,7 @@
         const x = plans.get(a.id),
           y = plans.get(b.id);
         return (
+          Number(Boolean(b.manualRoute)) - Number(Boolean(a.manualRoute)) ||
           (x?.a.pos.x ?? 0) - (y?.a.pos.x ?? 0) ||
           (x?.a.pos.y ?? 0) - (y?.a.pos.y ?? 0) ||
           (x?.a.id ?? "").localeCompare(y?.a.id ?? "") ||
@@ -537,7 +539,51 @@
           ]);
         }
       }
-      result.set(l.id, routeOne(p, l, [...result.values()], guide));
+      const reserved = [...result.values()];
+      let path = routeOne(p, l, reserved, guide);
+      if (path !== l.manualRoute) {
+        const snapped = clean(path.map(({x,y}) => ({
+          x: Math.round(x / STEP) * STEP,
+          y: Math.round(y / STEP) * STEP,
+        })));
+        if (snapped.length >= 2 && valid(p, l, snapped, reserved)) path = snapped;
+        // Fold a short step at either port into the main vertical run.
+        if (path.length === 6) {
+          const [start, firstBend, firstCorner, secondCorner, lastBend, end] = path;
+          const firstRise = Math.abs(firstBend.y - firstCorner.y);
+          const lastRise = Math.abs(secondCorner.y - lastBend.y);
+          if (Math.min(firstRise, lastRise) <= 2 * STEP) {
+            const lanes = firstRise <= lastRise
+              ? [secondCorner.x, firstBend.x]
+              : [firstBend.x, secondCorner.x];
+            for (const x of lanes) {
+              const candidate = clean([start, {x, y:start.y}, {x, y:end.y}, end]);
+              if (candidate.length >= 2 && valid(p, l, candidate, reserved)) {
+                path = candidate;
+                break;
+              }
+            }
+          }
+        }
+        for (let i = 1; i + 4 < path.length; i++) {
+          const [a, b, c, d] = path.slice(i, i + 4);
+          const vertical = a.x === b.x && c.x === d.x;
+          const along = vertical ? "y" : "x";
+          const across = vertical ? "x" : "y";
+          if (a[across] !== b[across] || c[across] !== d[across] ||
+              Math.abs(b[across] - c[across]) > 2 * STEP ||
+              (b[along] - a[along]) * (d[along] - c[along]) <= 0) continue;
+          for (const lane of [a[across], d[across]]) {
+            const candidate = clean([...path.slice(0, i), {...a, [across]:lane},
+              {...d, [across]:lane}, ...path.slice(i + 4)]);
+            if (!valid(p, l, candidate, reserved)) continue;
+            path = candidate;
+            i = 0;
+            break;
+          }
+        }
+      }
+      result.set(l.id, path);
     }
     return result;
   }

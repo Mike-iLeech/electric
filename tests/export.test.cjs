@@ -5,6 +5,17 @@ const { test } = require("node:test"),
   E = require("../engine"),
   R = require("../renderer");
 const S = require("../schematic");
+const Sheet = require("../sheet");
+test("редактируемые данные основной надписи выводятся на листе", () => {
+  const p = E.project();
+  Object.assign(p.meta, {drawingTitle:"Вводной щит", designation:"ЩР-01", designer:"Иванов", drawingDate:"2026-11-03"});
+  const plan = exporter().plans(p, {paper:"a3", orientation:"landscape"})[0];
+  const printed = [];
+  const canvas = new Proxy({measureText: value => ({width:String(value).length * 2}), fillText: value => printed.push(String(value))},
+    {get: (target, key) => key in target ? target[key] : () => {}});
+  Sheet.draw(plan, canvas);
+  for (const value of ["Вводной щит", "ЩР-01", "Иванов", "03.11.2026"]) assert.ok(printed.includes(value), value);
+});
 function exporter() {
   const scope = {
     ElectricEngine: E,
@@ -141,7 +152,7 @@ test("рамка и штамп имеют физические размеры Е
         drawing = full.sheet.drawing;
       assert.ok(drawing.y + drawing.h <= Math.min(notes.y, b.y));
       assert.ok(notes.x + notes.w <= f.x + f.w + 1e-8);
-      if (paper === "a4") assert.ok(full.ph > full.pw);
+      assert.equal(full.ph > full.pw, orientation === "portrait");
     }
 });
 test("ветки разделяются на страницы, ориентация и масштаб сохраняют пропорции", () => {
@@ -197,6 +208,30 @@ test("примечания 5:4 с равными отступами; книжн�
  }
  assert.ok(portrait.size.width<=landscape.size.width);
  assert.ok(portrait.size.height>=landscape.size.height);
+});
+
+test("на A4 блок примечаний и его текст пропорционально меньше, чем на A3", () => {
+  const X = exporter(), p = E.project();
+  const a4 = X.plans(p, {paper:"a4", orientation:"portrait"})[0];
+  const a3 = X.plans(p, {paper:"a3", orientation:"landscape"})[0];
+  const ratio = (210 / 297) ** 2;
+  assert.ok(Math.abs(a4.sheet.notes.w / a3.sheet.notes.w - ratio) < 1e-8);
+  assert.ok(Math.abs(a4.sheet.notes.h / a3.sheet.notes.h - ratio) < 1e-8);
+  const fontSize = plan => {
+    const fonts = [];
+    const ctx = new Proxy({measureText: value => ({width:String(value).length}), fillText(value) {
+      if (String(value).startsWith("ПОЯСНЕНИЯ")) fonts.push(parseFloat(ctx.font));
+    }}, {get: (target, key) => key in target ? target[key] : () => {}});
+    Sheet.draw(plan, ctx);
+    return fonts[0];
+  };
+  assert.ok(Math.abs(fontSize(a4) / fontSize(a3) - ratio) < 1e-8);
+  assert.ok(a4.sheet.drawing.y + a4.sheet.drawing.h <= a4.sheet.notes.y + 1e-8);
+  const landscape = X.plans(p, {paper:"a4", orientation:"landscape"})[0];
+  const {notes, stamp, drawing} = landscape.sheet;
+  assert.ok(landscape.pw > landscape.ph);
+  assert.ok(notes.x + notes.w <= stamp.x);
+  assert.ok(drawing.y + drawing.h <= Math.min(notes.y, stamp.y) + 1e-8);
 });
 
 test("ползунок компоновки меняет размещение, масштаб сохраняет рамку",()=>{
