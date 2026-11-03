@@ -1651,6 +1651,19 @@
       notify(e.message);
     }
   }
+  function validateCustomTemplate(template) {
+    if (!template || typeof template !== "object" || Array.isArray(template) ||
+        !Array.isArray(template.outputs) || ![1, 3].includes(template.phases) ||
+        !["input", "distributor", "extender", "consumer"].includes(template.category) ||
+        !E.CONNECTORS[template.inConnType] || !Number.isFinite(template.inA) ||
+        (template.catalogPath != null && (!Array.isArray(template.catalogPath) ||
+          template.catalogPath.some(part => typeof part !== "string"))) ||
+        E.obsoleteCable(template)) throw Error("В файле есть неподдерживаемый шаблон");
+    const sample = E.project();
+    sample.nodes.push(E.makeNode(template));
+    E.validate(sample);
+  }
+
   async function importTemplates(file) {
     if (!file) return;
     try {
@@ -1662,11 +1675,7 @@
       const signature = ({id, ...template}) => JSON.stringify(template);
       const known = new Set(custom.map(signature));
       for (const template of incoming) {
-        if (!template || typeof template !== "object" || Array.isArray(template) || E.obsoleteCable(template))
-          throw Error("В файле есть неподдерживаемый шаблон");
-        const sample = E.project();
-        sample.nodes.push(E.makeNode(template));
-        E.validate(sample);
+        validateCustomTemplate(template);
         const key = signature(template);
         if (known.has(key)) continue;
         known.add(key);
@@ -2109,11 +2118,8 @@
       const raw = JSON.parse(localStorage.getItem(CUSTOM) || "[]");
       if (Array.isArray(raw))
         custom = raw.filter((t) => {
-          if (E.obsoleteCable(t)) return false;
           try {
-            const test = E.project();
-            test.nodes = [E.makeNode(t)];
-            E.validate(test);
+            validateCustomTemplate(t);
             return true;
           } catch {
             return false;
