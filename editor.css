@@ -1,0 +1,493 @@
+:root {
+  color-scheme: dark;
+}
+button,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #86b7ff;
+  outline-offset: 3px;
+}
+input,
+textarea {
+  user-select: text;
+}
+button {
+  min-height: 40px;
+}
+.app {
+  grid-template-columns: 300px minmax(0, 1fr) 330px;
+  padding: 10px;
+  gap: 10px;
+}
+body {
+  overscroll-behavior: none;
+}
+.workspaceWrap,
+.workspace {
+  min-width: 0;
+  min-height: 0;
+}
+.workspace {
+  touch-action: none;
+  outline: none;
+}
+.topBar {
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 54px;
+  height: auto;
+  padding: 8px;
+}
+.chip {
+  white-space: nowrap;
+}
+.topBar .btn {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.topBar .githubChip {
+  margin-left: auto;
+}
+.workspace #world,
+.workspace #grid {
+  display: none;
+}
+#canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+#sessionStatus {
+  font-size: 11px;
+  color: #a9bdd9;
+  padding: 6px 0;
+}
+#modelInfo {
+  font-size: 11px;
+  color: #adc6e8;
+  line-height: 1.5;
+}
+.catalogTabs {
+  display: flex;
+  gap: 5px;
+  margin: 10px 0;
+}
+.catalogTabs .btn {
+  flex: 1;
+  padding: 7px;
+  font-size: 12px;
+}
+.active {
+  background: #345886 !important;
+  border-color: #86b7ff !important;
+}
+.nodeItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: #dfebff;
+  padding: 12px;
+  margin: 7px 0;
+  border: 1px solid #304565;
+  border-radius: 10px;
+  background: #16243a;
+  font: 12px/1.5 system-ui;
+}
+.nodeItem:hover {
+  background: #203858;
+}
+.portProps,
+.breakerBox {
+  border: 1px solid #304565;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.portProps p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.breakerBox {
+  background: #142238;
+}
+.breakerBox strong {
+  display: block;
+  margin-bottom: 10px;
+}
+.breakerBox .select {
+  margin-top: 8px;
+}
+#propsBody h3 {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.modal {
+  max-height: calc(100dvh - 30px);
+  overflow: auto;
+  width: min(1060px, calc(100% - 24px));
+}
+.modalBody {
+  grid-template-columns: 1fr 1fr;
+}
+#nodeModal .modalBody {
+  display: block;
+}
+.builderGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.builderGrid h3 {
+  font-size: 14px;
+  margin-top: 0;
+}
+#builderOutputs {
+  margin-top: 15px;
+}
+.outputRow {
+  display: grid;
+  grid-template-columns: 75px 1.7fr 0.7fr 0.6fr 0.65fr 0.85fr 0.8fr;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid #304565;
+}
+.outputRow label {
+  font-size: 10px;
+  color: #a5b9d6;
+}
+.outputRow .select,
+.outputRow .input {
+  padding: 8px;
+  width: 100%;
+  margin-top: 5px;
+}
+.outputRow input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.outputRow strong {
+  font-size: 11px;
+}
+#builderPreview {
+  margin-top: 20px;
+  border: 1px solid #5b83ad;
+  border-radius: 14px;
+  background: #15263f;
+  padding: 20px;
+  max-width: 600px;
+}
+#builderPreview strong {
+  display: block;
+  text-align: center;
+}
+.previewPorts {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  margin: 20px 0;
+  font-size: 12px;
+  white-space: pre-line;
+}
+.previewPorts > div:last-child {
+  text-align: right;
+}
+#builderPreview p {
+  text-align: center;
+  color: #99c5ff;
+}
+#builderError {
+  color: #ff9ba4;
+  min-height: 24px;
+}
+#mainBreakerField .hint {
+  font-size: 11px;
+}
+.modalFooter {
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: -14px;
+  background: #101c2e;
+  padding: 12px;
+  border-top: 1px solid #304565;
+  margin-left: -14px;
+  margin-right: -14px;
+}
+.mobileNav,
+#mobileShade {
+  display: none;
+}
+.toolRow {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.helpTip {
+  min-height: 48px;
+}
+#helpTip {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+.field > span.label {
+  display: block;
+}
+.scroll {
+  overscroll-behavior: contain;
+}
+#voltageLN {
+  width: 100%;
+}
+.hub-back {
+  position: static;
+}
+#toast {
+  max-width: calc(100% - 24px);
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 1250px) {
+  .app {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  #rightPanel {
+    position: fixed;
+    right: 10px;
+    top: 65px;
+    bottom: 70px;
+    width: 340px;
+    z-index: 42;
+    display: none;
+  }
+  body[data-panel="right"] #rightPanel {
+    display: flex;
+  }
+  .mobileNav {
+    display: flex;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    gap: 8px;
+    z-index: 45;
+  }
+  #mobileCatalog {
+    display: none;
+  }
+  #mobileShade:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #02081299;
+    z-index: 40;
+    border: 0;
+    border-radius: 0;
+  }
+  body[data-panel="left"] #mobileShade {
+    display: none !important;
+  }
+  .outputRow {
+    grid-template-columns: 70px 1.5fr 1fr 1fr;
+  }
+  .outputRow label:nth-last-child(-n + 3) {
+    grid-row: auto;
+  }
+}
+@media (max-width: 760px) {
+  .app {
+    display: block;
+    padding: 0;
+    height: 100dvh;
+  }
+  #leftPanel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(340px, 92vw);
+    border-radius: 0;
+    z-index: 42;
+    display: none;
+  }
+  #rightPanel {
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: min(350px, 94vw);
+    border-radius: 0;
+    z-index: 42;
+  }
+  body[data-panel="left"] #leftPanel {
+    display: flex;
+  }
+  body[data-panel="left"] #mobileShade {
+    display: block !important;
+  }
+  .workspaceWrap {
+    height: 100dvh;
+    border-radius: 0;
+    padding-bottom: 62px;
+  }
+  .topBar {
+    padding: 7px;
+    gap: 4px;
+    align-content: flex-start;
+  }
+  .topBar > .chip:first-child {
+    font-size: 10px;
+    max-width: 100%;
+    padding: 5px;
+  }
+  .topBar > .chip:nth-child(2) {
+    display: none;
+  }
+  .topBar .githubChip {
+    display: none;
+  }
+  .topBar .btn {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 7px;
+  }
+  .mobileNav {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    justify-content: space-between;
+  }
+  #mobileCatalog {
+    display: block;
+  }
+  .mobileNav .btn {
+    min-height: 44px;
+    background: #1a2d49;
+  }
+  .modal {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    top: 0;
+    left: 0;
+    transform: none;
+    padding: 14px;
+  }
+  .builderGrid {
+    grid-template-columns: 1fr;
+  }
+  .outputRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .outputRow strong {
+    grid-column: 1/-1;
+  }
+  .helpCols {
+    grid-template-columns: 1fr;
+  }
+  .modalFooter {
+    bottom: -14px;
+  }
+  .previewPorts {
+    gap: 12px;
+  }
+  .modalHeader .h {
+    font-size: 15px;
+  }
+  .portProps .btn {
+    margin: 4px;
+  }
+  .modalBody {
+    grid-template-columns: 1fr;
+  }
+  #leftPanel .helpButton {
+    padding-bottom: 65px;
+  }
+}
+.workspaceWrap {
+  display: flex;
+  flex-direction: column;
+}
+.topBar {
+  position: relative;
+  inset: auto;
+  left: auto;
+  right: auto;
+  top: auto;
+  order: 0;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+.editorToolbar {
+  order: 1;
+  position: relative;
+  z-index: 8;
+  padding: 7px;
+  gap: 5px;
+  background: #101c2dd9;
+  border-bottom: 1px solid #304565;
+  max-height: 24vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.editorToolbar .btn {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.workspace {
+  position: relative;
+  inset: auto;
+  flex: 1;
+  order: 2;
+  width: 100%;
+  min-height: 120px;
+}
+.moduleNavigator {
+  margin: 10px 0;
+}
+.moduleNavigator select {
+  width: 100%;
+}
+#routeStatus {
+  color: #ffbd75;
+  font-size: 11px;
+  min-height: 14px;
+}
+@media (max-width: 760px) {
+  .editorToolbar {
+    max-height: 110px;
+    padding: 5px;
+  }
+  .editorToolbar .btn {
+    min-height: 40px;
+  }
+  .workspace {
+    min-height: 80px;
+  }
+  .topBar {
+    min-height: 38px;
+  }
+  .editorToolbar::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
