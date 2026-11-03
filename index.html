@@ -771,6 +771,7 @@
             title="Отключить включённые автоматы, где текущий ток выше номинала"
           ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Продвинутый режим даёт оценку потерь и падения напряжения на заданном кабеле.</p></div></details></div>
 </div>
+<button class="chip" id="btnCableSections" type="button">Сечения кабелей</button>
 <button class="chip headerHelp" id="helpTip" type="button" title="Помощь" aria-label="Помощь"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v1M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0"/></svg></button>
           <a
             class="chip githubChip"
@@ -874,6 +875,59 @@
         </div>
       </div>
       <div class="helpCard">
+          <nav class="helpTopics" aria-label="Разделы справки">
+            <a href="#helpStart">Первая схема</a>
+            <a href="#helpCatalog">Каталог</a>
+            <a href="#helpBreakers">Автоматы</a>
+            <a href="#helpCables">Кабели</a>
+            <a href="#helpAdvanced">Продвинутый режим</a>
+            <a href="#helpExport">Экспорт</a>
+          </nav>
+          <section class="helpGuide" id="helpStart">
+            <h2>Первая схема</h2>
+            <figure><img class="helpDrawing" src="help-images/project-tree.jpg" alt="Дерево проекта и свойства в правой панели"><figcaption>Выберите узел в дереве, чтобы открыть его свойства.</figcaption></figure>
+            <ol>
+              <li>Выберите в каталоге щит с выходом CEE 32 А 3ф, дистрибьютор CEE 32 А → Schuko и однофазный потребитель Schuko. Модули появляются в рабочей области.</li>
+              <li>Соедините выход щита со входом дистрибьютора. Затем соедините выход Schuko на L1 со входом потребителя.</li>
+              <li>В «Свойствах» задайте потребителю 2300 Вт. При фазном напряжении 230 В модель покажет около 10 А на L1. Выходы L2 и L3 можно нагрузить отдельно.</li>
+            </ol>
+            <p>Фазное и линейное напряжения задаются в верхней панели. Изменение одного пересчитывает второе по формуле Uл = √3 × Uф. Шестерёнка открывает настройки, включая привязку к сетке и подсветку пути между двумя выбранными нодами.</p>
+          </section>
+          <section class="helpGuide" id="helpCatalog">
+            <h2>Каталог и дерево проекта</h2>
+            <p>Слева раскройте категорию и группу по фазности или номиналу. Кнопка создания открывает конструктор. Выберите тип, фазность и параметры портов. Для потребителя задайте вход и мощность. Свои шаблоны можно импортировать, выгружать и удалять через каталог.</p>
+            <p>Справа «Дерево проекта» показывает цепи питания. Выберите модуль в дереве, чтобы найти его на схеме и открыть свойства. Перетащите разделитель, чтобы изменить высоту дерева и свойств. Сайдбары можно скрыть кнопками верхней панели.</p>
+          </section>
+          <section class="helpGuide" id="helpBreakers">
+            <h2>Фазы, автоматы и перегрузка</h2>
+            <figure><img class="helpDrawing" src="help-images/overload.jpg" alt="Уведомление о перегрузке со ссылкой на источник"><figcaption>Нажмите название источника в уведомлении, чтобы перейти к нему.</figcaption></figure>
+            <p>Входы находятся слева, выходы справа. Однофазный выход дистрибьютора передаёт назначенную фазу дальше по цепи. Нижние индикаторы показывают нагрузку по фазам, мощность и напряжение.</p>
+            <p>Нажмите на плашку C16, C32 или другого автомата рядом с портом, чтобы включить или отключить его. Зелёная плашка означает «включён». В настройках можно включить все автоматы или активировать автоматическое отключение при превышении токового порога.</p>
+            <p>Пример: нагрузка 4,5 кВт при 230 В даёт около 19,6 А. На линии 16 А появится перегрузка. Нажмите имя источника в уведомлении, чтобы центрировать и приблизить ноду.</p>
+          </section>
+          <section class="helpGuide" id="helpCables">
+            <h2>Кабельные трассы</h2>
+            <figure><img class="helpDrawing" src="help-images/cable.png" alt="Трёхфазная трасса 150 м с падением 14,99 В и нагрузкой 42 кВт"><figcaption>Пример из проекта. Падение 14,99 В даёт 383,4 В на ноде. При заданных 42 кВт модель показывает доступные 41,83 кВт.</figcaption></figure>
+            <ol>
+              <li>Включите продвинутый режим в настройках. Двойной клик по линии или ЛКМ по её плашке открывает ввод длины. ПКМ по плашке открывает полный профиль.</li>
+              <li>Введите длину. «Сечения кабелей» в верхней панели задают значения по номиналам. В полном профиле можно переопределить сечение, материал и пределы для отдельной линии.</li>
+              <li>Перетащите плашку ЛКМ, чтобы передвинуть её вдоль линии. ΔU показывает падение напряжения, ΔP — потери мощности. Чтобы разобрать случай на снимке, откройте длину трассы 63 А и сравните результат при 150 м и при меньшей длине. Следите за значениями заданной и доступной мощности в нижней строке дистрибьютора. При равной нагрузке на фазы исходная ветка потребляет около 60,9 А на фазу.</li>
+            </ol>
+            <p>Жёлтая плашка предупреждает о превышении расчётного порога. Красная пульсация означает дефицит мощности на принимающей ноде. Падение свыше 100% блокирует сохранение параметров. В продвинутом режиме нижняя строка ноды показывает заданную и оценочную доступную мощность.</p>
+          </section>
+          <section class="helpGuide" id="helpAdvanced">
+            <h2>Продвинутые сценарии</h2>
+            <p>В свойствах линии можно задать импеданс петли L–PE, параметры УЗО, время отключения и пусковые токи. Для проверки пуска укажите ток и длительность, а для серии пусков также количество, паузу и постоянную остывания. При наличии кривых автоматов модель оценивает диапазоны времени и их пересечение.</p>
+            <p>У дистрибьютора можно добавить резервный ввод. Если основной путь отключён, модель выбирает доступный резервный и показывает активный ввод в свойствах.</p>
+            <p>Модель использует PF = 1. Токи нагрузки рассчитываются от номинального напряжения. Оценка потерь и сценарии защиты предназначены для анализа схемы. Проектный подбор кабелей и проверка защиты требуют данных о прокладке, оборудовании и условиях эксплуатации.</p>
+          </section>
+          <section class="helpGuide" id="helpExport">
+            <h2>Сохранение и экспорт</h2>
+            <figure><img class="helpDrawing" src="help-images/export.jpg" alt="Параметры листа в окне экспорта"><figcaption>Выберите ориентацию, проверьте лист в превью и нажмите нужный формат.</figcaption></figure>
+            <p>«Сохранить» записывает проект в браузере. JSON позволяет перенести редактируемую схему. Для импорта используйте кнопку «Импорт» в блоке проекта. Импорт шаблонов модулей выполняется отдельно в каталоге.</p>
+            <p>«Экспорт» открывает превью однолинейной схемы. Задайте проектировщика, формат и ориентацию листа, настройте масштаб и компоновку. Можно разместить независимые ветки на отдельных листах. PNG и JPG сохраняют выбранный лист, PDF содержит все листы. Для заданных кабельных трасс в схеме подписаны длина, ΔU и ΔP.</p>
+          </section>
+          <h2>Управление схемой</h2>
         <div class="helpCols">
           <div class="box">
             <div class="sectionTitle">Навигация</div>
@@ -1116,5 +1170,36 @@
       <option value="125"></option>
       <option value="250"></option>
     </datalist>
+    <dialog id="cableSectionsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSectionsTitle">
+      <form id="cableSectionsForm">
+        <strong id="cableSectionsTitle">Сечения кабелей</strong>
+        <p>Значения по номиналу линии. Применяются к кабелям без своего сечения.</p>
+        <div id="cableSectionsFields">
+          <div class="cableSectionsHead"><span>Номинал</span><span>Сечение, мм²</span></div>
+        </div>
+        <div class="btnRow">
+          <button class="btn primary" type="submit">Сохранить</button>
+          <button class="btn" id="cableSectionsReset" type="button" title="По умолчанию" aria-label="По умолчанию"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 1 2.6 6.4M3 5v7h7"/></svg></button>
+          <button class="btn" id="cableSectionsCancel" type="button">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="cableSettingsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSettingsTitle">
+      <strong id="cableSettingsTitle">Настройки кабельной линии</strong>
+      <div id="cableSettingsAlert" class="cableWarning" role="alert" hidden></div>
+      <div id="cableSettingsBody"></div>
+      <button class="btn" id="cableSettingsClose" type="button">Закрыть</button>
+    </dialog>
+    <dialog id="cableLengthDialog" class="cableLengthDialog" aria-labelledby="cableLengthTitle">
+      <form id="cableLengthForm">
+        <strong id="cableLengthTitle">Длина кабельной трассы</strong>
+        <label class="field">Длина, м<input class="input" id="cableLengthInput" type="number" min="0.01" max="100000" step="any" placeholder="Введите длину"></label>
+        <p id="cableLengthWarning" class="cableWarning" role="alert" hidden></p>
+        <div class="btnRow">
+          <button class="btn primary" type="submit">Сохранить</button>
+          <button class="btn" id="cableLengthCancel" type="button">Отмена</button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>

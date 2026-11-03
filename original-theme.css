@@ -593,3 +593,47 @@
 .moduleActions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin:0 0 8px; }
 .moduleActions .btn { display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; padding:6px 2px; font-size:10px; white-space:nowrap; }
 .moduleActions svg { width:15px; height:15px; flex:none; }
+.cableMetricLabel { pointer-events:none; }
+.cableMetricLabel rect { fill:#101a2a; stroke:#536680; stroke-width:1; }
+.cableMetricLabel text { fill:#e9f3ff; font:11px system-ui,sans-serif; }
+#wireLayer .cableHitArea { fill:none; stroke:transparent; stroke-width:12; pointer-events:stroke; cursor:pointer; }
+#wireLayer .cableMetricLabel { pointer-events:auto; cursor:grab; touch-action:none; }
+#wireLayer .cableMetricLabel:active { cursor:grabbing; }
+#wireLayer .cableLabelLeader { stroke:#9baac0; stroke-width:1; stroke-dasharray:5 2 1 2; fill:none; }
+.cableLengthDialog { color:var(--text); background:#111b29; border:1px solid #536680; border-radius:12px; padding:16px; width:min(300px,85vw); }
+.cableLengthDialog::backdrop { background:#0007; }
+.cableLengthDialog .btnRow { margin-top:10px; }
+.cableSettingsDialog { max-height:85dvh; overflow:auto; }
+.cableSettingsDialog .field { margin:6px 0; }
+.helpTopics { display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:16px; }
+.helpTopics a { color:#a9c9ff; }
+.helpGuide { padding:12px 0; border-top:1px solid #26364c; }
+.helpCard h2 { font-size:16px; margin:0 0 8px; }
+.helpGuide p, .helpGuide ol { margin:8px 0; }
+.helpDrawing { display:block; width:100%; max-width:600px; height:auto; }
+.helpGuide figure { margin:10px 0; }
+.helpGuide figcaption { margin-top:6px; color:#aab9cd; }
+#cableSectionsFields .field, .cableSectionsHead {
+  display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:12px;
+  margin:0; padding:4px 0; border-bottom:1px solid #24344a;
+}
+.cableSectionsHead { font-size:12px; color:#aab9cd; }
+#cableSectionsFields .input { min-width:0; }
+#cableSectionsForm .btnRow { display:flex; flex-wrap:nowrap; gap:6px; margin-top:12px; }
+#cableSectionsReset svg { display:block; }
+.cableProfileHelp { margin:5px 0; font-size:11px; }
+.cableProfileHelp summary { cursor:pointer; width:max-content; padding:2px 6px; border:1px solid #536680; border-radius:12px; }
+.cableProfileHelp p { margin:6px 0; }
+.cableMetricWarning rect { fill:#322807; stroke:#ffd34d; }
+.cableMetricWarning text { fill:#ffe899; }
+.cableWarning { color:#ffd39b; }
+.cableMetricCritical rect, .cableMetricDeficit rect { fill:#390f17; stroke:#ff4b55; }
+.cableMetricCritical text, .cableMetricDeficit text { fill:#ffc0c4; }
+.cableMetricDeficit rect { animation:cableDeficitPulse 850ms ease-in-out infinite alternate; }
+@keyframes cableDeficitPulse {
+  to { fill:#8c101b; stroke:#ff7880; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cableMetricDeficit rect { animation:none; }
+}
+.cableWarning { padding:8px; border-left:3px solid #ffa759; background:#321c14; }

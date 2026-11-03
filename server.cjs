@@ -15,6 +15,10 @@ const files = new Set([
   "routing.js",
   "editor.css",
   "original-theme.css",
+  "help-images/project-tree.jpg",
+  "help-images/overload.jpg",
+  "help-images/cable.png",
+  "help-images/export.jpg",
 ]);
 http
   .createServer((req, res) => {
@@ -29,7 +33,11 @@ http
         ? "text/html; charset=utf-8"
         : name.endsWith(".css")
           ? "text/css; charset=utf-8"
-          : "text/javascript; charset=utf-8",
+          : name.endsWith(".jpg")
+            ? "image/jpeg"
+            : name.endsWith(".png")
+              ? "image/png"
+              : "text/javascript; charset=utf-8",
     );
     res.setHeader("Cache-Control", "no-store");
     res.end(fs.readFileSync(path.join(__dirname, name)));

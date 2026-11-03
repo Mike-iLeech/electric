@@ -21,6 +21,7 @@
   const UI_KEY = "electriccad.ui.v32";
   let uiPrefs = {};
   try { uiPrefs = JSON.parse(localStorage.getItem(UI_KEY) || "{}") || {}; } catch {}
+  E.setCableSections(uiPrefs.cableSections);
   const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch {} };
   let p = E.project(),
     calc = E.calculate(p),
@@ -867,16 +868,85 @@
     panel.append(summary);
     return panel;
   }
+  function refreshCableSettings() {
+    const dialog = $("cableSettingsDialog");
+    if (!dialog?.open) return;
+    const link = p.links.find(item => item.id === dialog.dataset.linkId);
+    if (!link || !p.settings.advancedMode) {
+      dialog.close();
+      return;
+    }
+    const alert = $("cableSettingsAlert");
+    const message = $("toast").dataset.kind === "overload" ? $("toastMsg").textContent.trim() : "";
+    alert.replaceChildren();
+    if (message) {
+      const original = $("toastMsg");
+      alert.append(...[...original.childNodes].map(child => child.cloneNode(true)));
+      const links = original.querySelectorAll("button");
+      alert.querySelectorAll("button").forEach((button, i) => {
+        button.onclick = () => {
+          dialog.close();
+          links[i]?.click();
+        };
+      });
+    }
+    alert.hidden = !message;
+    const body = $("cableSettingsBody");
+    const helpOpen = body.querySelector(".cableProfileHelp")?.open;
+    const panel = renderCable(link);
+    panel.querySelector(".cableProfileHelp").open = !!helpOpen;
+    body.replaceChildren(panel);
+  }
+  function cableDropError(estimate) {
+    const voltage = p.settings.voltageLN * (estimate?.lineVoltage ? Math.sqrt(3) : 1);
+    if (estimate?.dropV > voltage + 1e-8)
+      return "Падение напряжения превышает 100%. Сократите длину трассы, увеличьте сечение или снизьте нагрузку.";
+    return "";
+  }
+  function checkCableEdit(link) {
+    const out = port(link.from);
+    const estimate = E.cableEstimate(E.cableParameters(link, out, port(link.to)), out.phases, calc.ports.get(out.id).loadA);
+    const error = cableDropError(estimate);
+    if (error) throw Error(error);
+  }
   function renderCable(link) {
     const panel = document.createElement("section");
     const title = document.createElement("strong");
-    title.textContent = "Кабель · оценка для PF = 1, изоляция XLPE";
+    title.textContent = "Кабель · модельный профиль Cu, PF = 1";
     panel.append(title);
-    const cable = link.cable || {};
+    const out = port(link.from);
+    const inlet = port(link.to);
+    const cable = E.cableParameters(link, out, inlet);
+    const profile = E.cableParameters({}, out, inlet);
+    const help = document.createElement("details");
+    help.className = "cableProfileHelp";
+    const question = document.createElement("summary");
+    question.textContent = "?";
+    question.setAttribute("aria-label", "Справка по типовому кабелю на 100 метров");
+    const reference = E.cableEstimate({...profile, lengthM:100}, out.phases,
+      out.phases === 3 ? Object.fromEntries(E.PHASES.map(phase => [phase,profile.ampacityA])) : {L1:profile.ampacityA});
+    const voltage = p.settings.voltageLN * (reference.lineVoltage ? Math.sqrt(3) : 1);
+    const info = document.createElement("p");
+    info.textContent = "Типовой профиль: медь, " + profile.sectionMm2 + " мм², " + profile.ampacityA +
+      " А. На 100 м при номинальном токе и PF = 1: падение " + reference.dropV.toFixed(2) +
+      " В (" + (100*reference.dropV/voltage).toFixed(2) + "%), потери " + reference.lossW.toFixed(1) +
+      " Вт. Для 3 фаз предполагается равномерная нагрузка. Допустимое падение проверяют по всей цепи.";
+    const method = document.createElement("a");
+    method.href = "https://www.electrical-installation.org/enwiki/Calculation_of_voltage_drop_in_steady_load_conditions";
+    method.target = "_blank";
+    method.rel = "noopener noreferrer";
+    method.textContent = "Методика расчёта";
+    help.append(question,info,method);
+    panel.append(help, button("Сбросить профиль кабеля", () => transaction(() => {
+      if (!link.cable) return;
+      for (const key of ["sectionMm2","ampacityA","ambientC","thermalResistance","material","maxDropPercent"]) delete link.cable[key];
+    }, {geometry:false})));
+
     for (const [key, label, min, max] of [
       ["lengthM", "Длина, м", 0.01, 100000],
       ["sectionMm2", "Сечение жилы, мм²", 0.1, 500],
       ["ampacityA", "Допустимый ток для условий прокладки, А", 0.1, 10000],
+      ["maxDropPercent", "Предел падения на участке, %", 0.1, 100],
       ["ambientC", "Температура среды, °C", -50, 100],
       ["thermalResistance", "Тепловое сопротивление участка, К/Вт", 0.0001, 1000],
     ]) {
@@ -885,6 +955,7 @@
         link.cable ??= {};
         if (value === "") delete link.cable[key];
         else link.cable[key] = Number(value);
+        if (["lengthM", "sectionMm2"].includes(key)) checkCableEdit(link);
       }, {min, max, step:"any"}));
     }
     const material = document.createElement("select");
@@ -893,9 +964,12 @@
     material.add(new Option("Медь", "cu"));
     material.add(new Option("Алюминий", "al"));
     material.value = cable.material === "al" ? "al" : "cu";
-    material.onchange = () => transaction(() => { (link.cable ??= {}).material = material.value; }, {geometry:false});
+    material.onchange = () => transaction(() => {
+      (link.cable ??= {}).material = material.value;
+      checkCableEdit(link);
+    }, {geometry:false});
     panel.append(material);
-    const out = port(link.from), load = calc.ports.get(link.from.portId);
+    const load = calc.ports.get(link.from.portId);
     const estimate = out && load && E.cableEstimate(cable, out.phases, load.loadA);
     const result = document.createElement("p");
     result.className = "hint";
@@ -911,25 +985,38 @@
       result.textContent += " Оценка установившейся температуры: " + temperature.toFixed(1) + " °C.";
     }
     panel.append(result);
+    const warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN);
+    if (warnings.length) {
+      const alert = document.createElement("p");
+      alert.className = "cableWarning";
+      alert.setAttribute("role", "alert");
+      alert.textContent = warnings.join(" ");
+      panel.append(alert);
+    }
     if (calc.nodes.get(link.to.nodeId).powered && calc.activeInputs.get(link.to.nodeId) === link) {
       const route = [];
       for (let segment = link; segment; segment = calc.activeInputs.get(segment.from.nodeId)) route.push(segment);
       if (route.length > 1) {
         const total = document.createElement("p");
-        const estimates = route.map(segment => segment.cable && E.cableEstimate(segment.cable,
-          port(segment.from).phases, calc.ports.get(segment.from.portId).loadA));
+        const estimates = route.map(segment => {
+          const output = port(segment.from);
+          return E.cableEstimate(E.cableParameters(segment, output, port(segment.to)), output.phases, calc.ports.get(segment.from.portId).loadA);
+        });
         if (estimates.every(item => item?.dropV != null)) {
-          const dropLN = estimates.reduce((sum, item, i) => sum + item.dropV / (port(route[i].from).phases === 3 ? Math.sqrt(3) : 1), 0);
-          const voltage = Math.max(0, p.settings.voltageLN - dropLN) * (out.phases === 3 ? Math.sqrt(3) : 1);
+          const phase = calc.nodes.get(link.to.nodeId).inPhase;
+          const drops = E.PHASES.map(key => estimates.reduce((sum, item) => sum + item.phaseDropV[key], 0));
+          const dropLN = phase ? drops[E.PHASES.indexOf(phase)] : Math.max(...drops);
+          const voltage = Math.max(0, p.settings.voltageLN - dropLN);
           const losses = estimates.reduce((sum, item) => sum + item.lossW, 0);
-          total.textContent = "По пути от ввода: " + voltage.toFixed(2) + " В на конце, потери " + losses.toFixed(1) + " Вт.";
-        } else total.textContent = "Для оценки всей ветки заполните параметры участков. Падение для несимметричной трёхфазной нагрузки не оценивается.";
+          total.textContent = "По пути от ввода: " + voltage.toFixed(2) + " В фазного напряжения на конце, потери " + losses.toFixed(1) + " Вт.";
+        } else total.textContent = "Для оценки всей ветки задайте длину каждого участка.";
         panel.append(total);
       }
     }
     return panel;
   }
   function renderProps() {
+    refreshCableSettings();
     const body = $("propsBody"), scrollTop = $("propsScroll").scrollTop;
     const openPorts = new Set([...body.querySelectorAll("details.portProps[open]")].map(el => el.dataset.portId));
     body.replaceChildren();
@@ -1312,7 +1399,7 @@
           raster.width = raster.height = 1;
         },
         type,
-        0.95,
+        1,
       );
     };
     for (const [label, action] of [
@@ -2327,6 +2414,106 @@
     $("btnImport").onclick = () => $("fileImport").click();
     $("fileImport").onchange = (e) => importFile(e.target.files[0]);
     $("btnClear").onclick = clearProject;
+    const cableSettings = $("cableSettingsDialog");
+    scene.onCableSettings = id => {
+      if (!p.settings.advancedMode || !p.links.some(link => link.id === id)) return;
+      cableSettings.dataset.linkId = id;
+      if (!cableSettings.open) cableSettings.showModal();
+      refreshCableSettings();
+    };
+    $("cableSettingsClose").onclick = () => cableSettings.close();
+    const sectionsDialog = $("cableSectionsDialog");
+    const sectionsForm = $("cableSectionsForm");
+    const sectionFields = new Map();
+    for (const [rating, fallback] of Object.entries(E.CABLE_SECTIONS)) {
+      const label = document.createElement("label");
+      label.className = "field";
+      label.textContent = rating + " А";
+      const input = document.createElement("input");
+      Object.assign(input, {className:"input", type:"number", min:"0.01", max:"1000", step:"any", required:true});
+      input.setAttribute("aria-label", "Сечение, мм², для " + rating + " А");
+      label.append(input);
+      $("cableSectionsFields").append(label);
+      sectionFields.set(rating, {input, fallback});
+    }
+    $("btnCableSections").onclick = () => {
+      for (const [rating, {input, fallback}] of sectionFields)
+        input.value = uiPrefs.cableSections?.[rating] ?? fallback;
+      sectionsDialog.showModal();
+    };
+    $("cableSectionsReset").onclick = () => {
+      for (const {input, fallback} of sectionFields.values()) input.value = fallback;
+    };
+    $("cableSectionsCancel").onclick = () => sectionsDialog.close();
+    sectionsForm.onsubmit = event => {
+      event.preventDefault();
+      if (!sectionsForm.reportValidity()) return;
+      uiPrefs.cableSections = Object.fromEntries([...sectionFields].map(([rating, {input}]) => [rating, Number(input.value)]));
+      saveUI();
+      E.setCableSections(uiPrefs.cableSections);
+      sectionsDialog.close();
+      changed({geometry:false});
+    };
+    const cableDialog = $("cableLengthDialog");
+    const lengthInput = $("cableLengthInput");
+    const lengthWarning = $("cableLengthWarning");
+    function refreshLengthWarning() {
+      lengthInput.setCustomValidity("");
+      const link = p.links.find(item => item.id === cableDialog.dataset.linkId);
+      let warnings = [];
+      if (link && lengthInput.value && lengthInput.validity.valid) {
+        const out = port(link.from);
+        const inlet = port(link.to);
+        const load = calc.ports.get(link.from.portId);
+        if (out && inlet && load) {
+          const draft = {...link, cable: {...link.cable, lengthM: Number(lengthInput.value)}};
+          const cable = E.cableParameters(draft, out, inlet);
+          const estimate = E.cableEstimate(cable, out.phases, load.loadA);
+          warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN);
+          const error = cableDropError(estimate);
+          lengthInput.setCustomValidity(error);
+          if (error) warnings.unshift(error);
+          const draftProject = {...p, links: p.links.map(item => item === link ? draft : item)};
+          const receiving = E.calculate(draftProject).nodes.get(link.to.nodeId);
+          if (receiving.voltagePowerDeficit) {
+            const required = (E.sum(receiving.loadW) / 1000).toFixed(2);
+            const available = (receiving.availableWatts / 1000).toFixed(2);
+            warnings.unshift(`Из-за падения напряжения доступно ${available} кВт при нагрузке ${required} кВт. Увеличьте сечение, сократите длину трассы или снизьте нагрузку.`);
+          }
+        }
+      }
+      lengthWarning.hidden = !warnings.length;
+      lengthWarning.textContent = warnings.join(" ");
+    }
+    lengthInput.oninput = refreshLengthWarning;
+    scene.onCableEdit = id => {
+      const link = p.links.find(item => item.id === id);
+      if (!link || !p.settings.advancedMode) return;
+      cableDialog.dataset.linkId = id;
+      lengthInput.value = link.cable?.lengthM ?? "";
+      if (!cableDialog.open) cableDialog.showModal();
+      refreshLengthWarning();
+      lengthInput.focus();
+      lengthInput.select();
+    };
+    scene.onCableLabelMove = (id, fraction) => {
+      const link = p.links.find(item => item.id === id);
+      if (!link?.cable?.lengthM || Math.abs((link.cable.labelFraction ?? .5) - fraction) < 1e-6) return;
+      transaction(() => { link.cable.labelFraction = fraction; }, {geometry:false});
+    };
+    $("cableLengthCancel").onclick = () => cableDialog.close();
+    $("cableLengthForm").onsubmit = event => {
+      event.preventDefault();
+      refreshLengthWarning();
+      if (!lengthInput.reportValidity()) return;
+      const link = p.links.find(item => item.id === cableDialog.dataset.linkId);
+      if (link) transaction(() => {
+        link.cable ??= {};
+        if (lengthInput.value === "") delete link.cable.lengthM;
+        else link.cable.lengthM = Number(lengthInput.value);
+      }, {geometry:false});
+      cableDialog.close();
+    };
     $("btnNewNode").onclick = () => openBuilder();
     $("helpTip").onclick = () => openModal("helpModal");
     for (const side of ["Left", "Right"]) {
@@ -2451,7 +2638,16 @@
     $("advancedMode").onchange = e => transaction(() => { p.settings.advancedMode = e.target.checked; });
     $("highlightBranch").onchange = e => transaction(() => { p.settings.highlightBranch = e.target.checked; }, {geometry:false});
     $("autoTrip").onchange = e => transaction(() => { p.settings.autoTrip = e.target.checked; }, {geometry:false});
-    document.addEventListener("click", e => { if (!$("worldSettingsPopup").contains(e.target)) $("worldSettingsPopup").open = false; });
+    document.addEventListener("click", e => {
+      for (const popup of document.querySelectorAll("#worldSettingsPopup, .modelAssumptions")) {
+        if (!popup.contains(e.target)) popup.open = false;
+      }
+      if (e.target.matches?.("dialog.cableLengthDialog")) {
+        const bounds = e.target.getBoundingClientRect();
+        if (e.clientX < bounds.left || e.clientX > bounds.right ||
+            e.clientY < bounds.top || e.clientY > bounds.bottom) e.target.close();
+      }
+    });
     document.addEventListener("keydown", e => { if (e.code === "Escape") $("worldSettingsPopup").open = false; });
     $("btnUndo").onclick = stepUndo;
     $("btnRedo").onclick = stepRedo;

@@ -119,7 +119,13 @@
     }
     const firstFork=p.nodes.find(n=>(children.get(n.id)||[]).length>1)?.id;
     const byId=new Map(p.nodes.map(n=>[n.id,n])),sizes=new Map(),poses=new Map(),seen=new Set();
-    const ownHeight=n=>Math.max(160,95+Math.max(n.inputs.length,n.outputs.length)*28);
+    const cableRows = new Map();
+    for (const link of p.links) {
+      if (link.cable?.lengthM > 0)
+        cableRows.set(link.to.nodeId, (cableRows.get(link.to.nodeId) || 0) + 1);
+    }
+    const ownHeight=n=>Math.max(160,95+Math.max(n.inputs.length,n.outputs.length)*28) +
+      24 * (cableRows.get(n.id) || 0);
     function size(id){
       if(sizes.has(id))return sizes.get(id);
       const n=byId.get(id),kids=children.get(id)||[];
@@ -306,6 +312,21 @@
       return { x: r.x + r.w, y: r.y + 85 + i * 28 };
     };
     const paths = connectionPaths(p, poses);
+    const calc = E.calculate(p);
+    const ix = E.indexes(p);
+    const cableNotes = new Map();
+    const format = new Intl.NumberFormat("ru-RU", {maximumFractionDigits:2});
+    for (const link of p.links) {
+      if (!(link.cable?.lengthM > 0)) continue;
+      const out = ix.ports.get(link.from.portId).port;
+      const inlet = ix.ports.get(link.to.portId).port;
+      const cable = E.cableParameters(link, out, inlet);
+      const estimate = E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA);
+      const prefix = `Вх. ${ix.nodes.get(link.to.nodeId).inputs.indexOf(inlet) + 1}: ${format.format(cable.lengthM)} м`;
+      const note = estimate ? `${prefix} · ΔU${estimate.lineVoltage ? "л" : "ф"} ${format.format(estimate.dropV)} В · ΔP ${format.format(estimate.lossW)} Вт` : prefix;
+      if (!cableNotes.has(link.to.nodeId)) cableNotes.set(link.to.nodeId, []);
+      cableNotes.get(link.to.nodeId).push(note);
+    }
     for (const {points,hits} of R.crossings(paths).values()) {
       // A thin white clearance separates bridge arcs from the crossed conductor.
       R.trace(c,points,hits); c.strokeStyle="#fff";c.lineWidth=4;c.stroke();
@@ -315,6 +336,7 @@
       const r = poses.get(n.id),
         x = r.x,
         y = r.y;
+      const notes = cableNotes.get(n.id) || [];
       c.fillStyle = "#fff";
       c.fillRect(x, y, r.w, r.h);
       c.strokeRect(x, y, r.w, r.h);
@@ -375,7 +397,7 @@
         text(
           `${n.phases}ф; ${E.CONNECTORS[n.inputs[0]?.connType]?.name || ""} ${n.inputs[0]?.nominalA || ""} А`,
           x + 10,
-          y + r.h - 20,
+          y + r.h - 20 - 24 * notes.length,
           17,
         );
       } else {
@@ -423,10 +445,16 @@
         text(
           `${n.phases}ф; ввод ${n.inputs[0]?.nominalA || n.supplyA} А${n.mainBreaker ? "; QF " + n.mainBreaker.curve + n.mainBreaker.ratingA : ""}`,
           x + 10,
-          y + r.h - 12,
+          y + r.h - 12 - 24 * notes.length,
           17,
         );
       }
+      notes.forEach((note, i) => {
+        const baseline = y + r.h - 9 - 24 * (notes.length - 1 - i);
+        line(x, baseline - 15, x + r.w, baseline - 15);
+        c.font = "14px OpenGOST, sans-serif";
+        c.fillText(note, x + 10, baseline, r.w - 20);
+      });
     }
     if (options.diagramOnly) return canvas;
     const fy = diagramBottom;
@@ -465,7 +493,7 @@
       20,
     );
     text(
-      "Мощность — сумма заданных нагрузок, независимо от состояния автоматов. Кабельный расчёт не выполняется.",
+      "Мощность — сумма заданных нагрузок. Для трасс с заданной длиной указаны расчётные ΔU и ΔP.",
       45,
       rowY + 40,
       17,

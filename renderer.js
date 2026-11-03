@@ -202,6 +202,192 @@
     el._overloadAnimation = el.animate(frames,{duration,iterations:Infinity,easing:"linear"});
     el._overloadAnimation.startTime = epoch + (mode === "center" ? Number(el.dataset.pulseIndex || 0) * duration / 8 : 0);
   }
+  function nearestFreeCableLabel(x, y, obstacles, halfWidth, halfHeight, gap) {
+    const dx = halfWidth + gap + .01, dy = halfHeight + gap + .01;
+    const blocks = obstacles.map(rect => ({
+      left:rect.left-dx, right:rect.right+dx, top:rect.top-dy, bottom:rect.bottom+dy,
+    })).sort((a,b) => a.top-b.top);
+    const columns = [...new Set([x, ...blocks.flatMap(rect => [rect.left,rect.right])])]
+      .sort((a,b) => Math.abs(a-x)-Math.abs(b-x));
+    let best = Infinity, position;
+    for (const cx of columns) {
+      const horizontalCost = (cx-x)**2;
+      if (horizontalCost >= best) break;
+      let top = Infinity, bottom = -Infinity, choices = [y];
+      for (const rect of blocks) {
+        if (cx <= rect.left || cx >= rect.right) continue;
+        if (rect.top >= bottom) {
+          if (top < y && y < bottom) { choices = [top,bottom]; break; }
+          if (rect.top >= y) break;
+          top = rect.top;
+          bottom = rect.bottom;
+        } else bottom = Math.max(bottom,rect.bottom);
+      }
+      if (top < y && y < bottom) choices = [top,bottom];
+      for (const cy of choices) {
+        const cost = horizontalCost+(cy-y)**2;
+        if (cost < best) { best = cost; position = [cx,cy]; }
+      }
+    }
+    return position;
+  }
+
+  function syncCableLabel(record, points, estimate, length, view, viewport, fraction, savePosition, wires, modules, occupied, openSettings, openLength, warnings, powerDeficit, criticalDrop) {
+    if (!estimate || points.length < 2) {
+      record.cableLabel?.group.remove();
+      record.cableLabel = null;
+      return;
+    }
+    const ns = "http://www.w3.org/2000/svg";
+    if (!record.cableLabel) {
+      const group = document.createElementNS(ns, "g");
+      group.classList.add("cableMetricLabel");
+      const leader = document.createElementNS(ns, "path");
+      leader.classList.add("cableLabelLeader");
+      const capsule = document.createElementNS(ns, "rect");
+      const text = document.createElementNS(ns, "text");
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("y", "4");
+      group.append(leader, capsule, text);
+      record.el.append(group);
+      const label = {group, leader, capsule, text};
+      group.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        event.preventDefault();
+        label.drag = event.pointerId;
+        label.startX = event.clientX;
+        label.startY = event.clientY;
+        label.moved = false;
+        group.setPointerCapture(event.pointerId);
+      });
+      group.addEventListener("pointermove", event => {
+        if (label.drag !== event.pointerId) return;
+        event.stopPropagation();
+        if (!label.moved && Math.hypot(event.clientX-label.startX, event.clientY-label.startY) < 4) return;
+        label.moved = true;
+        label.move(event);
+      });
+      group.addEventListener("pointerup", event => {
+        if (label.drag !== event.pointerId) return;
+        event.stopPropagation();
+        label.drag = null;
+        if (label.moved) label.save();
+        else openLength();
+      });
+      group.addEventListener("pointercancel", () => { label.drag = null; label.reset(); });
+      group.addEventListener("dblclick", event => event.stopPropagation());
+      group.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openSettings();
+      });
+      record.cableLabel = label;
+    }
+    const label = record.cableLabel;
+    label.group.classList.toggle("cableMetricWarning", warnings.length > 0);
+    label.group.classList.toggle("cableMetricCritical", criticalDrop);
+    label.group.classList.toggle("cableMetricDeficit", powerDeficit);
+    let tooltip = label.group.querySelector("title");
+    if (warnings.length) {
+      if (!tooltip) {
+        tooltip = document.createElementNS(ns,"title");
+        label.group.prepend(tooltip);
+      }
+      tooltip.textContent = warnings.join(" ");
+    } else tooltip?.remove();
+    const format = value => value.toLocaleString("ru-RU", {maximumFractionDigits:2});
+    const caption = (warnings.length ? "⚠ " : "") + format(length) + " м · ΔU" + (estimate.lineVoltage ? "л" : "ф") + " " +
+      format(estimate.dropV) + " В · ΔP " + format(estimate.lossW) + " Вт";
+    if (label.text.textContent !== caption) {
+      label.text.textContent = caption;
+      const width = (label.text.getComputedTextLength?.() || caption.length * 6.6) + 16;
+      label.capsule.setAttribute("width", width);
+      label.capsule.setAttribute("height", "26");
+      label.capsule.setAttribute("x", -width/2);
+      label.capsule.setAttribute("y", "-13");
+      label.capsule.setAttribute("rx", "13");
+      label.width = width;
+    }
+    const segments = points.slice(1).map((b,i) => {
+      const a = points[i];
+      return {a,b,length:Math.hypot(b.x-a.x,b.y-a.y)};
+    });
+    const total = segments.reduce((sum, segment) => sum + segment.length, 0);
+    const position = value => {
+      label.fraction = value;
+      let distance = total * value;
+      for (const {a,b,length} of segments) {
+        if (distance > length && b !== points.at(-1)) { distance -= length; continue; }
+        const f = length ? Math.min(1,distance/length) : 0;
+        const x = a.x+(b.x-a.x)*f, y = a.y+(b.y-a.y)*f;
+        const scale = Math.min(1, view.zoom) / view.zoom;
+        const halfWidth = label.width * scale / 2, halfHeight = 13 * scale;
+        const gap = 8 * scale;
+        const intersects = (cx, cy) => wires.some(([p,q]) =>
+          Math.max(p.x,q.x) >= cx-halfWidth-gap && Math.min(p.x,q.x) <= cx+halfWidth+gap &&
+          Math.max(p.y,q.y) >= cy-halfHeight-gap && Math.min(p.y,q.y) <= cy+halfHeight+gap);
+        const overlapsLabel = (cx, cy) => [...occupied].some(([other, bounds]) =>
+          other !== record && Math.abs(cx-bounds.x) < halfWidth+bounds.halfWidth+gap &&
+          Math.abs(cy-bounds.y) < halfHeight+bounds.halfHeight+gap);
+        const overlapsModule = (cx, cy) => modules.some(rect =>
+          cx+halfWidth+gap > rect.left && cx-halfWidth-gap < rect.right &&
+          cy+halfHeight+gap > rect.top && cy-halfHeight-gap < rect.bottom);
+        const vertical = a.x === b.x;
+        const candidates = [];
+        for (let step = 1; step <= 12; step++) {
+          const dx = halfWidth + (step + 1) * gap;
+          const dy = halfHeight + (step + 1) * gap;
+          if (vertical) candidates.push([x+dx,y],[x-dx,y],[x,y-dy],[x,y+dy]);
+          else candidates.push([x,y-dy],[x,y+dy],[x+dx,y],[x-dx,y]);
+        }
+        for (const rect of modules) {
+          if (x+halfWidth+gap < rect.left || x-halfWidth-gap > rect.right) continue;
+          for (const cy of [rect.top-halfHeight-2*gap,rect.bottom+halfHeight+2*gap]) {
+            if (Math.abs(cy-y) <= 220*scale) candidates.push([x,cy]);
+          }
+        }
+        const placement = candidates.find(([px,py]) => !intersects(px,py) && !overlapsLabel(px,py) && !overlapsModule(px,py));
+        const [cx,cy] = placement || nearestFreeCableLabel(x,y,[
+          ...modules,
+          ...wires.map(([p,q]) => ({
+            left:Math.min(p.x,q.x),right:Math.max(p.x,q.x),
+            top:Math.min(p.y,q.y),bottom:Math.max(p.y,q.y),
+          })),
+          ...[...occupied].filter(([other]) => other !== record).map(([,b]) => ({
+            left:b.x-b.halfWidth,right:b.x+b.halfWidth,
+            top:b.y-b.halfHeight,bottom:b.y+b.halfHeight,
+          })),
+        ],halfWidth,halfHeight,gap);
+        occupied.set(record, {x:cx,y:cy,halfWidth,halfHeight});
+        label.group.setAttribute("transform", "translate(" + cx + " " + cy + ") scale(" + scale + ")");
+        const sx = (x-cx)/scale, sy = (y-cy)/scale;
+        const edgeX = Math.max(-label.width/2,Math.min(label.width/2,sx));
+        const edgeY = Math.max(-13,Math.min(13,sy));
+        const leader = Math.abs(sx) > label.width/2
+          ? "M " + sx + " " + sy + " V " + edgeY + " H " + edgeX
+          : "M " + sx + " " + sy + " H " + edgeX + " V " + edgeY;
+        label.leader.setAttribute("d",leader);
+        break;
+      }
+    };
+    label.move = event => {
+      const x=(event.clientX-viewport.left-view.panX)/view.zoom;
+      const y=(event.clientY-viewport.top-view.panY)/view.zoom;
+      let best=Infinity, bestDistance=0, travelled=0;
+      for (const {a,b,length} of segments) {
+        const f=length ? Math.max(0,Math.min(1,((x-a.x)*(b.x-a.x)+(y-a.y)*(b.y-a.y))/length**2)) : 0;
+        const distance=Math.hypot(x-a.x-(b.x-a.x)*f,y-a.y-(b.y-a.y)*f);
+        if (distance<best) { best=distance; bestDistance=travelled+length*f; }
+        travelled+=length;
+      }
+      position(total ? bestDistance/total : .5);
+    };
+    label.save = () => savePosition(label.fraction);
+    label.reset = () => position(fraction);
+    position(label.drag == null ? fraction : label.fraction);
+  }
+
   function portAlarms(record, n, ids, overloaded, selected, origin, branch) {
     const W = E.nodeWidth(n);
     const key =
@@ -661,6 +847,10 @@
         fill: "#fbbf24cc",
         color: "#000",
       });
+    else if (c.voltagePowerDeficit)
+      capsule(ctx, "⚠ НЕ ХВАТАЕТ МОЩНОСТИ (ΔU)", n.pos.x, r.top + 82, {
+        size: 9, height: 18, fill: "#b91c1c", color: "#fff",
+      });
     else capsule(ctx, c.status, n.pos.x, r.top + 82, { size: 9, height: 18 });
     if (n.category === "consumer") {
       const a =
@@ -686,7 +876,10 @@
       round(ctx, x, r.bottom - 52, 85, 22, 11, "#0a0e16cc");
       text(ctx, `${k} ${a.toFixed(1)}A`, x + 42.5, r.bottom - 41, color, 9);
     });
-    const foot = `${(E.sum(c.loadW) / 1000).toFixed(2)} кВт · ${n.phases === 3 ? (ui.project.settings.voltageLN * Math.sqrt(3)).toFixed(1) : ui.project.settings.voltageLN} В`;
+    const voltage = n.phases === 3 ? c.voltageLN * Math.sqrt(3) : c.voltageLN;
+    const capacity = ui.project.settings.advancedMode && Number.isFinite(c.availableWatts)
+      ? ` / ${(c.availableWatts / 1000).toFixed(2)}` : "";
+    const foot = `${(E.sum(c.loadW) / 1000).toFixed(2)}${capacity} кВт · ${Number(voltage.toFixed(1))} В`;
     capsule(ctx, foot, n.pos.x, r.bottom - 23, { size: 9, height: 16 });
     for (const v of [...n.inputs, ...n.outputs]) pin(ctx, n, v, ui);
   }
@@ -908,6 +1101,9 @@
           project.links.map((l) => [l.id, routes.get(l.id) || []]),
         ),
         jumps = crossings(known, project.nodes),
+        occupiedCableLabels = new Map(),
+        moduleBounds = project.nodes.map(E.rect),
+        wireSegments = [...known.values()].flatMap(points => points.slice(1).map((point,i) => [points[i],point])),
         ids = new Set(project.links.map((l) => l.id));
       for (const [id, record] of this.wires)
         if (!ids.has(id)) {
@@ -1000,7 +1196,36 @@
           alerts.links.has(l.id)
         )
           record.el.classList.toggle("overload-wire", alerts.links.has(l.id));
+        const length = l.cable?.lengthM;
+        const load = calc.ports.get(l.from.portId);
+        const inlet = project.nodes.find(n => n.id === l.to.nodeId)?.inputs.find(v => v.id === l.to.portId);
+        const cable = project.settings.advancedMode && length > 0 && load && inlet
+          ? E.cableParameters(l, port, inlet) : null;
+        const estimate = cable ? E.cableEstimate(cable, port.phases, load.loadA) : null;
+        const warnings = cable ? E.cableWarnings(cable, estimate, port, inlet, project.settings.voltageLN) : [];
+        const receiving = calc.nodes.get(l.to.nodeId);
+        const powerDeficit = !!estimate && powered && receiving.voltagePowerDeficit;
+        if (powerDeficit) warnings.unshift("Недостаточно мощности из-за падения напряжения.");
+        const criticalDrop = !!estimate && estimate.dropV > project.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
+        syncCableLabel(record, route.points, estimate, length, v, r, l.cable?.labelFraction ?? .5,
+          fraction => this.onCableLabelMove?.(l.id, fraction), wireSegments, moduleBounds, occupiedCableLabels,
+          () => this.onCableSettings?.(l.id), () => this.onCableEdit?.(l.id), warnings, powerDeficit, criticalDrop);
+        if (!record.hit) {
+          const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          hit.classList.add("cableHitArea");
+          hit.setAttribute("vector-effect", "non-scaling-stroke");
+          hit.addEventListener("pointerdown", event => { if (event.button === 0) event.stopPropagation(); });
+          hit.addEventListener("pointerup", event => { if (event.button === 0) event.stopPropagation(); });
+          hit.addEventListener("dblclick", event => {
+            event.stopPropagation();
+            this.onCableEdit?.(l.id);
+          });
+          record.el.append(hit);
+          record.hit = hit;
+        }
+        record.hit.style.display = project.settings.advancedMode ? "" : "none";
         if (key === record.key) continue;
+        record.hit.setAttribute("d", d);
         record.halo.setAttribute("d", d);
         record.line.setAttribute("d", d);
         record.wave.setAttribute("d", d);

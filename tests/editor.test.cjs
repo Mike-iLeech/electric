@@ -965,3 +965,75 @@ test("продвинутый режим добавляет резервный в
   assert.ok(s.state().project.nodes[0].transfer);
   s.dom.window.close();
 });
+test("длина кабеля включает расчёт и плашку без ручного задания профиля", async () => {
+  const p = E.project();
+  p.settings.advancedMode = true;
+  const source = E.makeNode({name:"Ввод", category:"input", phases:1, inConnType:"cee1", inA:32,
+    outputs:[{connType:"cee1", nominalA:32}]}, {x:220,y:350});
+  const load = E.makeNode({name:"Нагрузка", category:"consumer", phases:1, inConnType:"cee1", inA:32,
+    watts:2300}, {x:760,y:350});
+  p.nodes = [source, load];
+  const link = E.connect(p, {nodeId:source.id, portId:source.outputs[0].id, kind:"out"},
+    {nodeId:load.id, portId:load.inputs[0].id, kind:"in"});
+  link.cable = {lengthM:30};
+  const profile = E.cableParameters(link, source.outputs[0], load.inputs[0]);
+  assert.equal(profile.ampacityA, 32);
+  assert.equal(profile.sectionMm2, 10);
+  const s = await setup(p);
+  const labels = [...s.w.document.querySelectorAll(".cableMetricLabel")];
+  assert.equal(labels.length, 1);
+  for (const label of labels) {
+    assert.match(label.textContent, /30 м · ΔUф 1,42 В · ΔP 14,22 Вт/);
+    assert.doesNotMatch(label.getAttribute("transform"), /rotate/);
+  }
+  assert.ok(labels[0].querySelector(".cableLabelLeader"));
+  assert.equal(labels[0].querySelector("rect").getAttribute("height"), "26");
+  const dialog = s.$("cableLengthDialog");
+  dialog.showModal = () => dialog.setAttribute("open", "");
+  dialog.close = () => dialog.removeAttribute("open");
+  s.w.document.querySelector(".cableHitArea").dispatchEvent(new s.w.MouseEvent("dblclick", {bubbles:true}));
+  assert.ok(dialog.open);
+  assert.equal(s.$("cableLengthInput").value, "30");
+  s.$("cableLengthInput").value = "40";
+  s.$("cableLengthForm").dispatchEvent(new s.w.Event("submit", {bubbles:true,cancelable:true}));
+  assert.equal(s.state().project.links[0].cable.lengthM, 40);
+  assert.equal(dialog.open, false);
+  const drag = (type, clientX) => {
+    const event = new s.w.Event(type, {bubbles:true,cancelable:true});
+    Object.assign(event, {button:0,pointerId:1,clientX,clientY:350});
+    labels[0].dispatchEvent(event);
+  };
+  labels[0].setPointerCapture = () => {};
+  drag("pointerdown",490);
+  drag("pointermove",640);
+  drag("pointerup",640);
+  assert.ok(s.state().project.links[0].cable.labelFraction > .5);
+  const settings = s.$("cableSettingsDialog");
+  settings.showModal = () => settings.setAttribute("open", "");
+  settings.close = () => settings.removeAttribute("open");
+  labels[0].dispatchEvent(new s.w.MouseEvent("contextmenu", {bubbles:true,cancelable:true}));
+  assert.ok(settings.open);
+  assert.match(settings.querySelector(".cableProfileHelp").textContent, /10 мм², 32 А.*На 100 м/);
+  const section = [...settings.querySelectorAll("label")].find(label => label.textContent.includes("Сечение жилы"));
+  section.querySelector("input").value = "10";
+  section.querySelector("input").dispatchEvent(new s.w.Event("change"));
+  assert.equal(s.state().project.links[0].cable.sectionMm2, 10);
+  [...settings.querySelectorAll("button")].find(button => button.textContent === "Сбросить профиль кабеля").click();
+  const reset = s.state().project.links[0].cable;
+  assert.equal(reset.sectionMm2, undefined);
+  assert.equal(reset.lengthM, 40);
+  assert.ok(reset.labelFraction > .5);
+  const length = [...settings.querySelectorAll("label")].find(label => label.textContent === "Длина, м");
+  length.querySelector("input").value = "100000";
+  length.querySelector("input").dispatchEvent(new s.w.Event("change"));
+  assert.equal(s.state().project.links[0].cable.lengthM, reset.lengthM);
+  const correctedLength = [...settings.querySelectorAll("label")].find(label => label.textContent === "Длина, м").querySelector("input");
+  correctedLength.value = "4000";
+  correctedLength.dispatchEvent(new s.w.Event("change"));
+  const warning = settings.querySelector("#cableSettingsBody .cableWarning");
+  assert.match(warning.textContent, /допустимая длина участка/);
+  assert.match(warning.textContent, /Увеличьте сечение/);
+  s.flush();
+  assert.ok(s.w.document.querySelector(".cableMetricWarning"));
+  s.dom.window.close();
+});

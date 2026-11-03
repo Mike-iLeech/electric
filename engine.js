@@ -464,6 +464,8 @@
         if (lengthM !== undefined) finite(lengthM, 0.01, 100000, "Длина кабеля");
         if (sectionMm2 !== undefined) finite(sectionMm2, 0.1, 500, "Сечение кабеля");
         if (ampacityA !== undefined) finite(ampacityA, 0.1, 10000, "Допустимый ток кабеля");
+        if (l.cable.maxDropPercent !== undefined) finite(l.cable.maxDropPercent, 0.1, 100, "Предел падения напряжения");
+        if (l.cable.labelFraction !== undefined) finite(l.cable.labelFraction, 0, 1, "Положение подписи кабеля");
         if (l.cable.ambientC !== undefined) finite(l.cable.ambientC, -50, 100, "Температура среды");
         if (l.cable.thermalResistance !== undefined) finite(l.cable.thermalResistance, 0.0001, 1000, "Тепловое сопротивление");
         if (material !== undefined && !["cu", "al"].includes(material)) throw Error("Неверный материал жил");
@@ -696,6 +698,41 @@
         ? (Math.max(...vals.map((v) => Math.abs(v - avg))) / avg) * 100
         : 0;
     }
+    for (const id of order) {
+      const c = computed.get(id);
+      const n = ix.nodes.get(id);
+      const link = activeInputs.get(id);
+      const upstream = link && computed.get(link.from.nodeId);
+      const inlet = link && ix.ports.get(link.to.portId).port;
+      const out = link && ix.ports.get(link.from.portId).port;
+      let currentLimit = Math.min(upstream?.currentLimit ?? Infinity,
+        inlet?.nominalA ?? n.supplyA, out?.nominalA ?? Infinity,
+        inlet?.breaker?.ratingA ?? Infinity, out?.breaker?.ratingA ?? Infinity,
+        n.mainBreaker?.ratingA ?? Infinity);
+      const voltages = upstream ? {...upstream.phaseVoltage} :
+        Object.fromEntries(PHASES.map(phase => [phase, p.settings.voltageLN]));
+      if (p.settings.advancedMode && c.powered && link?.cable?.lengthM > 0) {
+        const cable = cableParameters(link, out, inlet);
+        const estimate = cableEstimate(cable, out.phases, portLoads.get(out.id).loadA);
+        if (estimate) {
+          const sendingVoltage = upstream.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
+          const dropLimitA = estimate.dropV > 0
+            ? estimate.current * sendingVoltage * cable.maxDropPercent / (100 * estimate.dropV)
+            : Infinity;
+          currentLimit = Math.min(currentLimit, cable.ampacityA, dropLimitA);
+          for (const phase of out.phases === 3 ? PHASES : [c.inPhase || "L1"]) {
+            const drop = out.phases === 3 ? estimate.phaseDropV[phase] : estimate.dropV;
+            voltages[phase] = Math.max(0, voltages[phase] - drop);
+          }
+        }
+      }
+      c.phaseVoltage = voltages;
+      c.voltageLN = n.phases === 3 ? Math.min(...Object.values(voltages)) : voltages[c.inPhase || "L1"];
+      c.currentLimit = currentLimit;
+      c.availableWatts = c.powered ? currentLimit * c.voltageLN * n.phases : 0;
+      c.voltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
+        c.voltageLN < p.settings.voltageLN - 1e-8 && sum(c.loadW) > c.availableWatts + 1e-8;
+    }
     return {
       nodes: computed,
       ports: portLoads,
@@ -745,6 +782,19 @@
     };
   }
 
+  const CABLE_SECTIONS = Object.freeze({6:2.5, 10:2.5, 16:4, 32:10, 63:25, 125:50, 250:120});
+  let cableSections = CABLE_SECTIONS;
+  function setCableSections(values) {
+    cableSections = Object.fromEntries(Object.entries(CABLE_SECTIONS).map(([rating, fallback]) => {
+      const section = values?.[rating];
+      return [rating, Number.isFinite(section) && section > 0 && section <= 1000 ? section : fallback];
+    }));
+  }
+  function cableParameters(link, output, input) {
+    const ampacityA = Math.min(output.nominalA, input.nominalA);
+    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...link.cable};
+  }
+
   function cableEstimate(cable, phaseCount, currents) {
     const { lengthM, sectionMm2, material, ampacityA } = cable;
     if (!(lengthM > 0 && sectionMm2 > 0 && ampacityA > 0)) return null;
@@ -752,11 +802,38 @@
     const values = PHASES.map(phase => currents[phase] || 0);
     const current = Math.max(...values);
     const balanced = current - Math.min(...values) < 1e-6;
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const squares = values.reduce((sum, value) => sum + value ** 2, 0);
+    const neutralSquared = Math.max(0, (3 * squares - total ** 2) / 2);
+    const phaseDropV = Object.fromEntries(PHASES.map((phase, i) => [
+      phase, resistance * (2 * values[i] - (total - values[i]) / 2),
+    ]));
     const dropV = phaseCount === 1 ? 2 * current * resistance
-      : balanced ? Math.sqrt(3) * current * resistance : null;
-    const lossW = phaseCount === 1 ? 2 * current ** 2 * resistance
-      : balanced ? 3 * current ** 2 * resistance : null;
-    return { dropV, lossW, resistance, current, exceedsAmpacity: current > ampacityA };
+      : balanced ? Math.sqrt(3) * current * resistance : Math.max(...Object.values(phaseDropV));
+    const lossW = resistance * (squares + neutralSquared);
+    return { dropV, lossW, phaseDropV, lineVoltage: phaseCount === 3 && balanced,
+      resistance, current, exceedsAmpacity: current > ampacityA };
+  }
+  function cableWarnings(cable, estimate, output, input, voltageLN) {
+    if (!estimate) return [];
+    const warnings = [];
+    const voltage = voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
+    const dropLimit = voltage * cable.maxDropPercent / 100;
+    if (estimate.dropV > dropLimit) {
+      const maxLength = cable.lengthM * dropLimit / estimate.dropV;
+      warnings.push("Падение напряжения " + (100 * estimate.dropV / voltage).toFixed(2) +
+        "% выше предела " + cable.maxDropPercent + "%. При текущей нагрузке допустимая длина участка около " +
+        maxLength.toFixed(1) + " м.");
+    }
+    const nominalA = Math.min(output.nominalA,input.nominalA);
+    const currentLimit = Math.min(cable.ampacityA, nominalA);
+    if (estimate.current > currentLimit)
+      warnings.push("Ток " + estimate.current.toFixed(1) + " А выше допустимых " + currentLimit + " А для линии.");
+    const nominalW = nominalA * output.phases * voltageLN;
+    if (estimate.lossW > nominalW)
+      warnings.push("Потери " + estimate.lossW.toFixed(0) + " Вт выше номинальной мощности линии " + nominalW.toFixed(0) + " Вт.");
+    if (warnings.length) warnings.push("Увеличьте сечение, снизьте нагрузку или сократите длину линии. При превышении номинала разъёмов снизьте нагрузку или замените разъёмы.");
+    return warnings;
   }
   function selectedBranch(p, selected) {
     const ids = [...selected];
@@ -1150,6 +1227,17 @@
             rows.at(-1).transition = true;
           }
       }
+    add("Дистро 125 А → CEE 63 А, 2 × CEE 32 А, 15 × CEE 16 А, 9 × SHUKO 16 А",
+      "distributor", 3, "cee3", 125, [
+        ...[63, 32, 32].map(nominalA => ({connType:"cee3", nominalA})),
+        ...Array.from({length:15}, (_, i) => ({
+          connType:"cee1", nominalA:16, phase:PHASES[i % 3],
+          breaker:breaker(i === 5 ? 15 : i === 14 ? 13 : 16),
+        })),
+        ...Array.from({length:9}, (_, i) => ({
+          connType:"euro", nominalA:16, phase:PHASES[i % 3],
+        })),
+      ]);
     for (const row of rows) {
       row.catalogPath = catalogPath(row);
       catalogAliases.set(cleanLabel(row.name), row);
@@ -1244,6 +1332,10 @@
     overloadOrigins,
     selectedBranch,
     cableEstimate,
+    cableParameters,
+    CABLE_SECTIONS,
+    setCableSections,
+    cableWarnings,
     protectionScenario,
     indexes,
     nodeHeight,

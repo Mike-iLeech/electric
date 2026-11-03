@@ -59,9 +59,11 @@
     }));
   }
   function pageCanvas(plan, resolution = 300) {
+    // Keep previews lightweight while allowing large sheets to retain small labels.
+    const pixelBudget = resolution > 120 ? 64000000 : 24000000;
     const dpi = Math.min(
         resolution / 72,
-        Math.sqrt(24000000 / (plan.pw * plan.ph)),
+        Math.sqrt(pixelBudget / (plan.pw * plan.ph)),
       ),
       canvas = document.createElement("canvas");
     canvas.width = Math.floor(plan.pw * dpi);
