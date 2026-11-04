@@ -1,4 +1,6 @@
-# ElectricCAD Easy 32.6.0
+# ElectricCAD Easy 32.7.0
+
+Native macOS packages support Apple Silicon and Intel, with Command shortcuts and Dock activation. See [MACOS.md](MACOS.md) for installation and signing limitations. The initial macOS build is ad-hoc signed, without Apple notarization, and uses manual DMG updates.
 
 The current implementation is documented in [README.md](README.md), with design decisions and verification limits in [CHANGES-v32.md](CHANGES-v32.md).
 

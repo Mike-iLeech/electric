@@ -1,6 +1,6 @@
 {
   "name": "electriccad-easy",
-  "version": "32.6.0",
+  "version": "32.7.0",
   "description": "ElectricCAD Easy — конструктор временных электросетей",
   "author": "Mike-iLeech",
   "license": "GPL-3.0-only",
@@ -14,7 +14,8 @@
     "desktop:start": "pnpm build && electron .",
     "desktop:dir": "pnpm build && electron-builder --config electron-builder.cjs --win --x64 --dir --publish never",
     "desktop:build": "pnpm build && electron-builder --config electron-builder.cjs --win nsis --x64 --publish never",
-    "desktop:release": "node scripts/signed-release.cjs"
+    "desktop:release": "node scripts/signed-release.cjs",
+    "desktop:mac": "pnpm build && electron-builder --config electron-builder.cjs --mac --publish never"
   },
   "devDependencies": {
     "electron": "45.2.1",

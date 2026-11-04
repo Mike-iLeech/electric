@@ -1,0 +1,77 @@
+name: macOS release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing published version tag, e.g. v32.7.0
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Validate release identity
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: node -e 'const p=require("./package.json");if(process.env.RELEASE_TAG!=="v"+p.version)throw Error("Tag/version mismatch")'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - run: node scripts/desktop-smoke.cjs
+      - run: pnpm exec electron-builder --config electron-builder.cjs --mac --${{ matrix.arch }} --publish never
+      - run: node scripts/mac-verify.cjs ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release-${{ matrix.arch }}
+          path: |
+            release/*-mac-${{ matrix.arch }}.dmg
+            release/*-mac-${{ matrix.arch }}.zip
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: desktop-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: macos-release-*
+          path: artifacts
+          merge-multiple: true
+      - name: Attach verified macOS files to the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.draft')" = false
+          files=(artifacts/*.dmg artifacts/*.zip)
+          test "${#files[@]}" -eq 4
+          gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY"

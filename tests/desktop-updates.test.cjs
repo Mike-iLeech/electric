@@ -19,6 +19,7 @@ function fixture(t, options = {}) {
   updater.downloadUpdate = async () => { downloads++; updater.emit("update-downloaded", { version: "32.1.0" }); return ["test-installer.exe"]; };
   updater.quitAndInstall = (silent, runAfter) => { assert.equal(silent, false); assert.equal(runAfter, true); installs++; };
   const service = createUpdateService({
+    supported: options.supported ?? true,
     updater,
     app: { isPackaged: options.packaged ?? true, getVersion: () => "32.0.0" },
     readPreferences: () => preferences,
@@ -202,6 +203,23 @@ test("updates: dev-режим не обращается к сети даже п�
   await f.service.check({ manual: true });
   await f.service.download();
   assert.equal(f.service.state().status, "dev");
+  assert.equal(f.timers.size, 0);
+  assert.deepEqual(f.counts(), { checks: 0, downloads: 0, installs: 0 });
+});
+
+test("updates: ручное обновление macOS не запускает сеть или установщик", async t => {
+  const f = fixture(t, { supported: false });
+  f.service.start();
+  await f.advance(WEEK_MS);
+  await f.service.check({ manual: true });
+  await f.service.download();
+  assert.equal(f.service.install(), false);
+  const state = f.service.state();
+  assert.equal(state.status, "manual");
+  assert.equal(state.nextCheckAt, null);
+  assert.equal(state.canCheck, false);
+  assert.equal(state.canDownload, false);
+  assert.equal(state.canInstall, false);
   assert.equal(f.timers.size, 0);
   assert.deepEqual(f.counts(), { checks: 0, downloads: 0, installs: 0 });
 });

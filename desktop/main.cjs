@@ -16,7 +16,10 @@ const root = process.env.ELECTRICCAD_DATA_DIR
 app.setName("ElectricCAD Easy");
 app.setPath("userData", root);
 app.setPath("sessionData", path.join(root, "Browser"));
-app.setAppUserModelId("org.ileech.electriccad");
+if(process.platform === "win32")app.setAppUserModelId("org.ileech.electriccad");
+const isMac=process.platform === "darwin";
+let quitting=false;
+app.on("before-quit",()=>{quitting=true;});
 protocol.registerSchemesAsPrivileged([{ scheme: "electriccad", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 let mainWindow, settingsWindow, preferences, updates;
@@ -55,7 +58,7 @@ function openSettings() {
   if (settingsWindow && !settingsWindow.isDestroyed()) { settingsWindow.show(); settingsWindow.focus(); return; }
   settingsWindow = new BrowserWindow({ parent: mainWindow, width: 680, height: 900, minWidth: 540, minHeight: 560,
     title: t("Настройки ElectricCAD Easy"), backgroundColor: "#0b1018", show: false,
-    icon: path.join(__dirname, "assets/icon.ico"),
+    icon: path.join(__dirname, isMac?"assets/icon.png":"assets/icon.ico"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
       nodeIntegration: false, sandbox: true, spellcheck: false, webSecurity: true },
   });
@@ -90,7 +93,7 @@ if (!app.requestSingleInstanceLock()) {
     const storage = createStorage(root);
     preferences = createPreferences(root);
     const { autoUpdater } = require("electron-updater");
-    updates = createUpdateService({ updater: autoUpdater, app, readPreferences: preferences.read,
+    updates = createUpdateService({ updater: autoUpdater, app, supported:!isMac, readPreferences: preferences.read,
       patchPreferences: changes => preferences.patch(changes),
       onChange: () => publishSettings(),
     });
@@ -117,7 +120,7 @@ if (!app.requestSingleInstanceLock()) {
         const { action, key, value } = payload || {};
         if (!(action === "info" ? trustedWindow(event) : trusted(event))) throw new Error("Доступ запрещён");
         let result;
-        if (action === "info") result = { dataDirectory: root, version: app.getVersion(), language: preferences.read().language };
+        if (action === "info") result = { dataDirectory: root, version: app.getVersion(), platform:process.platform, language: preferences.read().language };
         else if (action === "get") result = storage.getItem(key);
         else if (action === "set") storage.setItem(key, value);
         else throw new Error("Неизвестное действие");
@@ -167,18 +170,20 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow = new BrowserWindow({
       width: 1440, height: 940, minWidth: 900, minHeight: 600,
       backgroundColor: "#0b0f14", title: "ElectricCAD Easy", show: false,
-      icon: path.join(__dirname, "assets/icon.ico"),
+      icon: path.join(__dirname, isMac?"assets/icon.png":"assets/icon.ico"),
       webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true,
         nodeIntegration: false, sandbox: true, spellcheck: false, webSecurity: true },
     });
     mainWindow.once("ready-to-show", () => mainWindow.show());
+    mainWindow.on("close",event=>{if(isMac&&!quitting){event.preventDefault();settingsWindow?.hide();mainWindow.hide();}});
+    app.on("activate",()=>{if(mainWindow&&!mainWindow.isDestroyed()){if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();}});
     secureWindow(mainWindow, APP_URL);
     mainWindow.webContents.on("will-prevent-unload", event => {
       const response = dialog.showMessageBoxSync(mainWindow, { type: "warning", title: t("Данные не сохранены"),
         message: t("Не удалось сохранить изменения на диск."),
         detail: t("Вернитесь в редактор и сохраните проект в JSON или проверьте доступ к папке данных."),
         buttons: [t("Вернуться в редактор"), t("Закрыть без сохранения")], defaultId: 0, cancelId: 0, noLink: true });
-      if (response === 1) event.preventDefault();
+      if (response === 1) event.preventDefault(); else quitting=false;
     });
     session.defaultSession.on("will-download", (_event, item, contents) => {
       if (contents !== mainWindow.webContents || !isAppURL(contents.getURL())) { item.cancel(); return; }
@@ -198,6 +203,14 @@ if (!app.requestSingleInstanceLock()) {
           dialog.showMessageBox(mainWindow, { type: "error", message: t("Не удалось сохранить файл"), detail: t("Проверьте свободное место и доступ к выбранной папке.") });
       });
     });
+    function editAction(method,key,shift=false){
+      const win=BrowserWindow.getFocusedWindow()||mainWindow;if(!win||win.isDestroyed())return;
+      if(win!==mainWindow){win.webContents[method]();return;}
+      win.webContents.executeJavaScript(`(()=>{const el=document.activeElement;
+        if(el&&(el.matches("input,textarea")||el.isContentEditable))return true;
+        window.dispatchEvent(new KeyboardEvent("keydown",{key:${JSON.stringify(key)},code:${JSON.stringify("Key"+key.toUpperCase())},metaKey:true,shiftKey:${shift},bubbles:true,cancelable:true}));return false;})()`)
+        .then(native=>{if(native&&!win.isDestroyed())win.webContents[method]();}).catch(()=>{});
+    }
     function updateMenu() {
     const menu = [
       { label: "Проект", submenu: [
@@ -208,17 +221,29 @@ if (!app.requestSingleInstanceLock()) {
         { type: "separator" }, { label: "Выход", role: "quit" },
       ] },
       { label: "Настройки", submenu: [
-        { label: "Настройки приложения…", accelerator:"Ctrl+,", click:()=>command("btnAppSettings") },
+        { label: "Настройки приложения…", accelerator:"CommandOrControl+,", click:()=>command("btnAppSettings") },
         { label: "Проверить обновления…", click: () => { command("btnAppSettings"); void updates.check({manual:true}); } },
       ] },
-      { label: "Окно", submenu: [{ label: "На весь экран", role: "togglefullscreen" }] },
+      { label: "Окно", ...(isMac ? {role:"windowMenu"} : {}), submenu: [
+        { label: "На весь экран", role: "togglefullscreen" },
+        ...(isMac ? [{role:"minimize"},{role:"zoom"},{type:"separator"},{role:"close"}] : []),
+      ] },
       { label: "Помощь", submenu: [
         { label: "Справка", click: () => command("helpTip") },
         { label: "GitHub", click: () => openExternal("https://github.com/Mike-iLeech/electric") },
         { label: "О программе", click: () => dialog.showMessageBox(mainWindow, { type: "info", title: "ElectricCAD Easy",
-          message: `ElectricCAD Easy ${app.getVersion()}`, detail: `${t("Автономный редактор электрических схем.")}\n\n${t("Папка данных")}:\n${root}\n\n${t("Сайт и Windows-приложение хранят проекты отдельно. Для переноса используйте JSON.")}` }) },
+          message: `ElectricCAD Easy ${app.getVersion()}`, detail: `${t("Автономный редактор электрических схем.")}\n\n${t("Папка данных")}:\n${root}\n\n${t("Сайт и настольное приложение хранят проекты отдельно. Для переноса используйте JSON.")}` }) },
       ] },
     ];
+    if(isMac)menu.unshift({role:"appMenu"}, {label:"Правка",submenu:[
+      {label:"Отменить",accelerator:"Command+Z",click:()=>editAction("undo","z")},
+      {label:"Повторить",accelerator:"Command+Shift+Z",click:()=>editAction("redo","z",true)},
+      {type:"separator"},
+      {label:"Вырезать",accelerator:"Command+X",click:()=>editAction("cut","x")},
+      {label:"Копировать",accelerator:"Command+C",click:()=>editAction("copy","c")},
+      {label:"Вставить",accelerator:"Command+V",click:()=>editAction("paste","v")},
+      {label:"Выделить всё",accelerator:"Command+A",click:()=>editAction("selectAll","a")},
+    ]});
     function localize(items) { return items.map(item => ({...item, ...(item.label ? {label:t(item.label)} : {}), ...(item.submenu ? {submenu:localize(item.submenu)} : {})})); }
     Menu.setApplicationMenu(Menu.buildFromTemplate(localize(menu)));
     }
@@ -229,6 +254,6 @@ if (!app.requestSingleInstanceLock()) {
     dialog.showErrorBox("ElectricCAD Easy — ошибка запуска", "Не удалось открыть приложение или папку данных.\n" + error.message);
     app.exit(1);
   });
-  app.on("window-all-closed", () => app.quit());
+  app.on("window-all-closed", () => {if(!isMac)app.quit();});
   app.on("will-quit", () => updates?.stop());
 }

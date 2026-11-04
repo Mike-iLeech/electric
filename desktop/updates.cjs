@@ -6,7 +6,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // The renderer never supplies a feed, installer URL, path, or publisher name.
 function createUpdateService({
   updater, app, readPreferences, patchPreferences, onChange = () => {},
-  now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout,
+  now = Date.now, setTimer = setTimeout, clearTimer = clearTimeout, supported = true,
 }) {
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = false;
@@ -17,7 +17,7 @@ function createUpdateService({
   let started = false, disposed = false, timer = null;
   let checking = null, downloading = null, lastAttempt = 0, downloaded = false;
   let current = {
-    status: app.isPackaged ? "idle" : "dev",
+    status: app.isPackaged ? (supported ? "idle" : "manual") : "dev",
     currentVersion: app.getVersion(), availableVersion: null, progress: null,
     errorCode: null, errorStage: null,
   };
@@ -27,22 +27,22 @@ function createUpdateService({
     return Math.max(lastAttempt, Number.isFinite(saved) && saved >= 0 ? saved : 0);
   }
   function nextCheck() {
-    if (!app.isPackaged || !enabled() || downloaded || current.status === "installing") return null;
+    if (!supported || !app.isPackaged || !enabled() || downloaded || current.status === "installing") return null;
     const time = now(), last = lastChecked();
     // A clock correction must not postpone checks for months or years.
     return !last || last > time ? time : last + WEEK_MS;
   }
   function state() {
     return {
-      ...current,
+      ...current, supported,
       version: current.availableVersion || current.currentVersion,
       progress: current.progress?.percent || 0,
       downloadStats: current.progress ? { ...current.progress } : null,
       enabled: enabled(),
       lastCheckedAt: lastChecked() || null, nextCheckAt: nextCheck(),
-      canCheck: !!app.isPackaged && !checking && !downloading && !downloaded && current.status !== "installing",
-      canDownload: !!app.isPackaged && !!current.availableVersion && !checking && !downloading && !downloaded,
-      canInstall: !!app.isPackaged && downloaded && !downloading && current.status !== "installing",
+      canCheck: supported && !!app.isPackaged && !checking && !downloading && !downloaded && current.status !== "installing",
+      canDownload: supported && !!app.isPackaged && !!current.availableVersion && !checking && !downloading && !downloaded,
+      canInstall: supported && !!app.isPackaged && downloaded && !downloading && current.status !== "installing",
     };
   }
   function publish() {
@@ -76,6 +76,7 @@ function createUpdateService({
   function check({ manual = false } = {}) {
     if (disposed) return Promise.resolve(state());
     if (!app.isPackaged) { update({ status: "dev" }); return Promise.resolve(state()); }
+    if (!supported) return Promise.resolve(state());
     if (checking) return checking;
     if (downloading || downloaded || current.status === "installing" || (!manual && !enabled())) return Promise.resolve(state());
     if (!manual && nextCheck() > now()) { schedule(); return Promise.resolve(state()); }
@@ -105,7 +106,7 @@ function createUpdateService({
     return checking;
   }
   function download() {
-    if (disposed || !app.isPackaged) return Promise.resolve(state());
+    if (disposed || !supported || !app.isPackaged) return Promise.resolve(state());
     if (downloading) return downloading;
     if (checking || downloaded || !current.availableVersion) return Promise.resolve(state());
     cancelTimer();
@@ -119,7 +120,7 @@ function createUpdateService({
     return downloading;
   }
   function install() {
-    if (disposed || !app.isPackaged || !downloaded || downloading || current.status === "installing") return false;
+    if (disposed || !supported || !app.isPackaged || !downloaded || downloading || current.status === "installing") return false;
     // The main process must flush/confirm the editor BEFORE calling install().
     // Ordinary window close never installs an update.
     cancelTimer();

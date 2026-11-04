@@ -1,5 +1,6 @@
 "use strict";
 const en = {
+  "Правка":"Edit", "Отменить":"Undo", "Повторить":"Redo", "Вырезать":"Cut", "Копировать":"Copy", "Вставить":"Paste", "Выделить всё":"Select all",
   "Проект": "Project", "Сохранить текущий проект": "Save current project",
   "Сохранить копию JSON…": "Save JSON copy…", "Импортировать JSON…": "Import JSON…",
   "Экспорт схемы…": "Export drawing…", "Открыть папку данных": "Open data folder",
@@ -17,6 +18,6 @@ const en = {
   "Обновление не установлено: не удалось сохранить текущие данные.": "The update was not installed because the current data could not be saved.",
   "Папка данных": "Data folder",
   "Автономный редактор электрических схем.": "Offline electrical diagram editor.",
-  "Сайт и Windows-приложение хранят проекты отдельно. Для переноса используйте JSON.": "The website and Windows app store projects separately. Use JSON to transfer projects.",
+  "Сайт и настольное приложение хранят проекты отдельно. Для переноса используйте JSON.": "The website and desktop app store projects separately. Use JSON to transfer projects.",
 };
 module.exports = (language, value) => language === "en" ? en[value] || value : value;

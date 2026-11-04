@@ -4,6 +4,7 @@
   if(!api?.getSettings)return;
   const messages = {
     ru: {
+      manual:"В этой macOS-сборке обновление устанавливается вручную из DMG. Используйте ссылку «Релизы на GitHub».",
       title:"Настройки", languageTitle:"Язык приложения", languageLabel:"Язык интерфейса", languageHint:"Применяется сразу. Названия ваших проектов и модулей сохраняются.",
       updatesTitle:"Обновления", automatic:"Автоматические обновления", weekly:"Проверять GitHub Releases раз в неделю",
       updateHint:"Новая версия загружается в фоне. Установка и перезапуск — по вашей команде, после сохранения проекта.",
@@ -12,6 +13,7 @@
       saved:"Настройки сохраняются автоматически", idle:"Проверка ещё не выполнена", checking:"Проверяем наличие обновлений…", available:"Доступна версия", downloading:"Загружаем обновление…", downloaded:"Обновление готово к установке", "up-to-date":"Установлена актуальная версия", error:"Не удалось проверить или загрузить обновление. Проверьте подключение и наличие опубликованного релиза.", dev:"Проверка обновлений доступна в установленном приложении", disabled:"Автоматическая проверка отключена", never:"Последняя проверка: ещё не выполнялась", last:"Последняя проверка: ", failure:"Не удалось сохранить настройки или выполнить действие. Проверьте доступ к папке данных.",
     },
     en: {
+      manual:"This macOS build uses manual DMG updates. Use the GitHub releases link.",
       title:"Settings", languageTitle:"Application language", languageLabel:"Interface language", languageHint:"Applied immediately. Your project and module names are preserved.",
       updatesTitle:"Updates", automatic:"Automatic updates", weekly:"Check GitHub Releases once a week",
       updateHint:"New versions download in the background. Installation and restart happen when you choose, after saving your project.",
@@ -33,7 +35,7 @@
     document.documentElement.lang = p.language; if(location.pathname.endsWith("settings.html")) document.title = m.title + " — ElectricCAD Easy";
     for (const item of document.querySelectorAll("[data-text]")) item.textContent = m[item.dataset.text];
     if($("version")) $("version").textContent = "ElectricCAD Easy " + value.version;
-    $("language").value = p.language; $("autoUpdate").checked = p.autoUpdate;
+    $("language").value = p.language; $("autoUpdate").checked = p.autoUpdate; $("autoUpdate").disabled=u.supported===false;
     $("dataPath").textContent = value.dataDirectory;
     $("lastCheck").textContent = p.lastUpdateCheck ? m.last + new Date(p.lastUpdateCheck).toLocaleString(p.language === "ru" ? "ru-RU" : "en-US") : m.never;
     $("updateStatus").textContent = ((u.status === "error" && errors[p.language]?.[u.errorCode]) || m[u.status] || m.idle) +

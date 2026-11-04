@@ -31,6 +31,17 @@ module.exports = {
     requestedExecutionLevel: "asInvoker",
     ...signing.win,
   },
+  mac: {
+    target: [{target:"dmg",arch:["arm64","x64"]},{target:"zip",arch:["arm64","x64"]}],
+    artifactName: "ElectricCAD-Easy-${version}-mac-${arch}.${ext}",
+    icon: "desktop/assets/icon.png",
+    category: "public.app-category.productivity",
+    identity: "-",
+    hardenedRuntime: true,
+    entitlements: "desktop/assets/entitlements.mac.plist",
+    entitlementsInherit: "desktop/assets/entitlements.mac.plist",
+    notarize: false,
+  },
   nsis: {
     installerIcon: "desktop/assets/icon.ico",
     uninstallerIcon: "desktop/assets/icon.ico",

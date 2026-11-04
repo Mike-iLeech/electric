@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, Menu } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const assert = require("node:assert/strict");
@@ -25,6 +25,21 @@ app.on("browser-window-created", (_event, win) => {
       assert.equal(await js("document.querySelectorAll('[data-gif]').length"), 5);
       assert.equal(await js("electricDesktop.info.dataDirectory"), directory);
       if (phase === "write") {
+        if (process.platform === "darwin") {
+          win.close();
+          assert.equal(win.isDestroyed(), false, "macOS close keeps the editor alive");
+          assert.equal(win.isVisible(), false);
+          app.emit("activate");
+          assert.equal(win.isVisible(), true, "Dock activation restores the editor");
+          await js("document.activeElement?.blur()");
+          const edit = Menu.getApplicationMenu().items.find(item => item.label === "Правка");
+          assert.ok(edit, "native Edit menu exists");
+          edit.submenu.items.find(item => item.accelerator === "Command+A").click();
+          for (let i=0;i<30 && !await js("electricDiagnostics().selection.length === electricDiagnostics().project.nodes.length");i++)
+            await new Promise(resolve=>setTimeout(resolve,50));
+          assert.equal(await js("electricDiagnostics().selection.length"),await js("electricDiagnostics().project.nodes.length"));
+          await js("window.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',key:'Escape',bubbles:true}))");
+        }
         const originalName = await js("electricDiagnostics().project.meta.name");
         await js("electricDesktop.openSettings()");
         const settings = BrowserWindow.getAllWindows().find(candidate => candidate !== win);
@@ -103,6 +118,7 @@ app.on("browser-window-created", (_event, win) => {
       clearTimeout(timer);
       win.close();
       console.log("PASS desktop " + phase);
+      if (process.platform === "darwin") app.quit();
     } catch (error) { console.error(error, errors); app.exit(1); }
   });
 });
