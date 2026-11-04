@@ -811,7 +811,7 @@
   }
   function cableParameters(link, output, input, settings = {}) {
     const ampacityA = Math.min(output.nominalA, input.nominalA);
-    return {powerFactor:settings.powerFactor ?? 1, material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable};
+    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable, powerFactor:settings.powerFactor ?? 1};
   }
 
   function cableEstimate(cable, phaseCount, currents) {

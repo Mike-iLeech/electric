@@ -1581,45 +1581,45 @@
       /[<>:"/\\|?*\u0000-\u001f]/g,
       "_",
     );
-    const download = async (blob, ext, page = selectedPage) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob),
-        link = document.createElement("a");
-      link.href = url;
-      link.download =
-        filename +
-        (pagePlans.length > 1 && ext !== "pdf" ? `_лист-${page + 1}` : "") +
-        "." +
-        ext;
-      if(!desktop && window.showSaveFilePicker){
-        try {
-          const handle=await window.showSaveFilePicker({suggestedName:link.download});
+    const exportFilename = (ext,page=selectedPage) => filename + (pagePlans.length>1 && ext!=="pdf" ? `_лист-${page+1}` : "") + "." + ext;
+    async function chooseExportFile(ext,page=selectedPage) {
+      if(desktop || !window.showSaveFilePicker)return null;
+      try{return await window.showSaveFilePicker({suggestedName:exportFilename(ext,page)});}
+      catch(error){if(error.name!=="AbortError")notify("Не удалось выбрать файл экспорта");return false;}
+    }
+    const download = async (blob, ext, page = selectedPage, handle = null) => {
+      if(!blob){notify("Не удалось сформировать файл экспорта");return;}
+      const url=URL.createObjectURL(blob);
+      if(handle){
+        try{
           const writable=await handle.createWritable();await writable.write(blob);await writable.close();
           exportNotice(handle.name,()=>{window.open(url,"_blank");});
           setTimeout(()=>URL.revokeObjectURL(url),120000);
-        } catch(error){URL.revokeObjectURL(url);if(error.name!=="AbortError")notify("Не удалось сохранить экспортированный файл");}
+        }catch(error){URL.revokeObjectURL(url);notify("Не удалось сохранить экспортированный файл");}
         return;
       }
-      link.click();
+      const link=document.createElement("a");link.href=url;link.download=exportFilename(ext,page);link.click();
       if(!desktop)notify("Файл передан браузеру для сохранения: " + link.download);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
-    const downloadRaster = (ext, type) => {
-      const index = selectedPage,
-        raster = ElectricExport.rasterCanvas(pagePlans[index]);
-      raster.toBlob(
-        (b) => {
-          download(b, ext, index);
-          raster.width = raster.height = 1;
-        },
-        type,
-        1,
-      );
+    const downloadRaster = async (ext,type) => {
+      const index=selectedPage,plan=pagePlans[index];
+      const handle=await chooseExportFile(ext,index);if(handle===false)return;
+      try{
+        const raster=ElectricExport.rasterCanvas(plan);
+        raster.toBlob(blob=>{void download(blob,ext,index,handle);raster.width=raster.height=1;},type,1);
+      }catch(error){notify("Не удалось сформировать файл экспорта");}
+    };
+    const downloadPDF = async () => {
+      const index=selectedPage,project=E.clone(p),options={...drawingOptions};
+      const handle=await chooseExportFile("pdf",index);if(handle===false)return;
+      try{await download(ElectricExport.pdf(project,options),"pdf",index,handle);}
+      catch(error){notify("Не удалось сформировать файл экспорта");}
     };
     for (const [label, glyph, action] of [
       ["Сохранить PNG", "PNG", () => downloadRaster("png", "image/png")],
       ["Сохранить JPG", "JPG", () => downloadRaster("jpg", "image/jpeg")],
-      ["Сохранить PDF", "PDF", () => download(ElectricExport.pdf(p, drawingOptions), "pdf")],
+      ["Сохранить PDF", "PDF", downloadPDF],
       ["Сохранить проект JSON", "{}", exportProject],
       ["Закрыть", "×", close],
     ]) {

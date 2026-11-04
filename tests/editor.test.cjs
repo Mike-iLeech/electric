@@ -1247,3 +1247,15 @@ test('открытый диалог блокирует команды редак
  s.$('closeAppSettings').dispatchEvent(new s.w.KeyboardEvent('keydown',{key:'Delete',code:'Delete',bubbles:true}));
  assert.equal(s.w.electricDiagnostics().project.nodes.length,before);s.dom.window.close();
 });
+
+test('диалог сохранения выбирается до построения растра',async()=>{
+ const s=await setup(single());const calls=[];let choose;
+ s.w.showSaveFilePicker=()=>{calls.push('picker');return new Promise(resolve=>choose=resolve);};
+ s.$('btnExport').click();
+ s.w.ElectricExport.rasterCanvas=()=>{calls.push('render');return {toBlob:callback=>callback(null)};};
+ s.w.document.querySelector('[title="Сохранить PNG"]').click();
+ assert.deepEqual(calls,['picker']);
+ choose({createWritable:async()=>({write:async()=>{},close:async()=>{}})});
+ await new Promise(resolve=>setTimeout(resolve,0));assert.deepEqual(calls,['picker','render']);
+ s.dom.window.close();
+});

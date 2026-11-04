@@ -283,3 +283,11 @@ test('cos φ повышает ток при той же мощности и сн
  assert.equal(second.nodes.get(source.id).availableWatts,first.nodes.get(source.id).availableWatts/2);
  for(const value of [0,1.1,NaN]){p.settings.powerFactor=value;assert.throws(()=>E.validate(p));}
 });
+
+test('индивидуальный кабель не переопределяет cos φ мира',()=>{
+ const port={nominalA:16};
+ for(const powerFactor of [0,-1,NaN,'invalid']){
+  const cable=E.cableParameters({cable:{lengthM:10,powerFactor}},port,port,{powerFactor:.5});
+  assert.equal(cable.powerFactor,.5);assert.ok(E.cableEstimate(cable,1,{L1:10}).dropV>0);
+ }
+});
