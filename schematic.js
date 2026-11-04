@@ -28,6 +28,7 @@
     return result;
   }
   function branches(p) {
+    let supplyNumber = 0;
     const incoming = new Set(p.links.map((l) => l.to.nodeId)),
       visited = new Set(),
       result = [];
@@ -46,11 +47,12 @@
         for (const l of p.links)
           if (l.from.nodeId === id) queue.push(l.to.nodeId);
       }
+      const nodes = p.nodes.filter((n) => ids.has(n.id));
       result.push({
-        number: result.length + 1,
+        number: nodes.some((n) => n.category === "input") ? ++supplyNumber : null,
         project: {
           ...p,
-          nodes: p.nodes.filter((n) => ids.has(n.id)),
+          nodes,
           links: p.links.filter(
             (l) => ids.has(l.from.nodeId) && ids.has(l.to.nodeId),
           ),
@@ -197,7 +199,48 @@
         sum + Math.max(0, 24 - Math.abs(run.coordinate - other.coordinate)) *
           Math.max(0, Math.min(run.high,other.high) - Math.max(run.low,other.low)), 0), 0);
     }
-    function clear(points){return points.slice(1).every((b,i)=>{const a=points[i];return rects.every(r=>a.y===b.y ? !(a.y>r.y&&a.y<r.y+r.h&&Math.max(a.x,b.x)>r.x&&Math.min(a.x,b.x)<r.x+r.w) : !(a.x>r.x&&a.x<r.x+r.w&&Math.max(a.y,b.y)>r.y&&Math.min(a.y,b.y)<r.y+r.h));});}
+    // Keep passing conductors away from module borders; only endpoint leads
+    // may enter the clearance around their own connected module.
+    const moduleClearance = 24;
+    function clear(points, source, target) {
+      return points.slice(1).every((b, i) => {
+        const a = points[i];
+        if (a.x === b.x && a.y === b.y) return true;
+        return rects.every(r => {
+          if ((r === source && i === 0) ||
+              (r === target && i === points.length - 2)) return true;
+          const left = r.x - moduleClearance, right = r.x + r.w + moduleClearance;
+          const top = r.y - moduleClearance, bottom = r.y + r.h + moduleClearance;
+          return a.y === b.y
+            ? !(a.y > top && a.y < bottom && Math.max(a.x,b.x) > left && Math.min(a.x,b.x) < right)
+            : !(a.x > left && a.x < right && Math.max(a.y,b.y) > top && Math.min(a.y,b.y) < bottom);
+        });
+      });
+    }
+    function detour(start, end, source, target) {
+      const first = {x:start.x + moduleClearance, y:start.y};
+      const last = {x:end.x - moduleClearance, y:end.y};
+      if (!clear([start, first], source, null) || !clear([last, end], null, target)) return null;
+      const xs = [...new Set([first.x,last.x,...rects.flatMap(r => [r.x-moduleClearance,r.x+r.w+moduleClearance])])].sort((a,b)=>a-b);
+      const ys = [...new Set([first.y,last.y,...rects.flatMap(r => [r.y-moduleClearance,r.y+r.h+moduleClearance])])].sort((a,b)=>a-b);
+      const width=xs.length, begin=ys.indexOf(first.y)*width+xs.indexOf(first.x), finish=ys.indexOf(last.y)*width+xs.indexOf(last.x);
+      const distances=new Map([[begin,0]]), previous=new Map(), pending=new Set([begin]);
+      const point=id=>({x:xs[id%width],y:ys[Math.floor(id/width)]});
+      while(pending.size){
+        let id, score=Infinity;
+        for(const candidate of pending){const p=point(candidate), value=distances.get(candidate)+Math.abs(p.x-last.x)+Math.abs(p.y-last.y);if(value<score){score=value;id=candidate;}}
+        pending.delete(id);
+        if(id===finish){const path=[];for(let key=id;key!==undefined;key=previous.get(key))path.push(point(key));return [start,...path.reverse(),end];}
+        const x=id%width,y=Math.floor(id/width),a=point(id);
+        for(const next of [x>0?id-1:-1,x+1<width?id+1:-1,y>0?id-width:-1,y+1<ys.length?id+width:-1]){
+          if(next<0)continue;const b=point(next);
+          if(!clear([a,b],null,null))continue;
+          const cost=distances.get(id)+Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+          if(cost<(distances.get(next)??Infinity)){distances.set(next,cost);previous.set(next,id);pending.add(next);}
+        }
+      }
+      return null;
+    }
     return new Map(p.links.map(l=>{
       const n=nodes.get(l.from.nodeId),a=poses.get(n.id),b=poses.get(l.to.nodeId),i=n.outputs.findIndex(o=>o.id===l.from.portId);
       const start={x:a.x+a.w,y:a.y+85+i*28},end={x:b.x,y:b.y+85+28*nodes.get(l.to.nodeId).inputs.findIndex(input=>input.id===l.to.portId)};
@@ -217,11 +260,15 @@
       const length=points=>points.slice(1).reduce((sum,b,i)=>sum+Math.abs(b.x-points[i].x)+Math.abs(b.y-points[i].y)+15,0);
       let best;
       for (const points of candidates.sort((a,b)=>length(a)-length(b))) {
-        if (!clear(points)) continue;
+        if (!clear(points, a, b)) continue;
         const route = runs(points);
         const penalty = overlap(route);
         if (!best || penalty < best.penalty) best = {points, route, penalty};
         if (penalty === 0) break;
+      }
+      if (!best) {
+        const points = detour(start, end, a, b);
+        if (points) best = {points, route:runs(points), penalty:0};
       }
       const points = best?.points;
       if(!points)throw Error('Не найден маршрут печатной схемы: '+l.id);
@@ -242,13 +289,36 @@
     const connectors = {cee1:"CEE", cee3:"CEE", euro:"Schuko", powercon:"TRUE1", terminal1:"Клеммы", terminal3:"Клеммы"};
     const portLabel = (port, index) =>
       `${connectors[port.connType] || port.connType} ${port.nominalA}А ${port.phases}P · №${index + 1}`;
-    for (const link of p.links) {
-      if (!(link.cable?.lengthM > 0)) continue;
+    const orderedLinks = new Map();
+    for (const branch of branches(p)) {
+      const outgoing = new Map();
+      const incoming = new Set();
+      for (const link of branch.project.links) {
+        if (!outgoing.has(link.from.nodeId)) outgoing.set(link.from.nodeId, []);
+        outgoing.get(link.from.nodeId).push(link);
+        incoming.add(link.to.nodeId);
+      }
+      const queue = branch.project.nodes.filter(node => !incoming.has(node.id)).map(node => node.id);
+      const visited = new Set();
+      for (let i = 0; i < queue.length; i++) {
+        const id = queue[i];
+        if (visited.has(id)) continue;
+        visited.add(id);
+        const ports = ix.nodes.get(id).outputs.map(port => port.id);
+        const links = outgoing.get(id) || [];
+        links.sort((a, b) => ports.indexOf(a.from.portId) - ports.indexOf(b.from.portId));
+        for (const link of links) {
+          orderedLinks.set(link.id, link);
+          queue.push(link.to.nodeId);
+        }
+      }
+    }
+    for (const link of orderedLinks.values()) {
       const out = ix.ports.get(link.from.portId).port;
       const inlet = ix.ports.get(link.to.portId).port;
       const cable = E.cableParameters(link, out, inlet);
       const estimate = E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA);
-      const length = format.format(cable.lengthM) + " м";
+      const length = cable.lengthM > 0 ? format.format(cable.lengthM) + " м" : "—";
       rows.set(link.id, {
         id: "К" + String(rows.size + 1).padStart(2, "0"),
         source: labels[link.from.nodeId],
@@ -551,7 +621,7 @@
     }
     for (const [id, points] of paths) {
       const cable = cables.get(id);
-      if (!cable) continue;
+      if (!cable || cable.length === "—") continue;
       const parts = [cable.id + " · " + cable.length, cable.drop, cable.loss].filter(value => value !== "—");
       const candidates = points.slice(1).map((b,i) => {
         const a = points[i];

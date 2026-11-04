@@ -81,15 +81,23 @@
 .schemeExport .exportIconBadge { position:absolute; top:30px; left:0; right:0; text-align:center; font-size:11px; line-height:1; color:inherit; }
 .schemeExport .exportIconButton:last-child { min-width:38px; width:38px; height:38px; font-size:22px; font-weight:400; }
 .schemeExport .drawingMetadata { display:flex; align-items:end; flex-wrap:wrap; gap:8px 14px; flex:none; }
-.schemeExport .drawingMetadata label, .schemeExport .exportOrientation, .schemeExport .exportStampFields label { font-size:11px; color:#cbd7e8; display:flex; flex-direction:column; gap:4px; }
+.schemeExport .drawingMetadata label, .schemeExport .exportOrientation, .schemeExport .exportStampFields label { font-size:11px; line-height:14px; color:#cbd7e8; display:flex; flex-direction:column; gap:4px; }
 .schemeExport .drawingMetadata select, .schemeExport .exportStampFields input { height:33px; min-width:0; padding:5px 8px; border:1px solid #3a5a7a; border-radius:7px; background:#0b0f14; color:#e6edf7; }
 .schemeExport .drawingMetadata select[aria-label="Формат листа"] { width:128px; }
 .schemeExport .drawingMetadata select[aria-label="Лист превью"] { width:190px; }
 .schemeExport .exportOrientation > div { display:flex; gap:3px; }
-.schemeExport .exportOrientation button { height:33px; padding:5px 9px; font-size:11px; }
+.schemeExport .exportOrientation button { height:33px; min-height:33px; padding:5px 9px; font-size:11px; }
 .schemeExport .exportOrientation button[aria-pressed="true"] { border-color:#82abff; background:#294875; }
 .schemeExport .exportOrientation button:disabled { opacity:.4; }
 .schemeExport .drawingMetadata .exportSwitch { flex-direction:row; align-items:center; gap:7px; min-height:33px; max-width:none; }
+.schemeExport .drawingMetadata .exportSwitches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  max-width: 100%;
+}
+.schemeExport .exportSwitches .exportSwitch { white-space: nowrap; }
 .schemeExport .exportSwitch input[type="checkbox"] { appearance:none; width:34px; min-width:34px; height:20px; padding:0; border:1px solid #62758d; border-radius:12px; background:#202c3d; position:relative; cursor:pointer; }
 .schemeExport .exportSwitch input[type="checkbox"]::before { content:""; position:absolute; width:14px; height:14px; top:2px; left:2px; border-radius:50%; background:#dce6f3; transition:transform .15s; }
 .schemeExport .exportSwitch input[type="checkbox"]:checked { background:#396eb7; border-color:#7aacf4; }
@@ -785,3 +793,44 @@
   .cableMetricDeficit rect { animation:none; }
 }
 .cableWarning { padding:8px; border-left:3px solid #ffa759; background:#321c14; }
+
+/* Notification severity colors */
+.toast[data-kind] {
+  --notice-accent: #8ec5ff;
+  --notice-tint: #13253c;
+  background: var(--notice-tint);
+  border: 1px solid var(--notice-accent);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  border-radius: 24px;
+  padding: 7px 14px;
+}
+.toast[data-kind="success"] { --notice-accent:#6ee7ac; --notice-tint:#112e27; }
+.toast[data-kind="warning"] { --notice-accent:#ffca75; --notice-tint:#32271a; }
+.toast[data-kind="critical"], .toast[data-kind="overload"] { --notice-accent:#fb7185; --notice-tint:#361d28; }
+.toast[data-kind] .ico { color:var(--notice-accent); width:15px; height:15px; }
+
+.schemeExport .extraStampFields { grid-column:1 / -1; font-size:11px; }
+.schemeExport .extraStampFields summary { cursor:pointer; padding:5px 0; }
+.schemeExport .extraStampFields[open] { display:flex; flex-wrap:wrap; gap:8px; }
+.schemeExport .extraStampFields summary { width:100%; }
+.schemeExport .exportPreviewDetail { z-index:1; position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.schemeExport .exportPreviewControls { z-index:2; }
+.schemeExport .exportPreviewControls .btn { display:grid; place-items:center; line-height:1; min-height:30px; flex-shrink:0; }
+
+/* Export: preview and stamp on the left, controls and downloads on the right. */
+.schemeExport section.exportInspectorLayout{width:min(1380px,100%);height:min(920px,calc(100dvh - 24px));display:grid;grid-template-columns:minmax(0,1fr) 250px;grid-template-rows:auto minmax(180px,1fr) auto;grid-template-areas:"header header" "preview inspector" "stamp inspector";gap:10px}
+.exportInspectorLayout .exportHeader{grid-area:header}
+.exportInspectorLayout .exportPreview{grid-area:preview;display:block;min-height:0}
+.exportInspectorLayout .exportPreviewFrame{height:100%;box-sizing:border-box}
+.exportInspectorLayout .exportStampFields{grid-area:stamp}
+.exportInspectorLayout .exportInspector{grid-area:inspector;display:flex;flex-direction:column;gap:16px;min-height:0;overflow:auto;background:#0e1520;border:1px solid #263b56;border-radius:8px;padding:12px}
+.exportInspectorLayout .drawingMetadata{flex-direction:column;align-items:stretch}
+.exportInspectorLayout .exportSwitches{flex-direction:column;align-items:flex-start;gap:10px}
+.exportInspectorLayout .exportSlider{flex:none;flex-direction:row;flex-wrap:wrap;justify-content:space-between;text-align:left;gap:7px}
+.exportInspectorLayout .exportSlider input[type=range]{writing-mode:horizontal-tb;direction:ltr;width:100%;height:18px;min-height:0}
+.exportInspectorLayout .exportDownloads{margin-top:auto;justify-content:flex-end;gap:5px;padding-top:18px;flex-wrap:wrap}
+.exportInspectorLayout .exportDownloads .exportIconButton{width:52px;min-width:52px;height:46px}
+.exportInspectorLayout .exportDownloads .exportIconButton svg{width:31px;height:31px}
+.exportInspectorLayout .exportDownloads .exportIconBadge{top:20px;font-size:8px}
+@media(max-width:760px){.schemeExport section.exportInspectorLayout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(240px,1fr) auto;grid-template-areas:"header" "inspector" "preview" "stamp";overflow:auto}.exportInspectorLayout .exportInspector{overflow:visible}}

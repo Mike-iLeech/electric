@@ -26,6 +26,7 @@
           cables,
           designations: S.designations(project),
           branchNumber: branch.number,
+          withoutSupply: branch.number === null && groups.length > 1,
           pageIndex: i + 1,
           pageCount: groups.length,
         },
@@ -61,12 +62,69 @@
     }));
     if (options.cableJournal) {
       const sheet = Sheet.geometry(pw, ph, project);
-      const rows = [...cables.values()];
-      result.push({...result[0], project, sheet, journal: rows,
-        options:{...result[0].options, branchNumber:null, pageIndex:result.length + 1}});
+      const remaining = new Map(cables);
+      const tables = [];
+      for (const branch of all) {
+        const ids = new Set(branch.project.links.map(link => link.id));
+        const rows = [];
+        for (const [id, row] of remaining) {
+          if (!ids.has(id)) continue;
+          rows.push(row);
+          remaining.delete(id);
+        }
+        if (rows.length) tables.push({rows, number: branch.number});
+      }
+      if (!tables.length) tables.push({rows: [], number: null});
+      const availableHeight = sheet.stamp.y - sheet.drawing.y - 5 * mm;
+      // Keep a consistent row-height budget when packing tables vertically.
+      const metrics = document.createElement("canvas").getContext("2d");
+      const journalPages = [];
+      let pageTables = [], used = 0;
+      for (const table of tables) {
+        const naturalWidth = Sheet.journalWidths(table.rows, metrics).reduce((sum, value) => sum + value, 0);
+        const tableScale = Math.min(1, sheet.drawing.w / naturalWidth);
+        const height = Math.min(availableHeight, (50 + 20 * Math.max(1, table.rows.length)) * tableScale + 1);
+        if (pageTables.length && (options.separateJournalBranches || used + height > availableHeight)) {
+          journalPages.push(pageTables);
+          pageTables = [];
+          used = 0;
+        }
+        pageTables.push({...table, offset: used, height});
+        used += height;
+      }
+      journalPages.push(pageTables);
+      for (const journalTables of journalPages)
+        result.push({...result[0], project, sheet, journal: journalTables.flatMap(table => table.rows), journalTables,
+          options:{...result[0].options, branchNumber:journalTables.length === 1 ? journalTables[0].number : null,
+            withoutSupply: journalTables.length === 1 && journalTables[0].number === null && journalTables[0].rows.length > 0,
+            pageIndex:result.length + 1}});
       for (const page of result) page.options.pageCount = result.length;
     }
     return result;
+  }
+  function rasterDimensions(plan) {
+    // Raster readability depends on the diagram's world-to-page scale, not
+    // on the nominal paper DPI: a dense diagram fitted to A4 needs more pixels.
+    const minimumTextPixels = 20;
+    const smallestDiagramFont = 12;
+    const desired = Math.max(300 / 72, plan.journal ? 600 / 72 : minimumTextPixels / (smallestDiagramFont * plan.scale));
+    const ratio = Math.min(desired, 24576 / Math.max(plan.pw, plan.ph), Math.sqrt(144000000 / (plan.pw * plan.ph)));
+    return {width:Math.ceil(plan.pw * ratio), height:Math.ceil(plan.ph * ratio), ratio};
+  }
+  function rasterCanvas(plan) {
+    const {width,height,ratio} = rasterDimensions(plan);
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw Error("Не удалось создать изображение экспорта");
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    // Replay the original vector/text commands at final resolution. No preview
+    // bitmap, resampling or enlargement of an intermediate image is involved.
+    for (const command of commandsForPreview(plan)) {
+      if (command.method) ctx[command.method](...command.args);
+      else ctx[command.property] = command.value;
+    }
+    return canvas;
   }
   function pageCanvas(plan, resolution = 300) {
     // Keep previews lightweight while allowing large sheets to retain small labels.
@@ -93,6 +151,55 @@
     ctx.scale(dpi, dpi);
     Sheet.draw(plan, ctx);
     ctx.restore();
+    return canvas;
+  }
+  const previewCommands = new WeakMap();
+  function commandsForPreview(plan) {
+    if (previewCommands.has(plan)) return previewCommands.get(plan);
+    const commands = [];
+    const scratch = document.createElement("canvas").getContext("2d");
+    const recording = new Proxy(scratch, {
+      get(target, key) {
+        const value = target[key];
+        if (typeof value !== "function") return value;
+        return (...args) => {
+          if (!["measureText", "getTransform", "getLineDash", "isPointInPath", "isPointInStroke"].includes(key))
+            commands.push({method:key, args});
+          return value.apply(target, args);
+        };
+      },
+      set(target, key, value) {
+        commands.push({property:key, value});
+        target[key] = value;
+        return true;
+      },
+    });
+    recording.fillStyle = "#fff";
+    recording.fillRect(0, 0, plan.pw, plan.ph);
+    recording.save();
+    recording.translate(plan.x, plan.y);
+    if (!plan.journal) S.render(plan.project, {
+      ...plan.options, context: recording, renderScale: plan.scale,
+    });
+    recording.restore();
+    Sheet.draw(plan, recording);
+    previewCommands.set(plan, commands);
+    return commands;
+  }
+  function previewCanvas(plan, width, height, scale, x, y) {
+    const commands = commandsForPreview(plan);
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    const ctx = canvas.getContext("2d");
+    ctx.scale(ratio, ratio);
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    for (const command of commands) {
+      if (command.method) ctx[command.method](...command.args);
+      else ctx[command.property] = command.value;
+    }
     return canvas;
   }
   function render(project, routes, options) {
@@ -225,5 +332,5 @@
     });
     return doc.output("blob");
   }
-  window.ElectricExport = { render, pdf, plans, pageCanvas, PDFContext };
+  window.ElectricExport = { render, pdf, plans, pageCanvas, rasterCanvas, rasterDimensions, previewCanvas, PDFContext };
 })();

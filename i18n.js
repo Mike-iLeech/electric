@@ -134,6 +134,7 @@ PF = 1 — коэффициент мощности принят равным е�
 Панорама|||Pan
 Копия|||Copy
 Вставить|||Paste
+Вставлено|||Pasted
 Удалить|||Delete
 Разъединить порт|||Disconnect port
 Включить вводные и портовые автоматы всей схемы|||Switch on all main and port breakers
@@ -261,6 +262,9 @@ PF = 1 — коэффициент мощности принят равным е�
 Альбомная|||Landscape
 Масштаб схемы|||Drawing scale
 Выгрузка кабельного журнала|||Include cable schedule
+Схема по веткам|||Drawing by branch
+Журнал по веткам|||Schedule by branch
+Каждая ветка кабельного журнала на отдельном листе|||Each cable schedule branch on a separate sheet
 Компоновка: вертикаль ↔ горизонталь|||Layout: vertical ↔ horizontal
 Новый модуль|||New module
 Источник|||Supply
