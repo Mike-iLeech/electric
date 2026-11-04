@@ -7,6 +7,177 @@ const html = fs.readFileSync(
   require("node:path").join(__dirname, "../index.html"),
   "utf8",
 );
+test("опция режимов включает общий и местный тумблеры; общий перезаписывает все местные режимы", async () => {
+  const p=E.project();p.nodes=[1,2].map(i=>E.makeNode({name:"Нагрузка "+i,category:"consumer",phases:1,watts:1000},{x:i*600,y:0}));
+  const s=await setup(p);
+  assert.equal(s.$("globalConsumerModeRow").hidden,true);
+  s.change("moduleNavigator",p.nodes[0].id);
+  assert.equal(s.$("consumerModeSwitch"),null);
+  s.$("enableConsumerModes").click();
+  assert.equal(s.$("globalConsumerModeRow").hidden,false);
+  s.$("consumerModeSwitch").click();
+  assert.equal(s.state().project.nodes[0].consumerMode,"resistance");
+  s.$("globalConsumerMode").click();
+  assert.ok(s.state().project.nodes.every(n=>n.consumerMode==="resistance"));
+  s.$("consumerModeSwitch").click();
+  assert.equal(s.state().project.nodes[0].consumerMode,"power");
+  assert.equal(s.state().project.nodes[1].consumerMode,"resistance");
+  s.$("globalConsumerMode").click();
+  assert.ok(s.state().project.nodes.every(n=>n.consumerMode==="power"));
+  s.$("btnUndo").click();
+  assert.equal(s.state().project.nodes[1].consumerMode,"resistance");
+  const saved=s.state().project;s.w.close();
+  const restored=await setup(saved);
+  assert.equal(restored.$("enableConsumerModes").checked,true);
+  assert.equal(restored.$("globalConsumerMode").checked,true);
+  assert.equal(restored.state().project.nodes[1].consumerMode,"resistance");
+  restored.w.close();
+});
+test("диалог длины показывает ограничитель, фазу и превышение предела", async () => {
+  const p=E.project();p.settings.advancedMode=true;
+  const a=E.makeNode({name:"Источник",category:"input",phases:1,inConnType:"euro",inA:16,outputs:[{connType:"euro",nominalA:16}]});
+  const b=E.makeNode({name:"Потребитель",category:"consumer",phases:1,inConnType:"euro",inA:16,watts:3400},{x:600,y:0});
+  p.nodes=[a,b];const link=E.connect(p,{nodeId:a.id,portId:a.outputs[0].id},{nodeId:b.id,portId:b.inputs[0].id});
+  link.cable={lengthM:10,sectionMm2:2.5};
+  const limits=E.cableLengthLimits(p,link.id,100000),s=await setup(p);
+  s.$("cableLengthDialog").showModal=()=>{};
+  s.w.document.querySelector(".cableHitArea").dispatchEvent(new s.w.MouseEvent("dblclick",{bubbles:true}));
+  assert.equal(s.$("cableLengthLimiter").textContent,"");
+  assert.ok(s.$("cableTheoreticalLimitValue").textContent.includes("м"));
+  s.$("cableLengthInput").value=String(limits.allowedLength);
+  s.$("cableLengthInput").dispatchEvent(new s.w.Event("input"));
+  assert.equal(s.$("cableLengthInput").classList.contains("lengthBeyondLimit"),false);
+  s.$("cableLengthInput").value=String(limits.allowedLength+.1);
+  s.$("cableLengthInput").dispatchEvent(new s.w.Event("input"));
+  assert.equal(s.$("cableLengthInput").classList.contains("lengthBeyondLimit"),true);
+  assert.match(s.$("cableLengthWarning").textContent,/Превышен итоговый допустимый предел/);
+  s.w.close();
+});
+test("плашка показывает источник сечения; оверрайд требует подтверждения и отменяется через Undo", async () => {
+  const p=E.project(); p.settings.advancedMode=true;
+  const a=E.makeNode({name:"Ввод",category:"input",phases:1,inConnType:"cee1",inA:32,
+    outputs:[{connType:"cee1",nominalA:32}]});
+  const b=E.makeNode({name:"Нагрузка",category:"consumer",phases:1,inConnType:"cee1",inA:32,watts:1000},{x:600,y:0});
+  p.nodes=[a,b]; const link=E.connect(p,{nodeId:a.id,portId:a.outputs[0].id,kind:"out"},
+    {nodeId:b.id,portId:b.inputs[0].id,kind:"in"});
+  link.cable={lengthM:20,sectionMm2:10,material:"al",labelFraction:.6};
+  const s=await setup(p), label=()=>s.w.document.querySelector(".cableMetricLabel").textContent;
+  assert.match(label(),/✎ 10 мм²/);
+  let calls=0, accepted=false;
+  s.w.confirm=message=>{calls++; assert.match(message,/Кабелей: 1/); return accepted;};
+  const apply=()=>s.$("cableSectionsOverride").click();
+  apply(); assert.equal(calls,1);
+  assert.equal(s.state().project.links[0].cable.sectionMm2,10);
+  accepted=true; apply(); s.flush();
+  assert.equal(calls,2);
+  const cable=s.state().project.links[0].cable;
+  assert.equal(cable.sectionMm2,undefined);
+  assert.equal(cable.lengthM,20); assert.equal(cable.material,"al"); assert.equal(cable.labelFraction,.6);
+  assert.equal(s.$("cableSectionsOverride").tagName,"BUTTON");
+  assert.equal(s.w.document.querySelector(".cableMetricLabel title").textContent,"▦ Дефолтное значение из таблицы");
+  assert.equal(s.$("cableSectionLegend").children.length,4);
+  assert.match(label(),/▦ 6 мм²/);
+  const tableInput=s.$("cableSectionsFields").querySelectorAll("input")[3];
+  tableInput.value="8"; tableInput.dispatchEvent(new s.w.Event("change")); s.flush();
+  assert.match(label(),/⚙ 8 мм²/);
+  assert.equal(s.w.document.querySelector(".cableMetricLabel title").textContent,"⚙ Изменённое значение из таблицы");
+  tableInput.value="6"; tableInput.dispatchEvent(new s.w.Event("change")); s.flush();
+  assert.match(label(),/▦ 6 мм²/);
+  s.$("btnUndo").click(); s.flush();
+  assert.equal(s.state().project.links[0].cable.sectionMm2,10);
+  assert.match(label(),/✎ 10 мм²/);
+  s.w.close();
+});
+test("сечения: новые дефолты, мощность и локальное сохранение в браузере и PC", async () => {
+  const expected=["1.5","1.5","2.5","6","16","35","95"];
+  for (const desktop of [false,true]) {
+    const data=new Map(), project=single();
+    data.set("electriccad.session.v32",JSON.stringify(project));
+    const prepare=w=>{
+      if(desktop) w.electricDesktop={info:{dataDirectory:"C:\\Test"},storage:{
+        getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)}};
+      else for(const [k,v] of data)w.localStorage.setItem(k,v);
+    };
+    const s=await setup(project,prepare);
+    const inputs=[...s.$("cableSectionsFields").querySelectorAll("input")];
+    assert.deepEqual(inputs.map(i=>i.value),expected);
+    const rows=s.$("cableSectionsFields").querySelectorAll("tbody tr");
+    assert.match(rows[3].textContent,/3.68/);
+    assert.match(rows[4].textContent,/11.09/);
+    inputs[2].value="4";
+    inputs[2].dispatchEvent(new s.w.Event("input"));
+    assert.equal(rows[1].querySelector('[data-rating="16"]').textContent,"3×4 mm²");
+    inputs[2].dispatchEvent(new s.w.Event("change"));
+    if(desktop) await new Promise(r=>setTimeout(r,200));
+    else data.set("electriccad.ui.v32",s.w.localStorage.getItem("electriccad.ui.v32"));
+    assert.equal(JSON.parse(data.get("electriccad.ui.v32")).cableSections[16],4);
+    s.w.close();
+    const restored=await setup(project,prepare);
+    assert.equal(restored.$("cableSectionsFields").querySelectorAll("input")[2].value,"4");
+    restored.$("cableSectionsReset").click();
+    assert.deepEqual([...restored.$("cableSectionsFields").querySelectorAll("input")].map(i=>i.value),expected);
+    restored.w.close();
+  }
+});
+test("Итого показывает активную мощность, фазные токи, напряжения и предупреждение", async () => {
+  const p = E.project();
+  const source = E.makeNode({name:"Щит №1",category:"input",phases:3,inA:32,
+    outputs:[{connType:"euro",nominalA:16,phase:"L2"}]});
+  const consumer = E.makeNode({name:"Нагрузка",category:"consumer",phases:1,inA:16,inConnType:"euro",watts:2300});
+  p.nodes = [source, consumer];
+  E.connect(p,{nodeId:source.id,portId:source.outputs[0].id,kind:"out"},
+    {nodeId:consumer.id,portId:consumer.inputs[0].id,kind:"in"});
+  const s = await setup(p);
+  assert.equal(s.$("powerActiveTotal").textContent, "2.30 кВт");
+  const branch = s.$("powerBranchLoads").firstElementChild;
+  assert.match(branch.textContent, /L2: 10.0 A/);
+  assert.match(branch.textContent, /L2: 230.0 V/);
+  assert.equal(branch.querySelectorAll(".phaseVoltage").length, 3);
+  assert.equal(branch.querySelectorAll(".lineVoltage").length, 3);
+  assert.match(branch.querySelector(".lineL1L2").textContent, /398.4 V/);
+  const toggle = branch.querySelector('input[role="switch"]');
+  const diagram = branch.querySelector(".branchVoltageDiagram");
+  assert.equal(diagram.hidden, true);
+  assert.equal(branch.querySelector(".summaryTriangleToggle").hidden,true);
+  assert.equal([...branch.querySelectorAll(".branchMetric")].filter(row=>!row.hidden).length,3);
+  toggle.click(); assert.equal(diagram.hidden, true);
+  toggle.click(); assert.equal(diagram.hidden, true);
+  toggle.click();
+  s.change("voltageLN", 220);
+  const updated = s.$("powerBranchLoads").firstElementChild;
+  assert.equal(updated.querySelector('input[role="switch"]').checked, true);
+  assert.equal(updated.querySelector(".branchVoltageDiagram").hidden, true);
+  assert.match(updated.querySelector(".phaseL2").textContent, /220.0 V/);
+  assert.match(s.$("powerBranchLoads").textContent, /Щит №1/);
+  assert.match(s.$("powerSummaryBody").querySelector(".summaryWarning").textContent, /не влияют на баланс фаз/);
+  s.w.close();
+});
+
+test("изменение напряжения сразу пересчитывает токи и предупреждение K₂U", async () => {
+  const p = E.project(); p.settings.autoTrip = false; p.settings.powerFactor = 1;
+  const source = E.makeNode({name:"Источник", category:"input", phases:3, inA:32,
+    outputs:[{connType:"cee3",nominalA:32}]});
+  const d = E.makeNode({name:"Дистро", phases:3, inA:32,
+    outputs:[{connType:"euro",nominalA:16,phase:"L1"}]});
+  const c = E.makeNode({name:"Потребитель",category:"consumer",phases:1,inConnType:"euro",inA:16,watts:4000});
+  p.nodes = [source,d,c];
+  const connect = (a,b) => E.connect(p,{nodeId:a.id,portId:a.outputs[0].id,kind:"out"},
+    {nodeId:b.id,portId:b.inputs[0].id,kind:"in"});
+  connect(source,d).cable = {lengthM:100,sectionMm2:2.37,material:"cu"}; connect(d,c);
+  const s = await setup(p);
+  assert.match(s.$("powerFlowWarnings").textContent, /Дистро · K₂U/);
+  let computed = s.w.electricDiagnostics().computed;
+  const oldCurrent = computed.find(n=>n.id===c.id).loadA.L1;
+  assert.ok(oldCurrent > 4000/230);
+  s.change("voltageLN", 300);
+  computed = s.w.electricDiagnostics().computed;
+  assert.ok(computed.find(n=>n.id===c.id).loadA.L1 < oldCurrent);
+  assert.equal(s.$("powerFlowWarnings").textContent, "");
+  s.change("voltageLN", 230);
+  assert.match(s.$("powerFlowWarnings").textContent, /Дистро · K₂U/);
+  assert.deepEqual(s.errors, []);
+  s.w.close();
+});
 test("справка открывается и поиск показывает подходящие разделы", async () => {
   const s = await setup();
   s.$("helpTip").click();
@@ -1138,12 +1309,12 @@ test("длина кабеля включает расчёт и плашку бе
   link.cable = {lengthM:30};
   const profile = E.cableParameters(link, source.outputs[0], load.inputs[0]);
   assert.equal(profile.ampacityA, 32);
-  assert.equal(profile.sectionMm2, 10);
+  assert.equal(profile.sectionMm2, 6);
   const s = await setup(p);
   const labels = [...s.w.document.querySelectorAll(".cableMetricLabel")];
   assert.equal(labels.length, 1);
   for (const label of labels) {
-    assert.match(label.textContent, /30 м · ΔUф 1,42 В · ΔP 14,22 Вт/);
+    assert.match(label.textContent, /30,00 м · ΔUф 2,39 В · ΔP 24,2 Вт/);
     assert.doesNotMatch(label.getAttribute("transform"), /rotate/);
   }
   assert.ok(labels[0].querySelector(".cableLabelLeader"));
@@ -1173,7 +1344,7 @@ test("длина кабеля включает расчёт и плашку бе
   settings.close = () => settings.removeAttribute("open");
   labels[0].dispatchEvent(new s.w.MouseEvent("contextmenu", {bubbles:true,cancelable:true}));
   assert.ok(settings.open);
-  assert.match(settings.querySelector(".cableProfileHelp").textContent, /10 мм², 32 А.*На 100 м/);
+  assert.match(settings.querySelector(".cableProfileHelp").textContent, /6 мм², 32 А.*На 100 м/);
   const section = [...settings.querySelectorAll("label")].find(label => label.textContent.includes("Сечение жилы"));
   section.querySelector("input").value = "10";
   section.querySelector("input").dispatchEvent(new s.w.Event("change"));
@@ -1188,13 +1359,14 @@ test("длина кабеля включает расчёт и плашку бе
   length.querySelector("input").dispatchEvent(new s.w.Event("change"));
   assert.equal(s.state().project.links[0].cable.lengthM, reset.lengthM);
   const correctedLength = [...settings.querySelectorAll("label")].find(label => label.textContent === "Длина, м").querySelector("input");
-  correctedLength.value = "4000";
+  correctedLength.value = "200";
   correctedLength.dispatchEvent(new s.w.Event("change"));
   const warning = settings.querySelector("#cableSettingsBody .cableWarning");
   assert.match(warning.textContent, /допустимая длина участка/);
   assert.match(warning.textContent, /Увеличьте сечение/);
   s.flush();
   assert.ok(s.w.document.querySelector(".cableMetricWarning"));
+  assert.ok(s.w.document.querySelector(".cable-limit-exceeded"));
   s.dom.window.close();
 });
 

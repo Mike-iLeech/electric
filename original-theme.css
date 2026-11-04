@@ -629,8 +629,10 @@
 #projectBlock > .field { margin-bottom:12px; }
 #catalogBlock { flex:1; min-height:0; }
 .sidebarBrand, .sidebarLinks { flex:none; gap:8px; }
-.appBrand { display:inline-flex; align-items:center; gap:6px; font-weight:700; white-space:nowrap; }
-.appBrand svg { color:#82abff; flex:none; }
+.appBrand { display:inline-flex; align-items:center; gap:7px; font-weight:700; white-space:nowrap; }
+.appBrandSymbol { width:24px; height:24px; flex:none; object-fit:contain; }
+.appBrandName { font-family:"Segoe UI",Arial,sans-serif; letter-spacing:-.2px; }
+.appBrandEasy { font-weight:300; }
 .sidebarLinks { justify-content:flex-end; }
 .sidebarLinks #helpTip.headerHelp { width:auto; padding-inline:8px !important; gap:5px; }
 .sidebarLinks .githubChip { display:inline-flex; align-items:center; gap:5px; min-height:28px; height:28px; padding:0 8px; text-decoration:none; color:inherit; }
@@ -887,3 +889,65 @@
 #projectBlock .projectSettingsRow:empty { display:none; }
 #leftPanel #projectBlock #sessionStatus { flex:1 1 0; min-width:0; margin:0 0 0 2px; padding:4px 6px; border:1px solid #263b56; border-radius:999px; background:#0b1421; font-size:9px; line-height:1.25; text-align:center; overflow-wrap:anywhere; }
 #projectBlock .projectActionLabel { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.powerSummaryBody { max-height:48vh; overflow:auto; font-size:11px; }
+.summaryMetric { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+.summaryMetric strong { font-size:13px; font-variant-numeric:tabular-nums; }
+.summaryVoltageTitle { margin:8px 0; color:#a9bad0; }
+.summaryPhaseVoltages { display:flex; flex-wrap:wrap; gap:4px; }
+.summaryPhaseVoltages .pill { font-size:10px; padding:3px 5px; }
+.summaryTriangle { position:relative; height:128px; max-width:290px; margin:8px auto; }
+.summaryTriangle svg { width:100%; height:100%; }
+.summaryTriangle .pill { position:absolute; font-size:10px; padding:3px 6px; transform:translate(-50%,-50%); white-space:nowrap; background:#17263b; }
+.triangle12 { left:26%; top:45%; }.triangle31 { left:74%; top:45%; }.triangle23 { left:50%; top:87%; }
+.summaryVoltageHint { color:#9caec5; font-size:10px; line-height:1.5; }
+#powerBranchLoads li { padding:3px 0; overflow-wrap:anywhere; }
+#powerBranchLoads small { display:block; font-size:10px; color:#a9bad0; }
+.summaryWarning { margin-top:10px; padding:9px; border:1px solid #80672f; border-radius:8px; background:#fbbf2410; color:#e8cb86; line-height:1.5; }
+.summaryMetric { flex-direction:row; align-items:baseline; flex-wrap:wrap; }
+#powerBranchLoads { list-style:none; padding:0 0 0 9px; max-height:none; overflow:visible; border-left:1px solid #354962; }
+#powerBranchLoads .summaryBranch { position:relative; margin:10px 0; padding:10px 8px; border:1px solid #30435f; border-radius:9px; background:#101c2d; }
+.summaryBranch::before { content:""; position:absolute; width:9px; height:1px; left:-10px; top:22px; background:#354962; }
+.summaryBranchHeader { display:flex; flex-direction:column; gap:7px; padding-bottom:8px; border-bottom:1px solid #263952; margin-bottom:8px; }
+.summaryBranchHeader > strong { font-size:12px; overflow-wrap:anywhere; }
+.summaryTriangleToggle { display:flex; align-items:center; gap:7px; cursor:pointer; color:#aabed7; font-size:10px; }
+.summaryTriangleToggle input { appearance:none; width:27px; height:16px; margin:0; border:1px solid #536780; border-radius:10px; background:#24344a; position:relative; cursor:pointer; flex:none; }
+.summaryTriangleToggle input::after { content:""; position:absolute; top:2px; left:2px; width:10px; height:10px; border-radius:50%; background:#cbd5e1; transition:transform .15s; }
+.summaryTriangleToggle input:checked { background:#176b79; border-color:#46c4d7; }
+.summaryTriangleToggle input:checked::after { transform:translateX(11px); background:#e6ffff; }
+.summaryTriangleToggle input:focus-visible { outline:2px solid #93c5fd; outline-offset:3px; }
+.branchMetric { display:flex; flex-direction:column; gap:3px; margin:7px 0; font-size:10px; }
+.branchMetric > span { color:#9fb1c9; }.branchMetric strong { font-size:11px; font-weight:500; font-variant-numeric:tabular-nums; }
+.branchVoltageDiagram { position:relative; width:100%; aspect-ratio:300/226; margin:8px auto 0; border-radius:8px; background:radial-gradient(ellipse at center,#1d354c,#101c2d 75%); }
+.branchVoltageDiagram[hidden] { display:none; }
+.branchVoltageDiagram svg { width:100%; height:100%; display:block; }
+.voltageTriangleEdge { fill:none; stroke:#60a5fa; stroke-width:1.7; }.voltageNeutralEdge { fill:none; stroke:#4cccb8; stroke-width:1.2; stroke-dasharray:4 3; }
+.voltageVertices { fill:#b9d9ff; }.voltageVertexNames { fill:#dcecff; font-size:11px; text-anchor:middle; }
+.voltagePill { position:absolute; transform:translate(-50%,-50%); border:1px solid #416d9e; border-radius:20px; padding:3px 5px; font-size:9px; white-space:nowrap; background:#14283f; color:#bfdbfe; font-variant-numeric:tabular-nums; }
+.lineL1L2 { left:25%; top:43%; }.lineL2L3 { left:50%; top:86%; }.lineL3L1 { left:75%; top:43%; }
+.phaseVoltage { border-color:#327c72; color:#99f6e4; background:#12322f; font-size:8px; }
+.phaseL1 { left:50%; top:30%; }.phaseL2 { left:32%; top:70%; }.phaseL3 { left:68%; top:70%; }
+.cableSectionsTable th:first-child { width:var(--cable-label-width, 140px); white-space:nowrap; padding-inline:0; }
+.cableSectionsTable { min-width:0; }
+.cableSectionsTable input { min-width:0; }
+.cableSectionsTable td { padding-inline:2px; }
+.cableSectionLegend { display:flex; flex-wrap:wrap; gap:8px 18px; margin:12px 0; font-size:11px; color:#b5c6db; }
+.cableSectionLegend > span { display:inline-flex; align-items:center; gap:4px; }
+.cableSectionLegend b { font-size:16px; color:#9dc8ff; }
+#cableSectionsOverride { white-space:normal; text-align:left; }
+#cableLengthInput.lengthBeyondLimit { color:#ff8c99; border-color:#ff4b64; background:#371b27; box-shadow:0 0 0 1px #ff4b64; }
+.cableLengthLimiter { white-space:pre-line; overflow-wrap:anywhere; font-size:11px; color:#e6c78a; line-height:1.5; max-height:180px; overflow:auto; }
+.cableLengthLimiter:not(:empty) { margin:10px 0; padding:8px; border-left:2px solid #b38c41; }
+.cable-limit-exceeded path:nth-of-type(2) { stroke:#ff0000 !important; opacity:1; }
+.cable-limit-exceeded .wire-end { fill:#ff0000; }
+.consumerModeSettings { margin:14px 0; }
+.consumerModeField .tripModeField, #globalConsumerModeRow .tripModeField { flex-wrap:wrap; }
+.consumerModeSettings input[role="switch"], .consumerModeField input[role="switch"] { appearance:none; position:relative; width:34px; min-width:34px; height:20px; padding:0; margin:0; border:1px solid #62758d; border-radius:12px; background:#202c3d; cursor:pointer; }
+.consumerModeSettings input[role="switch"]::after, .consumerModeField input[role="switch"]::after { content:""; position:absolute; width:14px; height:14px; top:2px; left:2px; border-radius:50%; background:#dce6f3; transition:transform .15s; }
+.consumerModeSettings input[role="switch"]:checked, .consumerModeField input[role="switch"]:checked { background:#396eb7; border-color:#7aacf4; }
+.consumerModeSettings input[role="switch"]:checked::after, .consumerModeField input[role="switch"]:checked::after { transform:translateX(14px); }
+.consumerModeField input[role="switch"]:indeterminate::after { transform:translateX(7px); }
+#powerSummary > .panelHeader { position:relative; justify-content:center; min-height:58px; }
+#powerSummary > .panelHeader > .title { position:absolute; left:12px; top:50%; transform:translateY(-50%); }
+#powerSummaryTotal { flex:0 0 50%; width:50%; max-width:50%; box-sizing:border-box; display:inline-flex; justify-content:center; align-items:center; text-align:center; margin-inline:auto; padding:9px 8px; font-size:16px; font-weight:600; }
+.summaryTriangleToggle[hidden], .branchMetric[hidden] { display:none !important; }
+#collapsedPowerTotal > .collapsedPowerPill { display:inline-flex; justify-content:center; align-items:center; box-sizing:border-box; min-width:50%; max-width:100%; padding:7px 18px; border:1px solid #304565; border-radius:999px; background:#0b1421; font-size:16px; font-weight:600; line-height:1.3; }

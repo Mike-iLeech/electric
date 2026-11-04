@@ -100,6 +100,20 @@
     };
   }
   function layout(p, rowsPerColumn = 2, splitFirst = true) {
+    const groups=branches(p);
+    if(groups.length>1 && groups.reduce((sum,g)=>sum+g.project.nodes.length,0)===p.nodes.length){
+      const combined=new Map();let nextTop=96;
+      for(const group of groups){
+        const local=layout(group.project,rowsPerColumn,splitFirst), routes=connectionPaths(group.project,local);
+        const rects=[...local.values()],points=[...routes.values()].flat();
+        const minY=Math.min(...rects.map(r=>r.y),...points.map(pt=>pt.y));
+        const maxY=Math.max(...rects.map(r=>r.y+r.h),...points.map(pt=>pt.y));
+        const shift=Math.ceil((nextTop+90-minY)/24)*24;
+        for(const [id,r] of local)combined.set(id,{...r,y:r.y+shift,...(Number.isFinite(r.routeTop)?{routeTop:r.routeTop+shift}:{})});
+        nextTop=maxY+shift+16+48;
+      }
+      return combined;
+    }
     const children = new Map(p.nodes.map((n) => [n.id, []])),
       incoming = new Set();
     for (const l of p.links) {
@@ -279,6 +293,22 @@
       return [l.id,points];
     }));
   }
+  function branchZoneBounds(p,poses,paths=connectionPaths(p,poses)) {
+    return branches(p).filter(g=>g.project.nodes.some(n=>n.category==="input")).map(g=>{
+      const rects=g.project.nodes.map(n=>poses.get(n.id)),points=g.project.links.flatMap(l=>paths.get(l.id)||[]);
+      return {number:g.number,left:Math.min(...rects.map(r=>r.x),...points.map(pt=>pt.x))-16,
+        right:Math.max(...rects.map(r=>r.x+r.w),...points.map(pt=>pt.x))+16,
+        top:Math.min(...rects.map(r=>r.y),...points.map(pt=>pt.y))-90,
+        bottom:Math.max(...rects.map(r=>r.y+r.h),...points.map(pt=>pt.y))+16};
+    });
+  }
+  function validateBranchZones(zones){
+    for(let i=0;i<zones.length;i++)for(let j=i+1;j<zones.length;j++){
+      const a=zones[i],b=zones[j];
+      if(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top)
+        throw Error("Места не хватает, уменьшите масштаб");
+    }
+  }
   function cableRows(p, labels = designations(p)) {
     const calc = E.calculate({...p, settings:{...p.settings, advancedMode:true}});
     const ix = E.indexes(p);
@@ -347,6 +377,8 @@
   function render(p, options = {}) {
     const poses = options.layoutWidth && options.layoutHeight
       ? layoutForSheet(p,options.layoutWidth,options.layoutHeight,options.layoutBalance) : layout(p);
+    const paths=connectionPaths(p,poses);
+    validateBranchZones(branchZoneBounds(p,poses,paths));
     const
       s = summary(p),
       footer = Math.max(490, 310 + s.points.length * 28),
@@ -442,14 +474,16 @@
         i = n.outputs.findIndex((v) => v.id === port);
       return { x: r.x + r.w, y: r.y + 85 + i * 28 };
     };
-    const paths = connectionPaths(p, poses);
+    const zoneTitles=[];
+    const zoneBorders=[];
     for (const branch of branches(p)) {
       if (!branch.project.nodes.some(node => node.category === "input")) continue;
       const frames = branch.project.nodes.map(node => poses.get(node.id));
       const points = branch.project.links.flatMap(link => paths.get(link.id) || []);
       const leftEdge = Math.max(left + 2, Math.min(...frames.map(r => r.x), ...points.map(pt => pt.x)) - 16);
       const rightEdge = Math.min(left + drawingWidth - 2, Math.max(...frames.map(r => r.x + r.w), ...points.map(pt => pt.x)) + 16);
-      const upperEdge = Math.max(top + 24, Math.min(...frames.map(r => r.y), ...points.map(pt => pt.y)) - 22);
+      const contentTop = Math.min(...frames.map(r => r.y), ...points.map(pt => pt.y));
+      const upperEdge = Math.max(top + 24, contentTop - 90);
       const lowerEdge = Math.min(diagramBottom - 2, Math.max(...frames.map(r => r.y + r.h), ...points.map(pt => pt.y)) + 16);
       for (let x = leftEdge; x < rightEdge; x += 14) {
         line(x, upperEdge, Math.min(x + 8, rightEdge), upperEdge);
@@ -459,7 +493,28 @@
         line(leftEdge, y, leftEdge, Math.min(y + 8, lowerEdge));
         line(rightEdge, y, rightEdge, Math.min(y + 8, lowerEdge));
       }
-      text("Ветка №" + (options.branchNumber || branch.number), leftEdge + 8, upperEdge - 5, 56);
+      zoneBorders.push({left:leftEdge,right:rightEdge,top:upperEdge,bottom:lowerEdge});
+      zoneTitles.push({label:"Ветка №"+(options.branchNumber||branch.number),left:leftEdge,right:rightEdge,top:upperEdge,bottom:contentTop});
+    }
+    for(const zone of zoneTitles){
+      let placement;
+      for(let size=Math.min(56,zone.bottom-zone.top-20);size>=12&&!placement;size-=2){
+        c.font=size+"px OpenGOST, sans-serif";
+        const width=c.measureText(zone.label).width;
+        for(const x of [zone.left+10,zone.right-width-10]){
+          if(x<zone.left+8||x+width>zone.right-8)continue;
+          for(let y=zone.top+size+10;y<=zone.bottom-8;y+=4){
+            const box={left:x-4,right:x+width+4,top:y-size-4,bottom:y+4};
+            const collision=zoneBorders.some(b=>
+              ((box.left<=b.left&&box.right>=b.left)||(box.left<=b.right&&box.right>=b.right))&&box.top<=b.bottom&&box.bottom>=b.top ||
+              ((box.top<=b.top&&box.bottom>=b.top)||(box.top<=b.bottom&&box.bottom>=b.bottom))&&box.left<=b.right&&box.right>=b.left);
+            if(!collision){placement={x,y,size};break;}
+          }
+          if(placement)break;
+        }
+      }
+      if(!placement)throw Error("Места не хватает, уменьшите масштаб");
+      text(zone.label,placement.x,placement.y,placement.size);
     }
     for (const {points,hits} of R.crossings(paths).values()) {
       // A thin white clearance separates bridge arcs from the crossed conductor.
@@ -814,5 +869,5 @@
     );
     return canvas;
   }
-  return { cableRows, summary, layout, layoutForSheet, connectionPaths, render, branches, designations };
+  return { cableRows, summary, layout, layoutForSheet, connectionPaths, branchZoneBounds, validateBranchZones, render, branches, designations };
 });

@@ -73,6 +73,145 @@ const conn = (p, a, b, i = 0) =>
     { nodeId: b.id, portId: b.inputs[0].id, kind: "in" },
   );
 const almost = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
+test("постоянное сопротивление снижает ток и мощность при удлинении; выключенная опция сохраняет прежнюю модель", () => {
+  const p=E.project(),s=src(p,1),c=load(p,2300);conn(p,s,c);
+  p.settings.powerFactor=1;p.settings.enableConsumerModes=true;p.settings.defaultConsumerMode="resistance";
+  p.links[0].cable={lengthM:100,sectionMm2:2.37};
+  let result=E.calculate(p),n=result.nodes.get(c.id);
+  assert.equal(result.powerFlow.converged,true);
+  almost(n.loadA.L1,230/(23+2));
+  almost(n.phaseVoltage.L1,230*23/25);
+  almost(E.sum(n.loadW),2300*(23/25)**2);
+  almost(E.sum(result.nodes.get(s.id).loadW),E.sum(n.loadW));
+  p.links[0].cable.lengthM=200;
+  assert.ok(E.calculate(p).nodes.get(c.id).loadA.L1<n.loadA.L1);
+  p.settings.enableConsumerModes=false;
+  almost(E.sum(E.calculate(p).nodes.get(c.id).loadW),2300);
+  p.settings.enableConsumerModes=true;c.consumerMode="power";
+  almost(E.sum(E.calculate(p).nodes.get(c.id).loadW),2300);
+  c.consumerMode="resistance";
+  assert.equal(E.consumerMode(E.validate(JSON.parse(JSON.stringify(p))),c),"resistance");
+  c.consumerMode="invalid";assert.throws(()=>E.validate(p),/режим потребителя/);
+});
+test("длинная линия постоянного сопротивления имеет устойчивое аналитическое решение",()=>{
+  const p=E.project(),s=src(p,1),c=load(p,2300);conn(p,s,c);
+  p.settings.powerFactor=1;p.settings.enableConsumerModes=true;c.consumerMode="resistance";
+  for(const lengthM of [4000,10000]){
+    p.links[0].cable={lengthM,sectionMm2:2.37};
+    const result=E.calculate(p),n=result.nodes.get(c.id),expected=230/(23+lengthM*.02);
+    assert.equal(result.powerFlow.converged,true);
+    almost(n.loadA.L1,expected);almost(n.voltageLN,expected*23);
+    almost(E.sum(n.loadW),expected**2*23);
+  }
+  assert.equal(E.cableLengthLimits(p,p.links[0].id).loadLength,Infinity);
+});
+
+test("смешанная постоянная мощность и сопротивление сходятся на длинной общей линии",()=>{
+  const p=E.project(),s=src(p,1),d=ext(p),z=load(p,2300),cp=load(p,10);
+  // Два параллельных потребителя: U = 230 - 80*(U/23 + 10/U).
+  d.outputs.push(E.port("out","euro",16));
+  conn(p,s,d);conn(p,d,z);conn(p,d,cp,1);
+  p.settings.powerFactor=1;p.settings.enableConsumerModes=true;z.consumerMode="resistance";
+  p.links[0].cable={lengthM:4000,sectionMm2:2.37};
+  const result=E.calculate(p),a=1+80/23,u=(230+Math.sqrt(230**2-4*a*800))/(2*a);
+  assert.equal(result.powerFlow.converged,true);
+  almost(result.nodes.get(z.id).voltageLN,u);
+  almost(result.nodes.get(z.id).loadA.L1,u/23);
+  almost(result.nodes.get(cp.id).loadA.L1,10/u);
+});
+
+test("несходимость независимого ввода не меняет пределы и статус исправной сети",()=>{
+  const p=E.project(),s=src(p,1),c=load(p,1000);conn(p,s,c);
+  p.settings.powerFactor=1;p.links[0].cable={lengthM:10,sectionMm2:2.37};
+  const before=E.cableLengthLimits(p,p.links[0].id);
+  const badSource=src(p,1),badLoad=load(p,20000);conn(p,badSource,badLoad);
+  p.links[1].cable={lengthM:100,sectionMm2:2.37};
+  const result=E.calculate(p),after=E.cableLengthLimits(p,p.links[0].id);
+  assert.equal(result.powerFlow.converged,false);
+  assert.equal(result.nodes.get(c.id).powerFlowFailed,false);
+  assert.equal(result.nodes.get(badLoad.id).powerFlowFailed,true);
+  assert.equal(after.allowedLength,before.allowedLength);
+  assert.equal(after.loadLength,before.loadLength);
+  assert.equal(after.dropLength,before.dropLength);
+  assert.equal(after.current.loadOK,true);
+  assert.deepEqual(after.current.reasons,[]);
+});
+
+test("предел длины Z-нагрузки включает минимальную длину вместо ложного нуля",()=>{
+  const p=E.project(),s=src(p,1),c=load(p,3800);conn(p,s,c);
+  p.settings.powerFactor=1;p.settings.enableConsumerModes=true;c.consumerMode="resistance";
+  p.links[0].cable={lengthM:100,sectionMm2:2.37,maxDropPercent:20};
+  const limits=E.cableLengthLimits(p,p.links[0].id),z=230**2/3800;
+  const min=(230/16-z)/.02,max=z*.2/(.8*.02);
+  assert.ok(Math.abs(limits.minLength-min)<.02);
+  assert.ok(Math.abs(limits.allowedLength-max)<.02);
+  assert.equal(limits.loadMinLength,limits.minLength);
+  assert.equal(limits.loadLength,Infinity);
+  assert.equal(limits.current.loadOK,true);assert.equal(limits.current.dropOK,true);
+  almost(limits.current.calc.nodes.get(c.id).loadA.L1,230/(z+2));
+  p.links[0].cable.lengthM=limits.minLength;
+  assert.equal(E.cableLengthLimits(p,p.links[0].id).current.loadOK,true);
+  p.links[0].cable.lengthM=limits.minLength-.02;
+  assert.equal(E.cableLengthLimits(p,p.links[0].id).current.loadOK,false);
+  // The entered point itself need not be valid for discovery of the interval.
+  p.links[0].cable.lengthM=0;
+  const fromZero=E.cableLengthLimits(p,p.links[0].id);
+  assert.equal(fromZero.minLength,limits.minLength);
+  assert.equal(fromZero.allowedLength,limits.allowedLength);
+  p.links[0].cable.maxDropPercent=1;
+  const impossible=E.cableLengthLimits(p,p.links[0].id);
+  assert.equal(impossible.minLength,null);assert.equal(impossible.allowedLength,0);
+});
+
+test("смешанная P/Z нагрузка может требовать положительной минимальной длины",()=>{
+  const p=E.project(),s=src(p,1),d=ext(p),z=load(p,3800),cp=load(p,100);
+  d.outputs.push(E.port("out","euro",16));conn(p,s,d);conn(p,d,z);conn(p,d,cp,1);
+  p.settings.powerFactor=1;p.settings.enableConsumerModes=true;z.consumerMode="resistance";
+  p.links[0].cable={lengthM:100,sectionMm2:2.37,maxDropPercent:20};
+  const limits=E.cableLengthLimits(p,p.links[0].id),g=3800/230**2;
+  const u=(16+Math.sqrt(16**2-4*g*100))/(2*g),min=(230-u)/.32;
+  assert.ok(Math.abs(limits.minLength-min)<.02);
+  assert.ok(limits.allowedLength>100);assert.equal(limits.current.loadOK,true);
+  assert.equal(limits.current.dropOK,true);
+  p.links[0].cable.lengthM=limits.minLength-.02;
+  assert.equal(E.cableLengthLimits(p,p.links[0].id).current.loadOK,false);
+});
+
+test("ΔU считается между соседними узлами относительно напряжения отправителя", () => {
+  const node=lineVoltage=>({
+    phaseVoltage:Object.fromEntries(E.PHASES.map(k=>[k,lineVoltage/Math.sqrt(3)])),
+    phaseVoltagePhasor:Object.fromEntries(E.PHASES.map((k,i)=>[k,{
+      re:lineVoltage/Math.sqrt(3)*Math.cos(-i*2*Math.PI/3),
+      im:lineVoltage/Math.sqrt(3)*Math.sin(-i*2*Math.PI/3)}])),
+  });
+  const drop=E.cableVoltageDrop(node(389),node(320),3);
+  almost(drop.dropV,69);
+  almost(drop.dropPercent,100*69/389);
+  assert.ok(drop.dropPercent>5);
+});
+test("предельная длина учитывает рост тока постоянной мощности и не меняет проект", () => {
+  const p=E.project(), s=src(p,1), c=load(p,3400);
+  conn(p,s,c); p.settings.powerFactor=1;
+  p.links[0].cable={lengthM:10,sectionMm2:2.5,material:"cu"};
+  const before=JSON.stringify(p), limits=E.cableLengthLimits(p,p.links[0].id);
+  assert.equal(JSON.stringify(p),before);
+  const expectedLoad=(230-3400/16)*2500/(2*23.7*16);
+  const expectedDrop=(230*.05)*2500/(2*23.7*(3400/(230*.95)));
+  assert.ok(Math.abs(limits.loadLength-expectedLoad)<.02);
+  assert.ok(Math.abs(limits.dropLength-expectedDrop)<.02);
+  assert.equal(limits.allowedLength,Math.min(limits.loadLength,limits.dropLength));
+  assert.ok(limits.limiting.some(r=>r.kind==="drop"&&r.phase==="L1"&&r.linkId===p.links[0].id));
+  assert.ok(limits.theoreticalLength>limits.allowedLength);
+  assert.equal(limits.ratedCurrentA,16);
+  almost(limits.theoreticalLength,230*2500/(2*23.7*16));
+  p.links[0].cable.lengthM=limits.loadLength;
+  assert.ok(E.calculate(p).nodes.get(c.id).loadA.L1<=16);
+  p.links[0].cable.lengthM=limits.loadLength+.1;
+  assert.ok(E.calculate(p).nodes.get(c.id).loadA.L1>16);
+  const exceeded=E.cableLengthLimits(p,p.links[0].id);
+  assert.ok(exceeded.current.reasons.some(r=>r.kind==="cable"&&r.phase==="L1"&&r.limitA===16));
+  assert.ok(exceeded.current.reasons.some(r=>r.kind==="port"&&r.nodeId===s.id));
+});
 test("все шаблоны каталога соответствуют схеме и имеют уникальные ID", () => {
   for (const t of E.catalog()) {
     const p = E.project();
@@ -203,6 +342,138 @@ test("выделенная единственная фаза считается 
   conn(p, s, d);
   conn(p, d, c);
   assert.equal(E.calculate(p).nodes.get(d.id).phaseImbalance, true);
+});
+
+test("сводка считает каждый ввод один раз и исключает отключённые и неподключённые нагрузки", () => {
+  const p = E.project(), s = src(p), d = dist(p), c = load(p), second = src(p, 1);
+  conn(p, s, d); conn(p, d, c);
+  const other = load(p, 4600); conn(p, second, other);
+  load(p, 99999); // no source
+  let calc = E.calculate(p), summary = E.networkSummary(p, calc);
+  almost(summary.watts, 6900);
+  almost(summary.currents.L1, 30);
+  almost(summary.currents.L2, 0);
+  assert.equal(summary.branches.length, 2);
+  almost(summary.branches[0].watts, 2300);
+  almost(summary.branches[0].apparentVA, 2300 / p.settings.powerFactor);
+  almost(summary.branches[0].phaseVoltages.L1, 230);
+  almost(summary.branches[0].lineVoltages["L1–L2"], 230 * Math.sqrt(3));
+  assert.equal(summary.branches[1].lineVoltages["L1–L2"], null);
+  almost(summary.phaseVoltages.L1.min, 230);
+  almost(summary.lineVoltages["L1–L2"].max, 230 * Math.sqrt(3));
+  d.mainBreaker.state = "open";
+  calc = E.calculate(p); summary = E.networkSummary(p, calc);
+  almost(summary.watts, 4600);
+  almost(summary.currents.L1, 20);
+  assert.equal(calc.nodes.get(s.id).phaseImbalance, false);
+  assert.equal(calc.nodes.get(d.id).phaseImbalance, false);
+  second.mainBreaker = {...E.breaker(32), state:"open"};
+  s.mainBreaker = {...E.breaker(32, 3), state:"open"};
+  summary = E.networkSummary(p, E.calculate(p));
+  almost(summary.watts, 0);
+  assert.equal(summary.phaseVoltages.L1, null);
+  assert.equal(summary.lineVoltages["L1–L2"], null);
+});
+
+test("напряжения фаз учитывают нейтраль, балансировку и отключение в обычном режиме", () => {
+  const p = E.project(), s = src(p), d = dist(p);
+  conn(p, s, d);
+  p.links[0].cable = {lengthM:100, sectionMm2:2.37, material:"cu"}; // R = 1 Ω
+  p.settings.powerFactor = 1;
+  p.settings.advancedMode = false;
+  const loads = E.PHASES.map((_, i) => {
+    const c = load(p, i === 0 ? 2300 : 0);
+    conn(p, d, c, i);
+    return c;
+  });
+  let c = E.calculate(p).nodes.get(d.id);
+  const loadedVoltage = (230 + Math.sqrt(230 ** 2 - 8 * 2300)) / 2;
+  almost(c.phaseVoltage.L1, loadedVoltage); // V = E − 2RP/V
+  almost(c.phaseVoltage.L2, Math.hypot(-115 - 2300 / loadedVoltage, -230 * Math.sqrt(3) / 2));
+  almost(c.phaseVoltage.L3, c.phaseVoltage.L2);
+  assert.ok(c.phaseVoltage.L2 > 230); // neutral shift raises unloaded phases
+  loads.forEach(n => n.consumerWatts = 2300);
+  c = E.calculate(p).nodes.get(d.id);
+  for (const phase of E.PHASES) almost(c.phaseVoltage[phase], (230 + Math.sqrt(230 ** 2 - 4 * 2300)) / 2);
+  loads.forEach(n => n.consumerWatts = 0);
+  c = E.calculate(p).nodes.get(d.id);
+  for (const phase of E.PHASES) almost(c.phaseVoltage[phase], 230);
+  d.mainBreaker.state = "open";
+  c = E.calculate(p).nodes.get(d.id);
+  for (const phase of E.PHASES) almost(c.phaseVoltage[phase], 0);
+});
+
+test("векторное падение складывается по цепи и учитывает cos φ", () => {
+  const p = E.project(), s = src(p),
+    a = add(p, {name:"3ф", phases:3, inA:32, outputs:[{connType:"cee3", nominalA:32}]}),
+    d = dist(p), c = load(p);
+  conn(p, s, a); conn(p, a, d); conn(p, d, c);
+  p.settings.powerFactor = 0.8;
+  for (const link of p.links.slice(0, 2))
+    link.cable = {lengthM:50, sectionMm2:2.37, material:"cu"};
+  const result = E.calculate(p).nodes.get(d.id);
+  const v = result.phaseVoltagePhasor.L1, i = result.currentPhasor.L1;
+  almost(v.re * i.re + v.im * i.im, 2300);
+  almost(v.im * i.re - v.re * i.im, 1725);
+  almost(v.re, 230 - 2 * i.re);
+  almost(v.im, -2 * i.im);
+  const estimate = E.cableEstimate({lengthM:100, sectionMm2:2.37, material:"cu", ampacityA:32, powerFactor:0.8}, 3, {L1:12.5,L2:0,L3:0});
+  almost(estimate.phaseDropPhasor.L1.re, 20);
+  almost(estimate.phaseDropPhasor.L1.im, -15);
+});
+
+test("постоянная мощность: аналитический ток, перегрузка и баланс потерь", () => {
+  const p = E.project(), s = src(p, 1), c = load(p, 3450);
+  conn(p, s, c); p.settings.powerFactor = 1;
+  p.links[0].cable = {lengthM:100, sectionMm2:2.37, material:"cu"};
+  const result = E.calculate(p), cc = result.nodes.get(c.id), sc = result.nodes.get(s.id);
+  assert.equal(result.powerFlow.converged, true);
+  const expectedI = (230 - Math.sqrt(230 ** 2 - 8 * 3450)) / 4;
+  almost(cc.loadA.L1, expectedI);
+  assert.ok(expectedI > 16); // nominal-voltage estimate was only 15 A
+  assert.equal(result.ports.get(s.outputs[0].id).overload, true);
+  almost(cc.phaseVoltage.L1 * cc.loadA.L1, 3450);
+  const cable = E.cableParameters(p.links[0], s.outputs[0], c.inputs[0], p.settings);
+  const port = result.ports.get(s.outputs[0].id);
+  const estimate = E.cableEstimate(cable, 1, port.loadA, port.currentPhasor);
+  almost(sc.phaseVoltage.L1 * sc.loadA.L1, 3450 + estimate.lossW);
+  c.consumerWatts = 0;
+  almost(E.calculate(p).nodes.get(c.id).phaseVoltage.L1, 230);
+});
+
+test("несходимость постоянной мощности явно помечается без NaN", () => {
+  const p = E.project(), s = src(p, 1), c = load(p, 20000);
+  conn(p, s, c); p.settings.powerFactor = 1;
+  p.links[0].cable = {lengthM:100, sectionMm2:2.37, material:"cu"};
+  const result = E.calculate(p);
+  assert.equal(result.powerFlow.converged, false);
+  assert.equal(result.nodes.get(c.id).powerFlowFailed, true);
+  assert.ok(Number.isFinite(result.nodes.get(c.id).loadA.L1));
+  assert.ok(Number.isFinite(result.nodes.get(c.id).phaseVoltage.L1));
+});
+
+test("K₂U: симметрия, известная обратная последовательность и нулевая последовательность", () => {
+  const phases = (negative, neutral = 0) => Object.fromEntries(E.PHASES.map((k, i) => {
+    const angle = i * 2 * Math.PI / 3;
+    return [k, {re:230*Math.cos(angle) + negative*Math.cos(angle) + neutral,
+      im:-230*Math.sin(angle) + negative*Math.sin(angle)}];
+  }));
+  almost(E.voltageUnbalance(phases(0)), 0);
+  almost(E.voltageUnbalance(phases(4.6)), 2);
+  almost(E.voltageUnbalance(phases(6.9, 20)), 3);
+  almost(E.voltageUnbalance(phases(0, 20)), 0);
+  assert.equal(E.voltageUnbalance({L1:{re:0,im:0}, L2:{re:0,im:0}, L3:{re:0,im:0}}), null);
+  const p = E.project(), s = src(p), d = dist(p), c = load(p, 2300);
+  conn(p,s,d); conn(p,d,c);
+  p.links[0].cable = {lengthM:100, sectionMm2:2.37, material:"cu"};
+  let result = E.calculate(p);
+  assert.equal(result.nodes.get(s.id).voltageUnbalance, false);
+  assert.equal(result.nodes.get(d.id).voltageUnbalance, false); // below threshold
+  c.consumerWatts = 4000;
+  result = E.calculate(p);
+  assert.equal(result.nodes.get(d.id).voltageUnbalance, true);
+  d.mainBreaker.state = "open";
+  assert.equal(E.calculate(p).nodes.get(d.id).voltageUnbalancePercent, null);
 });
 test("1ф→3ф пассивный переход, недопустимый номинал и автомат отвергаются", () => {
   const p = E.project();

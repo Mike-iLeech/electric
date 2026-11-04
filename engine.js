@@ -203,6 +203,7 @@
       inA = 32,
       outputs = [],
       watts = 0,
+      consumerMode,
       shield = false,
       transition = false,
       catalogPath = null,
@@ -252,6 +253,7 @@
               label: p.label || "OUT" + (i + 1),
             })),
       consumerWatts: watts,
+      ...(consumerMode!==undefined?{consumerMode}:{}),
       mainBreaker:
         mainA != null ? breaker(mainA, phases) : null,
     };
@@ -352,6 +354,8 @@
     text(p.meta.name, "Название");
     finite(p.settings?.voltageLN, 100, 300, "Фазное напряжение");
     finite(p.settings.powerFactor, 0.01, 1, "Коэффициент мощности");
+    if(p.settings.enableConsumerModes!==undefined && typeof p.settings.enableConsumerModes!=="boolean")throw Error("Некорректная опция режима потребителей");
+    if(p.settings.defaultConsumerMode!==undefined && !["power","resistance"].includes(p.settings.defaultConsumerMode))throw Error("Некорректный общий режим потребителей");
     if (p.settings.frequency !== 50)
       throw Error("Модель поддерживает частоту 50 Гц");
     if (p.settings.cableDefaults !== undefined) {
@@ -391,6 +395,7 @@
       finite(n.pos?.x, -1e6, 1e6, "X");
       finite(n.pos?.y, -1e6, 1e6, "Y");
       finite(n.consumerWatts, 0, 1e7, "Мощность");
+      if(n.consumerMode!==undefined && !["power","resistance"].includes(n.consumerMode))throw Error("Некорректный режим потребителя");
       if (
         !Array.isArray(n.inputs) ||
         !Array.isArray(n.outputs) ||
@@ -563,7 +568,76 @@
       for (const k of PHASES) a[k] += b[k];
     },
     closed = (b) => !b || b.state === "closed";
+  function consumerMode(p,n) {
+    return p.settings.enableConsumerModes ? n.consumerMode ?? p.settings.defaultConsumerMode ?? "power" : "power";
+  }
+  function voltageUnbalance(phasors) {
+    const sequence = sign => PHASES.reduce((sum, phase, i) => {
+      const angle = sign * i * 2 * Math.PI / 3, v = phasors[phase];
+      return {re:sum.re + v.re * Math.cos(angle) - v.im * Math.sin(angle),
+        im:sum.im + v.re * Math.sin(angle) + v.im * Math.cos(angle)};
+    }, {re:0, im:0});
+    const positive = sequence(1), negative = sequence(-1);
+    const base = Math.hypot(positive.re, positive.im);
+    return base > 1e-8 ? 100 * Math.hypot(negative.re, negative.im) / base : null;
+  }
   function calculate(p) {
+    let previous = null, result, residualV = Infinity, converged = false, iterations = 0;
+    const roots = new Map(), states = new Map();
+    let lastDeltas=new Map();
+    for (; iterations < 320; iterations++) {
+      result = calculatePass(p, previous);
+      // Active feeds depend on breaker states, not on the voltage iteration.
+      // Keep independent supplies independent even when another circuit collapses.
+      if (!roots.size) for (const n of p.nodes) {
+        let id=n.id;
+        while(result.activeInputs.has(id)) id=result.activeInputs.get(id).from.nodeId;
+        roots.set(n.id,id);
+        if(!states.has(id))states.set(id,{step:.5,residualV:Infinity,converged:false});
+      }
+      const residuals=new Map([...states.keys()].map(id=>[id,0]));
+      const alignments=new Map([...states.keys()].map(id=>[id,0])),deltas=new Map();
+      for (const [id, c] of result.nodes) {
+        const old = previous?.get(id);
+        const nodeDeltas={};
+        for (const phase of PHASES) {
+          const v = c.phaseVoltagePhasor[phase], before = old?.[phase] || v;
+          const delta={re:v.re-before.re,im:v.im-before.im},last=lastDeltas.get(id)?.[phase];
+          nodeDeltas[phase]=delta;
+          if(last)alignments.set(roots.get(id),alignments.get(roots.get(id))+delta.re*last.re+delta.im*last.im);
+          const residual=old?Math.hypot(v.re-before.re,v.im-before.im):p.settings.voltageLN;
+          residuals.set(roots.get(id),Math.max(residuals.get(roots.get(id)),Number.isFinite(residual)?residual:Infinity));
+        }
+        deltas.set(id,nodeDeltas);
+      }
+      for(const [id,state] of states){
+        const residual=residuals.get(id);
+        // Fixed half steps diverge for perfectly valid high-impedance loads.
+        // Reduce the local step when the undamped equation residual grows.
+        if(previous && (residual>state.residualV*1.02 || alignments.get(id)<0&&residual>state.residualV*.8))
+          state.step=Math.max(1/65536,state.step/2);
+        state.residualV=residual;state.converged=residual<1e-10;
+      }
+      residualV=Math.max(0,...[...states.values()].map(state=>state.residualV));
+      converged=[...states.values()].every(state=>state.converged);
+      if (converged) { iterations++; break; }
+      const next = new Map();
+      for(const [id,c] of result.nodes){
+        const old=previous?.get(id), step=states.get(roots.get(id)).step;
+        next.set(id,Object.fromEntries(PHASES.map(phase=>{
+          const v=c.phaseVoltagePhasor[phase],before=old?.[phase]||v;
+          return [phase,{re:before.re+step*(v.re-before.re),im:before.im+step*(v.im-before.im)}];
+        })));
+      }
+      previous = next;
+      lastDeltas=deltas;
+    }
+    result.powerFlow = {converged, iterations, residualV,
+      components:new Map([...states].map(([id,state])=>[id,{converged:state.converged,residualV:state.residualV}]))};
+    for (const [id,c] of result.nodes) c.powerFlowFailed = c.powered && !states.get(roots.get(id)).converged;
+    return result;
+  }
+  function calculatePass(p, previous) {
     const ix = indexes(p),
       computed = new Map(),
       portLoads = new Map(),
@@ -616,6 +690,7 @@
         pathOpen: pathOpen || !closed(n.mainBreaker),
         loadW: zero(),
         loadA: zero(),
+        currentPhasor: Object.fromEntries(PHASES.map(k => [k, {re:0, im:0}])),
         demandW: zero(),
         demandA: zero(),
         overload: false,
@@ -642,7 +717,25 @@
       for (const l of (ix.outgoing.get(id) || []).filter(link => activeInputs.get(link.to.nodeId) === link))
         add(c.loadW, computed.get(l.to.nodeId).loadW);
       for (const k of PHASES) {
-        c.loadA[k] = c.loadW[k] / (p.settings.voltageLN * p.settings.powerFactor);
+        if (n.category === "consumer" && c.powered && c.demandW[k] > 0) {
+          const i = PHASES.indexOf(k), angle = -i * 2 * Math.PI / 3;
+          const v = previous?.get(id)?.[k] || {re:p.settings.voltageLN*Math.cos(angle), im:p.settings.voltageLN*Math.sin(angle)};
+          const magnitude = Math.max(Math.hypot(v.re, v.im), p.settings.voltageLN * 0.001);
+          const nominalWatts=n.phases===3?n.consumerWatts/3:n.consumerWatts;
+          const resistive=consumerMode(p,n)==="resistance";
+          const watts=resistive?nominalWatts*Math.hypot(v.re,v.im)**2/p.settings.voltageLN**2:nominalWatts;
+          const vars=watts*Math.tan(Math.acos(p.settings.powerFactor));
+          c.loadW[k]+=watts-nominalWatts;
+          // I = conjugate(S / V), using local RMS voltage and constant P,Q.
+          c.currentPhasor[k] = {re:(watts*v.re + vars*v.im)/(magnitude*magnitude),
+            im:(watts*v.im - vars*v.re)/(magnitude*magnitude)};
+        }
+        for (const link of ix.outgoing.get(id) || []) {
+          if (activeInputs.get(link.to.nodeId) !== link) continue;
+          const child = computed.get(link.to.nodeId).currentPhasor[k];
+          c.currentPhasor[k].re += child.re; c.currentPhasor[k].im += child.im;
+        }
+        c.loadA[k] = Math.hypot(c.currentPhasor[k].re, c.currentPhasor[k].im);
         c.demandA[k] = c.demandW[k] / (p.settings.voltageLN * p.settings.powerFactor);
       }
       {
@@ -664,13 +757,14 @@
         const v = {
           demandW,
           loadW,
+          currentPhasor: cc ? clone(cc.currentPhasor) : Object.fromEntries(PHASES.map(k => [k, {re:0, im:0}])),
           demandA: zero(),
           loadA: zero(),
           overload: false,
         };
         for (const k of PHASES) {
           v.demandA[k] = demandW[k] / (p.settings.voltageLN * p.settings.powerFactor);
-          v.loadA[k] = loadW[k] / (p.settings.voltageLN * p.settings.powerFactor);
+          v.loadA[k] = cc ? cc.loadA[k] : 0;
         }
         const mx = Math.max(...Object.values(v.loadA));
         v.overload = mx > o.nominalA + 1e-8;
@@ -696,7 +790,7 @@
             n.mainBreaker.ratingA + 1e-8,
         });
       c.overload ||= c.breakers.some((b) => b.overload);
-      const vals = Object.values(c.demandA),
+      const vals = Object.values(c.loadA),
         mx = Math.max(...vals),
         avg = vals.reduce((a, b) => a + b, 0) / 3;
       c.phaseImbalance =
@@ -720,9 +814,16 @@
         n.mainBreaker?.ratingA ?? Infinity);
       const voltages = upstream ? {...upstream.phaseVoltage} :
         Object.fromEntries(PHASES.map(phase => [phase, p.settings.voltageLN]));
-      if (p.settings.advancedMode && c.powered && link?.cable?.lengthM > 0) {
+      // RMS phasors preserve neutral displacement through successive cables.
+      const phasors = upstream ? Object.fromEntries(PHASES.map(phase =>
+        [phase, {...upstream.phaseVoltagePhasor[phase]}])) :
+        Object.fromEntries(PHASES.map((phase, i) => [phase, {
+          re: p.settings.voltageLN * Math.cos(-i * 2 * Math.PI / 3),
+          im: p.settings.voltageLN * Math.sin(-i * 2 * Math.PI / 3),
+        }]));
+      if (c.powered && link?.cable?.lengthM > 0) {
         const cable = cableParameters(link, out, inlet, p.settings);
-        const estimate = cableEstimate(cable, out.phases, portLoads.get(out.id).loadA);
+        const estimate = cableEstimate(cable, out.phases, portLoads.get(out.id).loadA, portLoads.get(out.id).currentPhasor);
         if (estimate) {
           const sendingVoltage = upstream.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
           const dropLimitA = estimate.dropV > 0
@@ -730,12 +831,21 @@
             : Infinity;
           currentLimit = Math.min(currentLimit, cable.ampacityA, dropLimitA);
           for (const phase of out.phases === 3 ? PHASES : [c.inPhase || "L1"]) {
-            const drop = out.phases === 3 ? estimate.phaseDropV[phase] : estimate.dropV;
-            voltages[phase] = Math.max(0, voltages[phase] - drop);
+            const drop = estimate.phaseDropPhasor[phase];
+            phasors[phase].re -= drop.re;
+            phasors[phase].im -= drop.im;
           }
         }
       }
+      for (const phase of PHASES) {
+        if (!c.powered || (n.phases === 1 && phase !== (c.inPhase || "L1")))
+          phasors[phase] = {re:0, im:0};
+        voltages[phase] = Math.hypot(phasors[phase].re, phasors[phase].im);
+      }
+      c.phaseVoltagePhasor = phasors;
       c.phaseVoltage = voltages;
+      c.voltageUnbalancePercent = n.phases === 3 && c.powered ? voltageUnbalance(phasors) : null;
+      c.voltageUnbalance = c.voltageUnbalancePercent !== null && c.voltageUnbalancePercent > 2 + 1e-9;
       c.voltageLN = n.phases === 3 ? Math.min(...Object.values(voltages)) : voltages[c.inPhase || "L1"];
       c.currentLimit = currentLimit;
       c.availableWatts = c.powered ? currentLimit * c.voltageLN * n.phases * p.settings.powerFactor : 0;
@@ -745,6 +855,10 @@
         sum(c.loadW) > 0 && !!upstream?.voltagePowerDeficit;
       c.voltagePowerDeficit = c.localVoltagePowerDeficit || c.upstreamVoltagePowerDeficit;
     }
+    for(const [id,link] of activeInputs){
+      const c=computed.get(id), source=computed.get(link.from.nodeId), out=ix.ports.get(link.from.portId).port;
+      portLoads.get(out.id).voltageDrop=cableVoltageDrop(source,c,out.phases,c.inPhase||"L1");
+    }
     return {
       nodes: computed,
       ports: portLoads,
@@ -752,6 +866,151 @@
       voltageLN: p.settings.voltageLN,
       voltageLL: p.settings.voltageLN * Math.sqrt(3),
     };
+  }
+  function cableVoltageDrop(sending, receiving, phaseCount, phase = "L1") {
+    const phases=phaseCount===3?PHASES:[phase];
+    const ratios=phases.map(k=>sending.phaseVoltage[k]>1e-8 ?
+      Math.max(0,(sending.phaseVoltage[k]-receiving.phaseVoltage[k])/sending.phaseVoltage[k])*100 : 0);
+    let dropV=Math.max(...phases.map(k=>Math.max(0,sending.phaseVoltage[k]-receiving.phaseVoltage[k])));
+    if(phaseCount===3){
+      const drops=PHASES.map((k,i)=>{
+        const next=PHASES[(i+1)%3];
+        const magnitude=c=>Math.hypot(c.phaseVoltagePhasor[k].re-c.phaseVoltagePhasor[next].re,
+          c.phaseVoltagePhasor[k].im-c.phaseVoltagePhasor[next].im);
+        const before=magnitude(sending), after=magnitude(receiving);
+        ratios.push(before>1e-8?Math.max(0,(before-after)/before)*100:0);
+        return Math.max(0,before-after);
+      });dropV=Math.max(...drops);
+    }
+    return {dropV,dropPercent:Math.max(...ratios),lineVoltage:phaseCount===3};
+  }
+  function cableLengthLimits(p, linkId, maxLength = 10000) {
+    const link=p.links.find(item=>item.id===linkId);
+    if (!link) throw Error("Кабель не найден");
+    const ix=indexes(p), out=ix.ports.get(link.from.portId).port, inlet=ix.ports.get(link.to.portId).port;
+    const cable=cableParameters(link,out,inlet,p.settings);
+    const baseline=calculate(p);
+    const rootOf=id=>{const seen=new Set(); while(baseline.activeInputs.has(id)&&!seen.has(id)){
+      seen.add(id); id=baseline.activeInputs.get(id).from.nodeId;
+    } return id;};
+    const root=rootOf(link.from.nodeId);
+    const affected=new Set(p.nodes.filter(n=>rootOf(n.id)===root).map(n=>n.id));
+    const draft={...link,cable:{...link.cable}}, project={...p,links:p.links.map(l=>l===link?draft:l)};
+    const cache=new Map();
+    const evaluate=length=>{
+      if(cache.has(length))return cache.get(length);
+      draft.cable.lengthM=length;
+      const calc=calculate(project), receiving=calc.nodes.get(link.to.nodeId), sending=calc.nodes.get(link.from.nodeId);
+      const reasons=[];
+      const converged=calc.powerFlow.components.get(root)?.converged??calc.powerFlow.converged;
+      if(!converged) reasons.push({kind:"convergence"});
+      if(!receiving.powered) reasons.push({kind:"unpowered",nodeId:link.to.nodeId});
+      const check=(currents,limit,details)=>{for(const phase of PHASES)if(currents[phase]>limit+1e-8)
+        reasons.push({...details,phase,currentA:currents[phase],limitA:limit});};
+      for(const n of p.nodes) {
+        const c=calc.nodes.get(n.id); if(!affected.has(n.id)||!c.powered)continue;
+        if(n.mainBreaker)check(c.loadA,n.mainBreaker.ratingA,{kind:"breaker",nodeId:n.id});
+        if(n.category==="input")check(c.loadA,Math.min(n.supplyA,n.supplyNominalA??Infinity),{kind:"supply",nodeId:n.id});
+      }
+      let loadOK=converged && receiving.powered;
+      for(const n of p.nodes) if(affected.has(n.id)&&calc.nodes.get(n.id).powered&&calc.nodes.get(n.id).overload)loadOK=false;
+      for(const l of p.links) {
+        if(!affected.has(l.to.nodeId)||!calc.nodes.get(l.to.nodeId).powered||calc.activeInputs.get(l.to.nodeId)?.id!==l.id)continue;
+        const o=ix.ports.get(l.from.portId).port, input=ix.ports.get(l.to.portId).port;
+        const profile=cableParameters(l.id===linkId?draft:l,o,input,p.settings);
+        const currents=calc.ports.get(o.id).loadA;
+        check(currents,o.nominalA,{kind:"port",nodeId:l.from.nodeId,portId:o.id,linkId:l.id});
+        check(currents,input.nominalA,{kind:"port",nodeId:l.to.nodeId,portId:input.id,linkId:l.id});
+        if(o.breaker)check(currents,o.breaker.ratingA,{kind:"breaker",nodeId:l.from.nodeId,portId:o.id,linkId:l.id});
+        if(input.breaker)check(currents,input.breaker.ratingA,{kind:"breaker",nodeId:l.to.nodeId,portId:input.id,linkId:l.id});
+        check(currents,profile.ampacityA,{kind:"cable",linkId:l.id});
+        if(Math.max(...Object.values(currents))>profile.ampacityA+1e-8)loadOK=false;
+      }
+      const phases=out.phases===3?PHASES:[receiving.inPhase||"L1"];
+      const dropPercent=cableVoltageDrop(sending,receiving,out.phases,receiving.inPhase||"L1").dropPercent;
+      if(reasons.length)loadOK=false;
+      const dropReasons=phases.filter(k=>100*Math.max(0,sending.phaseVoltage[k]-receiving.phaseVoltage[k])/Math.max(sending.phaseVoltage[k],1e-8)>=cable.maxDropPercent)
+        .map(phase=>({kind:"drop",linkId:link.id,phase,dropPercent:100*Math.max(0,sending.phaseVoltage[phase]-receiving.phaseVoltage[phase])/Math.max(sending.phaseVoltage[phase],1e-8),limitPercent:cable.maxDropPercent}));
+      const value={reasons,dropReasons,loadOK,dropOK:converged&&receiving.powered&&dropPercent<cable.maxDropPercent,
+        dropPercent,calc}; cache.set(length,value);return value;
+    };
+    const upperBoundary=(key,start)=>{
+      let low=start, high=Math.min(Math.max(1,start*1.25),maxLength);
+      while(evaluate(high)[key]){low=high;if(high>=maxLength)return Infinity;high=Math.min(maxLength,high*2);}
+      for(let i=0;i<24&&high-low>.005;i++){
+        const middle=(low+high)/2;if(evaluate(middle)[key])low=middle;else high=middle;
+      }
+      return Math.floor(low*100)/100;
+    };
+    const currentLength=link.cable?.lengthM||0,current=evaluate(currentLength);
+    const dropLength=evaluate(0).dropOK?upperBoundary("dropOK",0):0;
+    // Z loads can be overloaded at zero length and become admissible as voltage
+    // falls. Mixed P/Z loads can have both a lower and an upper current boundary.
+    // Prefer the interval containing the entered length; otherwise probe for one
+    // within the voltage-admissible range instead of declaring zero impossible.
+    let seed=evaluate(0).loadOK?0:currentLength<=maxLength&&current.loadOK?currentLength:null;
+    if(seed===null && current.calc.nodes.get(link.to.nodeId).powered){
+      const end=Math.min(maxLength,dropLength);
+      const probes=[];
+      for(let length=.01;length<end;length*=1.25)probes.push(length);
+      probes.push(end);
+      for(const length of probes)if(evaluate(length).loadOK){seed=length;break;}
+    }
+    let loadMinLength=null,loadLength=0;
+    if(seed!==null){
+      let high=seed,low=0;
+      if(!evaluate(0).loadOK){
+        for(let i=0;i<32&&high-low>.001;i++){
+          const middle=(low+high)/2;if(evaluate(middle).loadOK)high=middle;else low=middle;
+        }
+      }else high=0;
+      loadMinLength=Math.ceil(high*100)/100;
+      loadLength=upperBoundary("loadOK",Math.max(seed,loadMinLength));
+    }
+    let allowedLength=Math.min(loadLength,dropLength);
+    const minLength=loadMinLength!==null&&loadMinLength<=allowedLength?loadMinLength:null;
+    if(minLength===null)allowedLength=0;
+    const boundary=Number.isFinite(allowedLength)?evaluate(Math.min(maxLength,allowedLength+.02)):null;
+    const limiting=boundary ? [...(loadLength<=dropLength?boundary.reasons:[]),...(dropLength<=loadLength?boundary.dropReasons:[])] : [];
+    const ratedCurrentA=Math.min(cable.ampacityA,out.nominalA,inlet.nominalA);
+    const sending=current.calc.nodes.get(link.from.nodeId);
+    const phases=out.phases===3?PHASES:[current.calc.nodes.get(link.to.nodeId).inPhase||"L1"];
+    const voltage=Math.min(...phases.map(k=>sending.phaseVoltage[k]));
+    const resistancePerMeter=(cable.material==="al"?37.6:23.7)/(1000*cable.sectionMm2);
+    // Linear longitudinal-drop estimate: balanced 3-phase or phase + neutral.
+    const dropPerMeter=resistancePerMeter*ratedCurrentA*(out.phases===3?1:2)*(cable.powerFactor??1);
+    const theoreticalLength=dropPerMeter>0?voltage/dropPerMeter:Infinity;
+    return {loadLength,loadMinLength,dropLength,allowedLength,minLength,current,limiting,theoreticalLength,ratedCurrentA,evaluations:cache.size};
+  }
+  function networkSummary(p, calc) {
+    const branches = p.nodes.filter(n => n.category === "input").map(n => {
+      const c = calc.nodes.get(n.id);
+      const lineVoltages = Object.fromEntries(PHASES.map((phase, i) => {
+        const next = PHASES[(i + 1) % 3], a = c.phaseVoltagePhasor[phase], b = c.phaseVoltagePhasor[next];
+        return [`${phase}–${next}`, n.phases === 3 ? Math.hypot(a.re - b.re, a.im - b.im) : null];
+      }));
+      return {id:n.id, name:n.name, phases:n.phases, watts:sum(c.loadW),
+        apparentVA:sum(c.loadW) / p.settings.powerFactor,
+        currents:{...c.loadA}, phaseVoltages:{...c.phaseVoltage}, lineVoltages, powered:c.powered};
+    });
+    const currents = zero();
+    for (const branch of branches) add(currents, branch.currents);
+    const phaseVoltages = Object.fromEntries(PHASES.map(phase => [phase, []]));
+    const lineVoltages = {"L1–L2":[], "L2–L3":[], "L3–L1":[]};
+    for (const n of p.nodes) {
+      const c = calc.nodes.get(n.id);
+      if (!c.powered) continue;
+      for (const phase of n.phases === 3 ? PHASES : [c.inPhase || "L1"])
+        phaseVoltages[phase].push(c.phaseVoltage[phase]);
+      if (n.phases === 3) PHASES.forEach((phase, i) => {
+        const next = PHASES[(i + 1) % 3], a = c.phaseVoltagePhasor[phase], b = c.phaseVoltagePhasor[next];
+        lineVoltages[`${phase}–${next}`].push(Math.hypot(a.re - b.re, a.im - b.im));
+      });
+    }
+    const ranges = values => Object.fromEntries(Object.entries(values).map(([key, list]) =>
+      [key, list.length ? {min:Math.min(...list), max:Math.max(...list)} : null]));
+    return {watts:branches.reduce((total, branch) => total + branch.watts, 0), currents, branches,
+      phaseVoltages:ranges(phaseVoltages), lineVoltages:ranges(lineVoltages)};
   }
   function tripTimeRange(curve, currentA) {
     if (!Number.isFinite(currentA) || currentA <= 0 || !Array.isArray(curve) || curve.length < 2 || curve.length > 100) return null;
@@ -794,7 +1053,13 @@
     };
   }
 
-  const CABLE_SECTIONS = Object.freeze({6:2.5, 10:2.5, 16:4, 32:10, 63:25, 125:50, 250:120});
+  const CABLE_SECTIONS = Object.freeze({6:1.5, 10:1.5, 16:2.5, 32:6, 63:16, 125:35, 250:95});
+  const CABLE_SECTION_SOURCES = Object.freeze({
+    default:{icon:"▦", label:"Дефолтное значение из таблицы"},
+    custom:{icon:"⚙", label:"Изменённое значение из таблицы"},
+    manual:{icon:"✎", label:"Сечение введено вручную"},
+    approximate:{icon:"≈", label:"Приближённое значение для нестандартного номинала"},
+  });
   let cableSections = CABLE_SECTIONS;
   function setCableSections(values) {
     cableSections = Object.fromEntries(Object.entries(CABLE_SECTIONS).map(([rating, fallback]) => {
@@ -807,10 +1072,12 @@
     const approximate = cableSections[ampacityA] == null && ampacityA >= 6 && ampacityA <= 600;
     const profile = {material:"cu", sectionMm2:cableSections[ampacityA] ?? (approximate ? Number((0.0368 * ampacityA ** 1.3754).toFixed(2)) : undefined), ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable, powerFactor:settings.powerFactor ?? 1};
     profile.sectionApproximate = approximate && !(settings.cableDefaults?.sectionMm2 > 0) && !(link.cable?.sectionMm2 > 0);
+    profile.sectionSource = link.cable?.sectionMm2 > 0 ? "manual" : profile.sectionApproximate ? "approximate" :
+      settings.cableDefaults?.sectionMm2 > 0 || profile.sectionMm2 !== CABLE_SECTIONS[ampacityA] ? "custom" : "default";
     return profile;
   }
 
-  function cableEstimate(cable, phaseCount, currents) {
+  function cableEstimate(cable, phaseCount, currents, actualPhasors = null) {
     const { lengthM, sectionMm2, material, ampacityA } = cable;
     if (!(lengthM > 0 && sectionMm2 > 0 && ampacityA > 0)) return null;
     const resistance = (material === "al" ? 37.6 : 23.7) * lengthM / (1000 * sectionMm2);
@@ -821,13 +1088,29 @@
     const squares = values.reduce((sum, value) => sum + value ** 2, 0);
     const neutralSquared = Math.max(0, (3 * squares - total ** 2) / 2);
     const pf = cable.powerFactor ?? 1;
+    // Equal phase/neutral resistance, sinusoidal currents and common lagging cos φ.
+    // Vreceiving,k = Vsending,k − R·Ik − R·(I1 + I2 + I3).
+    const angle = Math.acos(Math.max(0, Math.min(1, pf)));
+    const currentPhasors = actualPhasors ? PHASES.map(k => actualPhasors[k]) : values.map((value, i) => ({
+      re:value * Math.cos(-i * 2 * Math.PI / 3 - angle),
+      im:value * Math.sin(-i * 2 * Math.PI / 3 - angle),
+    }));
+    const neutral = currentPhasors.reduce((sum, value) =>
+      ({re:sum.re + value.re, im:sum.im + value.im}), {re:0, im:0});
+    const phaseDropPhasor = Object.fromEntries(PHASES.map((phase, i) => [phase, {
+      re:resistance * (currentPhasors[i].re + neutral.re),
+      im:resistance * (currentPhasors[i].im + neutral.im),
+    }]));
     const phaseDropV = Object.fromEntries(PHASES.map((phase, i) => [
-      phase, pf * resistance * (2 * values[i] - (total - values[i]) / 2),
+      phase, actualPhasors
+        ? phaseDropPhasor[phase].re * Math.cos(-i*2*Math.PI/3) + phaseDropPhasor[phase].im * Math.sin(-i*2*Math.PI/3)
+        : pf * resistance * (2 * values[i] - (total - values[i]) / 2),
     ]));
-    const dropV = phaseCount === 1 ? 2 * current * resistance * pf
+    const dropV = phaseCount === 1 ? (actualPhasors ? Math.max(...Object.values(phaseDropV)) : 2 * current * resistance * pf)
       : balanced ? Math.sqrt(3) * current * resistance * pf : Math.max(...Object.values(phaseDropV));
-    const lossW = resistance * (squares + neutralSquared);
-    return { dropV, lossW, phaseDropV, lineVoltage: phaseCount === 3 && balanced,
+    const lossW = resistance * (squares + (actualPhasors ? neutral.re ** 2 + neutral.im ** 2 : neutralSquared));
+    return { dropV, lossW, phaseDropV, phaseDropPhasor, sectionMm2, sectionSource:cable.sectionSource,
+      lineVoltage: phaseCount === 3 && balanced,
       resistance, current, exceedsAmpacity: current > ampacityA };
   }
   function cableWarnings(cable, estimate, output, input, voltageLN, {includeLength = true} = {}) {
@@ -835,9 +1118,9 @@
     const warnings = [];
     const voltage = voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
     const dropLimit = voltage * cable.maxDropPercent / 100;
-    if (estimate.dropV > dropLimit) {
+    if ((estimate.dropPercent ?? 100 * estimate.dropV / voltage) > cable.maxDropPercent) {
       const maxLength = cable.lengthM * dropLimit / estimate.dropV;
-      warnings.push("Падение напряжения " + (100 * estimate.dropV / voltage).toFixed(2) +
+      warnings.push("Падение напряжения " + (estimate.dropPercent ?? 100 * estimate.dropV / voltage).toFixed(2) +
         "% выше предела " + cable.maxDropPercent + "%." + (includeLength ?
           " При текущей нагрузке допустимая длина участка около " + maxLength.toFixed(1) + " м." : ""));
     }
@@ -1345,12 +1628,18 @@
     canConnect,
     connect,
     calculate,
+    networkSummary,
+    cableLengthLimits,
+    cableVoltageDrop,
+    voltageUnbalance,
+    consumerMode,
     tripOverloads,
     overloadOrigins,
     selectedBranch,
     cableEstimate,
     cableParameters,
     CABLE_SECTIONS,
+    CABLE_SECTION_SOURCES,
     setCableSections,
     cableWarnings,
     protectionScenario,

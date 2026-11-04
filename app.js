@@ -116,7 +116,7 @@
       const out = port(link.from), inlet = port(link.to);
       const cable = E.cableParameters(link, out, inlet, p.settings);
       return {...link, трасса: `${nodeLabel(link.from.nodeId)} → ${nodeLabel(link.to.nodeId)}`,
-        профиль: cable, расчёт: E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA)};
+        профиль: cable, расчёт: E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA, calc.ports.get(out.id).currentPhasor)};
     }));
     const snapshot = JSON.parse(JSON.stringify({метаданные:p.meta, настройки:p.settings, модули:nodes, линии:links}));
     const lines = [];
@@ -285,27 +285,81 @@
     clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 500);
   }
+  const summaryTriangles = new Set();
+  const showSummaryVoltage = false;
   function updatePowerSummary() {
-    const format = watts => {
-      const [divisor, unit] = watts >= 1e6 ? [1e6, "МВт"] : watts >= 1000 ? [1000, "кВт"] : [1, "Вт"];
-      return (watts / divisor).toLocaleString("ru-RU", {maximumFractionDigits:2}) + " " + unit;
+    const summary = E.networkSummary(p, calc);
+    const kw = value => (value / 1000).toFixed(2) + " кВт";
+    const phaseValues = (values, unit) => E.PHASES.map(k => k + ": " + values[k].toFixed(1) + " " + unit).join(" · ");
+    const metric = (label, value) => {
+      const row = document.createElement("div"); row.className = "branchMetric";
+      const caption = document.createElement("span"); caption.textContent = label;
+      const number = document.createElement("strong"); number.textContent = value;
+      if(label==="Напряжение по фазам:")row.hidden=!showSummaryVoltage;
+      row.append(caption, number); return row;
     };
-    const sources = p.nodes.filter(node => node.category === "input");
-    let total = 0;
-    const rows = sources.map(source => {
-      const watts = E.sum(calc.nodes.get(source.id).loadW);
-      total += watts;
-      const row = document.createElement("li");
-      const name = document.createElement("span");
-      name.dataset.noTranslate = "true";
+    const rows = summary.branches.map((source, i) => {
+      const row = document.createElement("li"); row.className = "summaryBranch";
+      row.dataset.sourceId = source.id;
+      const header = document.createElement("div"); header.className = "summaryBranchHeader";
+      const title = document.createElement("strong");
+      const branchLabel = document.createElement("span"); branchLabel.textContent = "Ветка №" + (i + 1);
+      const name = document.createElement("span"); name.dataset.noTranslate = "true";
       name.textContent = source.name;
-      row.append(name, document.createTextNode(" · " + format(watts)));
+      title.append(branchLabel, document.createTextNode(" | "), name); header.append(title);
+      row.append(header,
+        metric("Активная мощность:", kw(source.watts)),
+        metric("Полная мощность:", (source.apparentVA / 1000).toFixed(2) + " кВА"),
+        metric("Ток по фазам:", phaseValues(source.currents, "A")),
+        metric("Напряжение по фазам:", phaseValues(source.phaseVoltages, "V")));
+      if (source.phases === 3) {
+        const label = document.createElement("label"); label.className = "summaryTriangleToggle"; label.hidden=!showSummaryVoltage;
+        const toggle = document.createElement("input"); toggle.type = "checkbox"; toggle.setAttribute("role", "switch");
+        toggle.checked = summaryTriangles.has(source.id);
+        const toggleLabel = document.createElement("span"); toggleLabel.textContent = "Включить треугольник";
+        label.append(toggle, toggleLabel); header.append(label);
+        const diagram = document.createElement("div"); diagram.className = "branchVoltageDiagram";
+        diagram.hidden = !showSummaryVoltage || !toggle.checked; diagram.id = "summary-voltage-" + source.id;
+        toggle.setAttribute("aria-controls", diagram.id);
+        diagram.innerHTML = '<svg viewBox="0 0 300 226" aria-hidden="true"><path class="voltageTriangleEdge" d="M150 24 32 194 268 194 Z"/><path class="voltageNeutralEdge" d="M150 24 150 137 32 194 M150 137 268 194"/><g class="voltageVertices"><circle cx="150" cy="24" r="5"/><circle cx="32" cy="194" r="5"/><circle cx="268" cy="194" r="5"/><circle cx="150" cy="137" r="4"/></g><g class="voltageVertexNames"><text x="150" y="13">L1</text><text x="18" y="215">L2</text><text x="282" y="215">L3</text><text x="150" y="157">N</text></g></svg>';
+        for (const [key, value] of Object.entries(source.lineVoltages)) {
+          const pill = document.createElement("span"); pill.className = "voltagePill lineVoltage line" + key.replaceAll("–", "");
+          pill.dataset.noTranslate = "true"; pill.textContent = key + " " + value.toFixed(1) + " V"; diagram.append(pill);
+        }
+        for (const phase of E.PHASES) {
+          const pill = document.createElement("span"); pill.className = "voltagePill phaseVoltage phase" + phase;
+          pill.dataset.noTranslate = "true"; pill.textContent = phase + "–N " + source.phaseVoltages[phase].toFixed(1) + " V"; diagram.append(pill);
+        }
+        toggle.addEventListener("change", () => {
+          if (toggle.checked) summaryTriangles.add(source.id); else summaryTriangles.delete(source.id);
+          diagram.hidden = !showSummaryVoltage || !toggle.checked;
+        });
+        row.append(diagram);
+      }
       return row;
     });
-    $("powerSummaryTotal").textContent = format(total);
-    $("collapsedPowerTotal").textContent = "Итого " + format(total);
-    $("powerBranchCount").textContent = "Веток от вводов: " + sources.length;
+    $("powerSummaryTotal").textContent = kw(summary.watts);
+    $("powerActiveTotal").textContent = kw(summary.watts);
+    const collapsedLoad=document.createElement("span"); collapsedLoad.className="collapsedPowerPill";
+    collapsedLoad.textContent="Итого " + kw(summary.watts);
+    $("collapsedPowerTotal").replaceChildren(collapsedLoad);
+    $("powerBranchCount").textContent = "Веток от вводов: " + summary.branches.length;
     $("powerBranchLoads").replaceChildren(...rows);
+    const warnings = [];
+    if (!calc.powerFlow.converged) {
+      const warning = document.createElement("p"); warning.className = "summaryWarning";
+      warning.textContent = "Расчёт постоянной мощности не сошёлся. Токи и напряжения приближённые; уменьшите нагрузку или сопротивление линий.";
+      warnings.push(warning);
+    }
+    for (const node of p.nodes) {
+      const c = calc.nodes.get(node.id);
+      if (!c.voltageUnbalance) continue;
+      const warning = document.createElement("p"); warning.className = "summaryWarning";
+      const name = document.createElement("span"); name.dataset.noTranslate = "true"; name.textContent = node.name;
+      warning.append(name, document.createTextNode(` · K₂U ${c.voltageUnbalancePercent.toFixed(2)}% > 2%`));
+      warnings.push(warning);
+    }
+    $("powerFlowWarnings").replaceChildren(...warnings);
   }
   function updateStatus() {
     updatePowerSummary();
@@ -314,6 +368,9 @@
     $("autoTrip").checked = !!p.settings.autoTrip;
     $("advancedMode").checked = !!p.settings.advancedMode;
     $("highlightBranch").checked = !!p.settings.highlightBranch;
+    $("enableConsumerModes").checked=!!p.settings.enableConsumerModes;
+    $("globalConsumerModeRow").hidden=!p.settings.enableConsumerModes;
+    $("globalConsumerMode").checked=p.settings.defaultConsumerMode==="resistance";
     if (document.activeElement !== $("voltageLN"))
       $("voltageLN").value = Number(p.settings.voltageLN.toFixed(6));
     if (document.activeElement !== $("voltageLL"))
@@ -1017,7 +1074,7 @@
   }
   function checkCableEdit(link) {
     const out = port(link.from);
-    const estimate = E.cableEstimate(E.cableParameters(link, out, port(link.to), p.settings), out.phases, calc.ports.get(out.id).loadA);
+    const estimate = E.cableEstimate(E.cableParameters(link, out, port(link.to), p.settings), out.phases, calc.ports.get(out.id).loadA, calc.ports.get(out.id).currentPhasor);
     const error = cableDropError(estimate);
     if (error) throw Error(error);
   }
@@ -1089,7 +1146,8 @@
     }, {geometry:false});
     panel.append(material);
     const load = calc.ports.get(link.from.portId);
-    const estimate = out && load && E.cableEstimate(cable, out.phases, load.loadA);
+    const rawEstimate = out && load && E.cableEstimate(cable, out.phases, load.loadA, load.currentPhasor);
+    const estimate = rawEstimate ? {...rawEstimate,...load.voltageDrop} : null;
     const result = document.createElement("p");
     result.className = "hint";
     if (!estimate) result.textContent = "Задайте длину, сечение и допустимый ток.";
@@ -1119,7 +1177,7 @@
         const total = document.createElement("p");
         const estimates = route.map(segment => {
           const output = port(segment.from);
-          return E.cableEstimate(E.cableParameters(segment, output, port(segment.to), p.settings), output.phases, calc.ports.get(segment.from.portId).loadA);
+          return E.cableEstimate(E.cableParameters(segment, output, port(segment.to), p.settings), output.phases, calc.ports.get(segment.from.portId).loadA, calc.ports.get(segment.from.portId).currentPhasor);
         });
         if (estimates.every(item => item?.dropV != null)) {
           const phase = calc.nodes.get(link.to.nodeId).inPhase;
@@ -1228,6 +1286,21 @@
       }
     }
     const consumers = ns.filter((n) => n.category === "consumer");
+    if(consumers.length && p.settings.enableConsumerModes){
+      const label=document.createElement("div");label.className="field consumerModeField";
+      const caption=document.createElement("span");caption.textContent="Режим потребителя";
+      const row=document.createElement("label");row.className="tripModeField";
+      const power=document.createElement("span");power.textContent="Постоянная мощность";
+      const resistance=document.createElement("span");resistance.textContent="Постоянное сопротивление";
+      const toggle=document.createElement("input");toggle.type="checkbox";toggle.id="consumerModeSwitch";toggle.setAttribute("role","switch");
+      const modes=new Set(consumers.map(n=>E.consumerMode(p,n)));
+      toggle.checked=modes.size===1 && modes.has("resistance");toggle.indeterminate=modes.size>1;
+      toggle.setAttribute("aria-label","Режим потребителя: постоянное сопротивление");
+      toggle.onchange=()=>{const mode=toggle.checked?"resistance":"power";transaction(()=>{for(const n of consumers)n.consumerMode=mode;},{geometry:false});};
+      row.append(power,toggle,resistance);label.append(caption,row);
+      const hint=document.createElement("small");hint.textContent="Для постоянного сопротивления мощность задаётся при номинальном напряжении. При другом cos φ используется постоянное комплексное сопротивление.";
+      label.append(hint);body.append(label);
+    }
     if (consumers.length) {
       const vals = new Set(consumers.map((n) => n.consumerWatts));
       const f = field(
@@ -1655,7 +1728,13 @@
       fields.querySelectorAll("[data-orientation]").forEach(button => {
         button.setAttribute("aria-pressed", String(button.dataset.orientation === drawingOptions.orientation));
       });
-      if (rebuild || !pagePlans) pagePlans = ElectricExport.plans(p, drawingOptions);
+      try {
+        if (rebuild || !pagePlans) pagePlans = ElectricExport.plans(p, drawingOptions);
+      } catch(error) {
+        clearTimeout(previewDetailTimer);detailView=null;detail.width=detail.height=1;
+        image.removeAttribute("src");image.alt=error.message;pagePlans=null;
+        notify(error.message);return;
+      }
       selectedPage = Math.min(selectedPage, pagePlans.length - 1);
       sheetSelect.replaceChildren(
         ...pagePlans.map((v, i) => {
@@ -1681,7 +1760,7 @@
         detail.width = detail.height = 1;
         image.removeAttribute("src");
         image.alt = "Не удалось построить выбранный лист";
-        notify("Не удалось построить выбранный лист: " + error.message);
+        notify(error.message === "Места не хватает, уменьшите масштаб" ? error.message : "Не удалось построить выбранный лист: " + error.message);
         return;
       }
       image.alt = "Предпросмотр выбранного листа";
@@ -2195,6 +2274,7 @@
             n.id = old.id;
             n.pos = old.pos;
             n.templateName = old.templateName;
+            if(n.category==="consumer" && old.consumerMode!==undefined)n.consumerMode=old.consumerMode;
             if (old.transfer && n.category === "distributor") {
               n.transfer = true;
               n.inputs.push(E.clone(old.inputs[1]));
@@ -2267,7 +2347,7 @@
       inConnType: template.inConnType, inA: template.inA,
       supplyA: template.supplyA ?? node.supplyA, supplyNominalA: template.supplyNominalA,
       outputs: node.outputs.map(({connType, nominalA, phase, breaker}) => ({connType, nominalA, phase, breaker})),
-      watts: node.consumerWatts, shield: Boolean(node.shield), transition: Boolean(node.transition),
+      watts: node.consumerWatts, consumerMode:node.consumerMode, shield: Boolean(node.shield), transition: Boolean(node.transition),
       mainA: node.mainBreaker?.ratingA ?? null, catalogPath: template.catalogPath ?? null,
     };
   }
@@ -2304,7 +2384,7 @@
       inA:n.inputs[0]?.nominalA || n.supplyNominalA || n.supplyA,
       supplyA:n.supplyA, supplyNominalA:n.supplyNominalA,
       outputs:n.outputs.map(({connType,nominalA,phase,breaker})=>({connType,nominalA,phase,breaker})),
-      watts:n.consumerWatts, shield:n.shield, mainA:n.mainBreaker?.ratingA ?? null};
+      watts:n.consumerWatts, consumerMode:n.consumerMode, shield:n.shield, mainA:n.mainBreaker?.ratingA ?? null};
   }
   function exportBuilderModule() {
     try {
@@ -2344,7 +2424,7 @@
             phase: v.phase,
             breaker: v.breaker,
           })),
-          watts: n.consumerWatts,
+          watts: n.consumerWatts, consumerMode:n.consumerMode,
           shield: n.shield,
           mainA: n.mainBreaker?.ratingA ?? null,
         };
@@ -3056,6 +3136,13 @@
       $("worldPowerFactor").value=p.settings.powerFactor;
       appSettingsDialog.showModal();
     };
+    $("enableConsumerModes").onchange=()=>transaction(()=>{
+      p.settings.enableConsumerModes=$("enableConsumerModes").checked;
+    },{geometry:false});
+    $("globalConsumerMode").onchange=()=>{
+      const mode=$("globalConsumerMode").checked?"resistance":"power";
+      transaction(()=>{p.settings.defaultConsumerMode=mode;for(const n of p.nodes)if(n.category==="consumer")n.consumerMode=mode;},{geometry:false});
+    };
     $("worldPowerFactor").onchange=()=>{if($("worldPowerFactor").reportValidity())transaction(()=>{p.settings.powerFactor=Number($("worldPowerFactor").value);},{geometry:false});};
     $("powerFactorHelp").onclick=event=>{event.preventDefault();appSettingsDialog.close();$("helpTip").click();$("helpPowerFactor").scrollIntoView?.();};
     $("closeAppSettings").onclick = () => appSettingsDialog.close();
@@ -3093,29 +3180,82 @@
     sectionTable.className = "cableSectionsTable";
     sectionTable.setAttribute("aria-label", "Сечения кабелей по номиналу: амперы и мм²");
     const sectionHead = sectionTable.createTHead().insertRow();
-    const sectionRow = sectionTable.createTBody().insertRow();
+    const sectionBody = sectionTable.createTBody();
+    const sectionRow = sectionBody.insertRow();
     const unitsHead = document.createElement("th");unitsHead.scope="row";unitsHead.textContent="Номинал, А";sectionHead.append(unitsHead);
     const unitsCell = document.createElement("th");unitsCell.scope="row";unitsCell.textContent="Сечение, мм²";sectionRow.append(unitsCell);
     for (const [rating,{input}] of sectionFields) {
       const heading=document.createElement("th");heading.scope="col";heading.textContent=rating;sectionHead.append(heading);
       sectionRow.insertCell().append(input);
     }
+    for (const [caption, cores] of [["Кабель 1ф", 3], ["Кабель 3ф", 5]]) {
+      const row=sectionBody.insertRow(), heading=document.createElement("th");heading.scope="row";heading.textContent=caption;row.append(heading);
+      for (const [rating, field] of sectionFields) {
+        const value=row.insertCell();value.dataset.cores=cores;value.dataset.rating=rating;
+        value.dataset.noTranslate="true";
+      }
+    }
+    function refreshSectionCores() {
+      for(const cell of sectionBody.querySelectorAll("[data-cores]")) {
+        const input=sectionFields.get(cell.dataset.rating).input;
+        cell.textContent=input.validity.valid && input.value!=="" ? cell.dataset.cores+"×"+input.value+" mm²" : "—";
+      }
+    }
+    const powerRows = [["1 фаза, 230 В · кВт", 230], ["3 фазы, 400 В · кВт", Math.sqrt(3)*400]];
+    for (const [caption, volts] of powerRows) {
+      const row = sectionBody.insertRow();
+      const heading = document.createElement("th"); heading.scope="row"; heading.textContent=caption; row.append(heading);
+      for (const [rating] of sectionFields) row.insertCell().textContent=(Number(rating)*volts/1000).toFixed(2);
+    }
     $("cableSectionsFields").replaceChildren(sectionTable);
+    const fitSectionHeading = () => {
+      const context=document.createElement("canvas").getContext("2d");
+      const headings=[...sectionTable.querySelectorAll("tr > th:first-child")];
+      const width=Math.max(...headings.map(cell => {
+        context.font=getComputedStyle(cell).font || "600 12px system-ui";
+        return context.measureText(cell.textContent).width;
+      }));
+      sectionTable.style.setProperty("--cable-label-width", Math.ceil(width*1.05)+"px");
+    };
+    fitSectionHeading();
+    document.fonts?.ready.then(fitSectionHeading);
+    const sectionHeadingObserver=new MutationObserver(fitSectionHeading);
+    for(const cell of sectionTable.querySelectorAll("tr > th:first-child"))
+      sectionHeadingObserver.observe(cell,{childList:true,characterData:true,subtree:true});
+    for (const source of Object.values(E.CABLE_SECTION_SOURCES)) {
+      const item=document.createElement("span"), icon=document.createElement("b"), label=document.createElement("span");
+      icon.textContent=source.icon; icon.dataset.noTranslate="true"; label.textContent=source.label;
+      item.append(icon,document.createTextNode(" — "),label); $("cableSectionLegend").append(item);
+    }
     $("cableSectionsResetSlot").append($("cableSectionsReset"));
     function saveCableSections() {
       if (!sectionsForm.reportValidity()) return;
       uiPrefs.cableSections = Object.fromEntries([...sectionFields].map(([rating,{input}])=>[rating,Number(input.value)]));
       saveUI();
       E.setCableSections(uiPrefs.cableSections);
+      refreshSectionCores();
       changed({geometry:false});
     }
     for (const [rating,{input,fallback}] of sectionFields) {
       input.value = uiPrefs.cableSections?.[rating] ?? fallback;
+      input.oninput = refreshSectionCores;
       input.onchange = saveCableSections;
     }
+    refreshSectionCores();
     $("cableSectionsReset").onclick = () => {
       for (const {input,fallback} of sectionFields.values()) input.value=fallback;
       saveCableSections();
+    };
+    $("cableSectionsOverride").onclick = () => {
+      if (!sectionsForm.reportValidity()) return;
+      const affected = p.links.filter(link => link.cable?.sectionMm2 > 0);
+      if (!affected.length) { notify("Нет кабелей с сечением, введённым вручную."); return; }
+      if (affected.length && !window.confirm(tr("Заменить ручные сечения на значения из настроек? Кабелей:") + " " + affected.length +
+        "\n" + tr("Длины и остальные параметры сохранятся. Действие можно отменить."))) return;
+      saveCableSections();
+      if (affected.length) transaction(() => {
+        for (const link of affected) delete link.cable.sectionMm2;
+      }, {geometry:false});
     };
     sectionsForm.onsubmit = event => {event.preventDefault();saveCableSections();};
     const cableDialog = $("cableLengthDialog");
@@ -3125,6 +3265,8 @@
     function refreshLengthWarning() {
       lengthLimits.hidden = true;
       lengthInput.setCustomValidity("");
+      lengthInput.classList.remove("lengthBeyondLimit"); lengthInput.removeAttribute("aria-invalid");
+      $("cableLengthLimiter").textContent="";
       const link = p.links.find(item => item.id === cableDialog.dataset.linkId);
       let warnings = [];
       if (link && lengthInput.value && lengthInput.validity.valid) {
@@ -3134,48 +3276,34 @@
         if (out && inlet && load) {
           const draft = {...link, cable: {...link.cable, lengthM: Number(lengthInput.value)}};
           const cable = E.cableParameters(draft, out, inlet, p.settings);
-          const estimate = E.cableEstimate(cable, out.phases, load.loadA);
-          warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN, {includeLength:false});
-          const error = cableDropError(estimate);
-          lengthInput.setCustomValidity(error);
-          if (error) warnings.unshift(error);
           const draftProject = {...p, links: p.links.map(item => item === link ? draft : item)};
-          const receivingAt = length => {
-            draft.cable.lengthM = length;
-            return E.calculate(draftProject).nodes.get(link.to.nodeId);
-          };
-          const receiving = receivingAt(cable.lengthM);
-          if (receiving.upstreamVoltagePowerDeficit)
-            warnings.unshift("Нехватка мощности выше по цепи питания. Изменение длины этой трассы не устраняет вышестоящее ограничение.");
-          if (receiving.localVoltagePowerDeficit) {
-            const required = (E.sum(receiving.loadW) / 1000).toFixed(2);
-            const available = (receiving.availableWatts / 1000).toFixed(2);
-            warnings.unshift(`Из-за падения напряжения доступно ${available} кВт при нагрузке ${required} кВт.`);
+          const limits=E.cableLengthLimits(draftProject,link.id,Number(lengthInput.max));
+          const actualLoad=limits.current.calc.ports.get(out.id);
+          const actualEstimate={...E.cableEstimate(cable,out.phases,actualLoad.loadA,actualLoad.currentPhasor),...actualLoad.voltageDrop};
+          warnings=E.cableWarnings(cable,actualEstimate,out,inlet,p.settings.voltageLN,{includeLength:false});
+          const error=cableDropError(actualEstimate); lengthInput.setCustomValidity(error);
+          if(error) warnings.unshift(error);
+          if(limits.current.calc.nodes.get(link.to.nodeId).powerFlowFailed) warnings.unshift("Расчёт постоянной мощности не сошёлся. Токи и напряжения приближённые; уменьшите нагрузку или сопротивление линий.");
+          if(!limits.current.loadOK) warnings.unshift("Превышены ограничения по току в питаемой сети.");
+          const meterNumber=value=>Number(value).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
+          const meters=value=>!Number.isFinite(value)?"≥ "+meterNumber(lengthInput.max)+" м":value<.01?"нет допустимой длины":meterNumber(value)+" м";
+          $("cableDropLimitLabel").textContent = tr("По заданному пределу ΔU") + " < " + cable.maxDropPercent + "%";
+          $("cableDropLimitValue").textContent=meters(limits.dropLength);
+          const interval=(minimum,maximum)=>minimum===null?tr("нет допустимой длины"):
+            minimum>.001?meterNumber(minimum)+"–"+meterNumber(Number.isFinite(maximum)?maximum:Number(lengthInput.max))+" м":meters(maximum);
+          $("cableLoadLimitValue").textContent=interval(limits.loadMinLength,limits.loadLength);
+          $("cableAbsoluteLimitValue").textContent=interval(limits.minLength,limits.allowedLength);
+          $("cableTheoreticalLimitLabel").textContent=tr("ΔU = 100% при номинальном токе кабеля")+" — "+limits.ratedCurrentA.toLocaleString("ru-RU")+" A";
+          $("cableTheoreticalLimitValue").textContent=meters(limits.theoreticalLength);
+          $("cableLengthLimiter").textContent="";
+          const below=limits.minLength!==null&&Number(lengthInput.value)<limits.minLength-1e-8;
+          const beyond=limits.minLength===null||below||Number(lengthInput.value)>limits.allowedLength+1e-8;
+          lengthInput.classList.toggle("lengthBeyondLimit",beyond);
+          if(beyond){
+            lengthInput.setAttribute("aria-invalid","true");
+            warnings.unshift(tr(below?"Длина вне допустимого интервала":"Превышен итоговый допустимый предел")+": "+interval(limits.minLength,limits.allowedLength));
           }
-          if (estimate) {
-            const voltage = p.settings.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
-            const zeroVoltageLength = estimate.dropV > 0 ? cable.lengthM * voltage / estimate.dropV : Infinity;
-            const dropLength = zeroVoltageLength * cable.maxDropPercent / 100;
-            const maxInput = Number(lengthInput.max);
-            let low = 0;
-            let high = Math.min(maxInput, zeroVoltageLength);
-            const atLimit = receivingAt(high);
-            if (E.sum(atLimit.loadW) <= atLimit.availableWatts + 1e-8) low = high;
-            for (let i = 0; i < 32 && low < high; i++) {
-              const middle = (low + high) / 2;
-              const node = receivingAt(middle);
-              if (E.sum(node.loadW) <= node.availableWatts + 1e-8) low = middle;
-              else high = middle;
-            }
-            const meters = value => !Number.isFinite(value) ? "нет предела при текущем токе"
-              : value < .01 ? "нет допустимой длины"
-              : (Math.floor(value * 100) / 100).toLocaleString("ru-RU") + " м";
-            $("cableDropLimitLabel").textContent = `По нормативу ΔU < ${cable.maxDropPercent}%`;
-            $("cableDropLimitValue").textContent = meters(dropLength);
-            $("cableLoadLimitValue").textContent = (low >= maxInput ? "≥ " : "") + meters(low);
-            $("cableAbsoluteLimitValue").textContent = meters(zeroVoltageLength);
-            lengthLimits.hidden = false;
-          }
+          lengthLimits.hidden=false;
         }
       }
       lengthWarning.hidden = !warnings.length;
