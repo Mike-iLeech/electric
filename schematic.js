@@ -81,7 +81,7 @@
         phases: n.phases,
         count: 0,
         watts: 0,
-        capacity: nominal * p.settings.voltageLN * n.phases,
+        capacity: nominal * p.settings.voltageLN * n.phases * p.settings.powerFactor,
       };
       row.count++;
       row.watts += E.sum(calc.nodes.get(n.id).demandW);
@@ -414,7 +414,7 @@
       c.strokeRect(20, 20, width - 40, height - 40);
       text("СХЕМА ЭЛЕКТРИЧЕСКАЯ ОДНОЛИНЕЙНАЯ", 50, 55, 28);
       text(
-        `${p.settings.voltageLN} / ${number(p.settings.voltageLN * Math.sqrt(3))} В; 50 Гц; cos φ = 1`,
+        `${p.settings.voltageLN} / ${number(p.settings.voltageLN * Math.sqrt(3))} В; 50 Гц; cos φ = ${p.settings.powerFactor}`,
         50,
         85,
         20,

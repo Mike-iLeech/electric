@@ -343,7 +343,7 @@
           ? E.nomenclature(node([...selection][0]))
           : "Ничего"
         : selection.size + " выбрано";
-    $("modelInfo").textContent = `PF=1 · 50 Гц · Uл = √3 × Uф`;
+    $("modelInfo").textContent = `PF=${p.settings.powerFactor} · 50 Гц · Uл = √3 × Uф`;
   }
   function point(e) {
     const r = ws.getBoundingClientRect();
@@ -1024,7 +1024,7 @@
   function renderCable(link) {
     const panel = document.createElement("section");
     const title = document.createElement("strong");
-    title.textContent = "Кабель · модельный профиль Cu, PF = 1";
+    title.textContent = "Кабель · модельный профиль, cos φ = " + p.settings.powerFactor;
     panel.append(title);
     const out = port(link.from);
     const inlet = port(link.to);
@@ -1040,7 +1040,7 @@
     const voltage = p.settings.voltageLN * (reference.lineVoltage ? Math.sqrt(3) : 1);
     const info = document.createElement("p");
     info.textContent = "Типовой профиль: " + (profile.material === "al" ? "алюминий, " : "медь, ") + profile.sectionMm2 + " мм², " + profile.ampacityA +
-      " А. На 100 м при номинальном токе и PF = 1: падение " + reference.dropV.toFixed(2) +
+      " А. На 100 м при номинальном токе и cos φ = " + p.settings.powerFactor + ": падение " + reference.dropV.toFixed(2) +
       " В (" + (100*reference.dropV/voltage).toFixed(2) + "%), потери " + reference.lossW.toFixed(1) +
       " Вт. Для 3 фаз предполагается равномерная нагрузка. Допустимое падение проверяют по всей цепи.";
     const method = document.createElement("a");
@@ -1581,35 +1581,45 @@
       /[<>:"/\\|?*\u0000-\u001f]/g,
       "_",
     );
-    const download = (blob, ext, page = selectedPage) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob),
-        link = document.createElement("a");
-      link.href = url;
-      link.download =
-        filename +
-        (pagePlans.length > 1 && ext !== "pdf" ? `_лист-${page + 1}` : "") +
-        "." +
-        ext;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const exportFilename = (ext,page=selectedPage) => filename + (pagePlans.length>1 && ext!=="pdf" ? `_лист-${page+1}` : "") + "." + ext;
+    async function chooseExportFile(ext,page=selectedPage) {
+      if(desktop || !window.showSaveFilePicker)return null;
+      try{return await window.showSaveFilePicker({suggestedName:exportFilename(ext,page)});}
+      catch(error){if(error.name!=="AbortError")notify("Не удалось выбрать файл экспорта");return false;}
+    }
+    const download = async (blob, ext, page = selectedPage, handle = null) => {
+      if(!blob){notify("Не удалось сформировать файл экспорта");return;}
+      const url=URL.createObjectURL(blob);
+      if(handle){
+        try{
+          const writable=await handle.createWritable();await writable.write(blob);await writable.close();
+          exportNotice(handle.name,()=>{window.open(url,"_blank");});
+          setTimeout(()=>URL.revokeObjectURL(url),120000);
+        }catch(error){URL.revokeObjectURL(url);notify("Не удалось сохранить экспортированный файл");}
+        return;
+      }
+      const link=document.createElement("a");link.href=url;link.download=exportFilename(ext,page);link.click();
+      if(!desktop)notify("Файл передан браузеру для сохранения: " + link.download);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
-    const downloadRaster = (ext, type) => {
-      const index = selectedPage,
-        raster = ElectricExport.rasterCanvas(pagePlans[index]);
-      raster.toBlob(
-        (b) => {
-          download(b, ext, index);
-          raster.width = raster.height = 1;
-        },
-        type,
-        1,
-      );
+    const downloadRaster = async (ext,type) => {
+      const index=selectedPage,plan=pagePlans[index];
+      const handle=await chooseExportFile(ext,index);if(handle===false)return;
+      try{
+        const raster=ElectricExport.rasterCanvas(plan);
+        raster.toBlob(blob=>{void download(blob,ext,index,handle);raster.width=raster.height=1;},type,1);
+      }catch(error){notify("Не удалось сформировать файл экспорта");}
+    };
+    const downloadPDF = async () => {
+      const index=selectedPage,project=E.clone(p),options={...drawingOptions};
+      const handle=await chooseExportFile("pdf",index);if(handle===false)return;
+      try{await download(ElectricExport.pdf(project,options),"pdf",index,handle);}
+      catch(error){notify("Не удалось сформировать файл экспорта");}
     };
     for (const [label, glyph, action] of [
       ["Сохранить PNG", "PNG", () => downloadRaster("png", "image/png")],
       ["Сохранить JPG", "JPG", () => downloadRaster("jpg", "image/jpeg")],
-      ["Сохранить PDF", "PDF", () => download(ElectricExport.pdf(p, drawingOptions), "pdf")],
+      ["Сохранить PDF", "PDF", downloadPDF],
       ["Сохранить проект JSON", "{}", exportProject],
       ["Закрыть", "×", close],
     ]) {
@@ -2689,7 +2699,16 @@
       pendingPort = null;
     });
   }
+  function exportNotice(location,open) {
+    document.querySelector(".exportCompletionToast")?.remove();
+    const toast=document.createElement("div");toast.className="exportCompletionToast";toast.setAttribute("role","status");
+    toast.append("Схема успешно экспортирована в расположение " + location + " ");
+    toast.append(button("Открыть",()=>Promise.resolve(open()).catch(()=>notify("Не удалось открыть экспортированный файл"))));
+    document.body.append(toast);setTimeout(()=>toast.remove(),20000);
+  }
+
   function boot() {
+    desktop?.onExportCompleted?.(value=>exportNotice(value.path,()=>desktop.openExport(value.token)));
     if (desktop) {
       document.body.classList.add("desktopApp");
       $("desktopData").hidden = false;
@@ -2909,11 +2928,14 @@
     $("appSettingsDialog").append(modeSettings);
     $("worldSettingsPopup").hidden = true;
     // One shared settings entry in the project panel for browser and desktop.
-    $("desktopData").before($("btnAppSettings"));
+    const projectSettingsRow=document.createElement("div");projectSettingsRow.className="projectSettingsRow";
+    $("desktopData").before(projectSettingsRow);projectSettingsRow.append($("btnAppSettings"));
+    if(desktop) projectSettingsRow.append($("btnDataFolder"));
     $("btnAppSettings").textContent = "Настройки приложения";
     if (desktop) {
       $("btnDesktopSettings").textContent = "Обновления и данные PC";
-      $("appSettingsDialog").append($("btnDesktopSettings"));
+      $("btnDesktopSettings").hidden=true;
+      $("pcSettingsInline").hidden=false;
     }
 
     scene.onCableSettings = id => {
@@ -2928,7 +2950,7 @@
     toolbarStatus.append(document.querySelector(".topBar > .chip"),$("collapsedPowerTotal"));
     $("toggleRightSidebar").before(toolbarStatus);
     toolbarStatus.before($("collapsedPowerTotal"));
-    $("btnAppSettings").after($("sessionStatus"));
+    $("btnAppSettings").closest(".projectSettingsRow").after($("sessionStatus"));
     document.querySelector(".topBar").hidden=true;
     const controlsButton=button("Управление",()=>controlsDialog.showModal());
     controlsButton.id="btnControls";
@@ -2961,8 +2983,11 @@
     const worldBindings = [["worldAmbient","ambientC",20],["worldDrop","maxDropPercent",5],["worldThermal","thermalResistance",null],["worldMaterial","material","cu"]];
     $("btnAppSettings").onclick = () => {
       for (const [id,key,fallback] of worldBindings) $(id).value = p.settings.cableDefaults?.[key] ?? fallback ?? "";
+      $("worldPowerFactor").value=p.settings.powerFactor;
       appSettingsDialog.showModal();
     };
+    $("worldPowerFactor").onchange=()=>{if($("worldPowerFactor").reportValidity())transaction(()=>{p.settings.powerFactor=Number($("worldPowerFactor").value);},{geometry:false});};
+    $("powerFactorHelp").onclick=event=>{event.preventDefault();appSettingsDialog.close();$("helpTip").click();$("helpPowerFactor").scrollIntoView?.();};
     $("closeAppSettings").onclick = () => appSettingsDialog.close();
     $("worldAssumptionsHelp").onclick = event => {
       event.preventDefault();

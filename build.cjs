@@ -26,6 +26,7 @@ for (const name of [
   "sheet.js",
   "app.js",
   "export.js",
+  "desktop/settings.js",
 ]) {
   const re = new RegExp(
     '<script src="' + name.replace(".", "\\.") + '" defer(?:="")?></script>',

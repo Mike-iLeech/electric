@@ -19,6 +19,26 @@
 Настройки приложения|||Application settings
 Обновления и данные PC|||PC updates and data
 Настройки мира|||World settings
+Язык приложения|||Application language
+Язык интерфейса|||Interface language
+Применяется сразу. Названия ваших проектов и модулей сохраняются.|||Applied immediately. Your project and module names are preserved.
+Обновления|||Updates
+Автоматические обновления|||Automatic updates
+Проверять GitHub Releases раз в неделю|||Check GitHub Releases once a week
+Новая версия загружается в фоне. Установка и перезапуск — по вашей команде, после сохранения проекта.|||New versions download in the background. Installation and restart happen when you choose, after saving your project.
+Проверить сейчас|||Check now
+Скачать обновление|||Download update
+Установить и перезапустить|||Install and restart
+Релизы на GitHub ↗|||GitHub releases ↗
+Данные приложения|||Application data
+Открыть папку данных|||Open data folder
+Проекты, настройки и резервные копии хранятся отдельно от программы. При удалении их можно сохранить или удалить.|||Projects, settings and backups are stored separately from the application. You can keep or delete them during uninstall.
+Настройки сохраняются автоматически|||Settings are saved automatically
+Русский|||Russian
+cos φ — коэффициент мощности|||cos φ — power factor
+Что такое cos φ?|||What is cos φ?
+Модель активной нагрузки: PF = cos φ, частота 50 Гц. Индивидуальные параметры кабельной линии имеют приоритет над настройками мира.|||Sinusoidal model: PF = cos φ, grid frequency 50 Hz. Individual cable parameters override defaults.
+Модель учитывает активную нагрузку: PF = cos φ, частота сети — 50 Гц. Для симметричной сети Uл = √3 × Uф.|||Sinusoidal model: PF = cos φ, grid frequency 50 Hz. Individual cable parameters override defaults.
 Модель активной нагрузки: PF = cos φ = 1, частота 50 Гц. Индивидуальные параметры кабельной линии имеют приоритет над настройками мира.|||Model of active loads: PF = cos φ = 1, grid frequency 50 Hz. Individual cable parameters override world defaults.
 Значения по номиналу линии. Применяются к кабелям без своего сечения.|||Default values by circuit rating. Applied to cables without a custom cross-section.
 Модель учитывает активную нагрузку: PF = cos φ = 1, частота сети — 50 Гц. Для симметричной сети Uл = √3 × Uф.|||The model considers active loads: PF = cos φ = 1, grid frequency 50 Hz. For a balanced grid Uline = √3 × Uphase.

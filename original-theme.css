@@ -851,3 +851,7 @@
 
 /* The collapsed-sidebar total occupies only the free span before WORLD. */
 .editorToolbar > #collapsedPowerTotal{flex:1 1 auto;justify-content:center;align-items:center;min-width:0;margin:0;padding:0 12px;border:0;background:transparent;font-size:20px;font-weight:700;line-height:1.3;white-space:nowrap;}
+
+.projectSettingsRow{display:flex;gap:8px;margin-top:10px}.projectSettingsRow .btn{flex:1;min-width:0}#pcSettingsInline>section{border-top:1px solid #304565;margin-top:20px;padding-top:10px}#pcSettingsInline select{background:#0b1421;color:#e6edf7;padding:8px}#pcSettingsInline button{border:1px solid #304565;background:#142238;color:#e6edf7;border-radius:8px;padding:8px;margin:5px}#pcSettingsInline .switchRow{display:flex;justify-content:space-between}#pcSettingsInline .muted{display:block}
+
+.exportCompletionToast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);max-width:85vw;z-index:9999;padding:12px 18px;border:1px solid #38b87b;border-radius:12px;background:#10281e;color:#e5fff2;font-size:13px;overflow-wrap:anywhere}.exportCompletionToast .btn{margin-left:8px}
