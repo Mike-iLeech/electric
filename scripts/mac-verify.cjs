@@ -51,14 +51,20 @@ async function launchBundle(){
     assert.ok(target,"Packaged renderer did not load: "+log);
     socket=new WebSocket(target.webSocketDebuggerUrl);
     const result=await new Promise((resolve,reject)=>{
+      let requestId=0;
       const timer=setTimeout(()=>reject(Error("Packaged renderer probe timeout: "+log)),20000);
       socket.addEventListener("error",()=>{clearTimeout(timer);reject(Error("DevTools connection failed"));});
-      socket.addEventListener("open",()=>socket.send(JSON.stringify({id:1,method:"Runtime.evaluate",params:{
+      const evaluate=()=>socket.send(JSON.stringify({id:++requestId,method:"Runtime.evaluate",params:{
         expression:"(async()=>{for(let i=0;i<100&&typeof electricDiagnostics!=='function';i++)await new Promise(r=>setTimeout(r,100));const s=await electricDesktop.getSettings();return {nodes:electricDiagnostics().project.nodes.length,packaged:s.packaged,supported:s.update.supported,status:s.update.status,nodeIntegration:typeof require};})()",
         awaitPromise:true,returnByValue:true,
-      }})));
+      }}));
+      socket.addEventListener("open",evaluate);
       socket.addEventListener("message",event=>{
-        const message=JSON.parse(event.data);if(message.id!==1)return;
+        const message=JSON.parse(event.data);if(message.id!==requestId)return;
+        // Target URL appears before the initial navigation commits its context.
+        if(message.error&&/Execution context was destroyed|Cannot find context/i.test(message.error.message)){
+          setTimeout(()=>{if(socket.readyState===WebSocket.OPEN)evaluate();},250);return;
+        }
         clearTimeout(timer);
         if(message.error||message.result?.exceptionDetails)reject(Error(JSON.stringify(message)));
         else resolve(message.result.result.value);
