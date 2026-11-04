@@ -19,13 +19,11 @@
       ? "#ef4444"
       : v.connType === "cee1" || v.connType === "terminal1"
         ? "#3b82f6"
-        : v.connType === "powercon"
-          ? "#f0c0a0"
           : "#cbd5e1";
   }
   function fill(n) {
     if (n.shield) return "#ffffff";
-    if (n.category === "input" && n.outputs[0]?.connType === "euro")
+    if (n.category === "input" && n.phases === 1 && (n.supplyConnType || n.outputs[0]?.connType) === "euro")
       return "#FFFACD";
     if (n.category === "consumer") return "#0b2a63";
     if (n.category === "input") return n.phases === 3 ? "#ef4444" : "#1e40af";
@@ -51,7 +49,7 @@
       };
     }
     const at = E.portPosition(n, v),
-      nominal = `${{ terminal1: "КЛ1", terminal3: "КЛ3", powercon: "TRUE1" }[v.connType] || v.connType.toUpperCase()} ${v.nominalA}A`,
+      nominal = `${{ terminal1: "КЛ1", terminal3: "КЛ3" }[v.connType] || v.connType.toUpperCase()} ${v.nominalA}A`,
       nominalW = nominal.length * 5.5 + 16,
       phase =
         v.kind === "out" && n.phases === 3 && v.phases === 1 ? v.phase : null,
@@ -75,8 +73,13 @@
     for(const v of [...n.inputs,...n.outputs]){
       const g=portGeometry(n,v),items=[];
       if(v.breaker)items.push({breaker:v.breaker,portId:v.id,main:false});
-      if(n.mainBreaker && (v===n.inputs[0] || (!n.inputs.length && v===n.outputs[0])))items.push({breaker:n.mainBreaker,portId:v.id,main:true});
+      if(n.mainBreaker && v===n.inputs[0])items.push({breaker:n.mainBreaker,portId:v.id,main:true});
       items.forEach((item,i)=>result.push({...item,left:v.kind==="in"?g.right+6+38*i:g.left-38*(i+1),top:g.top,w:32,h:g.bottom-g.top}));
+    }
+    if (n.category === "input" && n.mainBreaker) {
+      const g=gridSupplyGeometry(n);
+      result.push({breaker:n.mainBreaker,portId:n.outputs[0]?.id ?? null,main:true,
+        left:g.left+g.w+6,top:g.top+1,w:32,h:26});
     }
     return result;
   }
@@ -790,6 +793,25 @@
     ctx.lineWidth = 1.2;
     ctx.stroke();
   }
+  function gridSupplyGeometry(n) {
+    const r=E.rect(n);
+    const y=n.pos.y+Math.round((r.top-n.pos.y+132)/12)*12;
+    return {left:r.left+16,top:y-14,w:84,h:28};
+  }
+  function paintGridSupply(ctx, n) {
+    if (n.category !== "input") return;
+    const g=gridSupplyGeometry(n), x=g.left, y=g.top+14;
+    round(ctx,x,y-14,84,28,9,"#0a0e16", "#94a3b8");
+    // Stylized transmission tower: a visual source marker, not a connectable port.
+    ctx.beginPath();
+    ctx.moveTo(x+14,y+9); ctx.lineTo(x+21,y-10); ctx.lineTo(x+28,y+9);
+    ctx.moveTo(x+12,y-5); ctx.lineTo(x+30,y-5);
+    ctx.moveTo(x+10,y); ctx.lineTo(x+32,y);
+    ctx.moveTo(x+17,y+3); ctx.lineTo(x+25,y+8);
+    ctx.moveTo(x+25,y+3); ctx.lineTo(x+17,y+8);
+    ctx.strokeStyle="#cbd5e1"; ctx.lineWidth=1.3; ctx.stroke();
+    text(ctx,"СЕТЬ",x+58,y,"#fff",10,"center","bold","system-ui");
+  }
   function paintNode(ctx, n, c, ui) {
     const r = E.rect(n),
       W = E.nodeWidth(n),
@@ -816,7 +838,13 @@
       .split(" | ")
       .map((value, i) => {
         value = value.replaceAll(" -> ", " → ");
-        if (i > 0 || predefined) value = tr(value);
+        if (i === 1) {
+          const type = n.category === "input" ? (n.shield ? "Ввод — щит" : "Ввод — розетка")
+            : n.category === "distributor" ? "Дистрибьютор"
+            : n.category === "consumer" ? "Потребитель"
+            : n.transition ? "Переход" : "Удлинитель";
+          value = tr(type) + " " + tr(value);
+        } else if (i > 0 || predefined) value = tr(value);
         let size = i === 0 ? 13 : 10.5;
         ctx.font = `bold ${size}px system-ui`;
         while (ctx.measureText(value).width > W - 40 && size > 7) {
@@ -873,6 +901,7 @@
         { size: 12, height: 24 },
       );
     }
+    paintGridSupply(ctx, n);
     for (const v of [...n.inputs, ...n.outputs])
       portCapsule(ctx, n, v, { ...ui, inPhase: c.inPhase });
     const phases = n.phases === 3 ? E.PHASES : [c.inPhase || "L1"],
@@ -880,7 +909,7 @@
     phases.forEach((k, i) => {
       const x = start + i * 93,
         a = c.loadA[k],
-        limit = n.inputs[0]?.nominalA ?? n.supplyA,
+        limit = n.inputs[0]?.nominalA ?? Math.min(n.supplyA, n.supplyNominalA ?? Infinity),
         color = a > limit ? "#fb7185" : a > limit * 0.8 ? "#fbbf24" : "#4ade80";
       round(ctx, x, r.bottom - 52, 85, 22, 11, "#0a0e16cc");
       text(ctx, `${k} ${a.toFixed(1)}A`, x + 42.5, r.bottom - 41, color, 9);
@@ -891,6 +920,40 @@
     const foot = `${(E.sum(c.loadW) / 1000).toFixed(2)}${capacity} кВт · ${Number(voltage.toFixed(1))} В`;
     capsule(ctx, foot, n.pos.x, r.bottom - 23, { size: 9, height: 16 });
     for (const v of [...n.inputs, ...n.outputs]) pin(ctx, n, v, ui);
+  }
+  function previewNode(container, n, project) {
+    const sample = E.clone(project);
+    sample.nodes = [n]; sample.links = [];
+    const computed = E.calculate(sample).nodes.get(n.id);
+    const nr=E.rect(n), w=E.nodeWidth(n)+PAD*2, h=E.nodeHeight(n)+PAD*2;
+    const frame=document.createElement("div"); frame.className="nodePreviewFrame";
+    const world=document.createElement("div"); world.className="nodePreviewWorld";
+    const canvas=document.createElement("canvas"), dpr=window.devicePixelRatio || 1;
+    canvas.width=Math.ceil(w*dpr); canvas.height=Math.ceil(h*dpr);
+    canvas.style.width=w+"px"; canvas.style.height=h+"px";
+    canvas.dataset.noTranslate="true"; canvas.setAttribute("role","img"); canvas.setAttribute("aria-label", E.nomenclature(n));
+    const ctx=canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,(PAD-nr.left)*dpr,(PAD-nr.top)*dpr);
+    paintNode(ctx,n,computed,{project:sample,selected:false,hover:null,pendingPort:null});
+    world.append(canvas);
+    for (const item of breakerButtons(n)) {
+      const button=document.createElement("div"), b=item.breaker;
+      button.className="portBreakerButton"; button.dataset.state=b.state;
+      const state=b.state==="closed"?"ВКЛ":b.state==="open"?"ВЫКЛ":"ВЫБИТ";
+      const nominal=document.createElement("span"), status=document.createElement("small");
+      nominal.textContent=b.curve+b.ratingA; status.textContent=state; button.append(nominal,status);
+      Object.assign(button.style,{left:(item.left-nr.left+PAD)+"px",top:(item.top-nr.top+PAD)+"px",pointerEvents:"none"});
+      world.append(button);
+    }
+    frame.append(world); container.replaceChildren(frame);
+    const resize=()=>{
+      const available=container.clientWidth || w;
+      const scale=Math.min(1,available/w);
+      Object.assign(world.style,{width:w+"px",height:h+"px",transform:"scale("+scale+")"});
+      Object.assign(frame.style,{width:(w*scale)+"px",height:(h*scale)+"px"});
+    };
+    resize();
+    return resize;
   }
   class Scene {
     constructor(ws) {
@@ -1247,7 +1310,8 @@
           hit.addEventListener("contextmenu", event => {
             event.preventDefault();
             event.stopPropagation();
-            this.onRouteReset?.(l.id);
+            if (event.shiftKey) this.onRouteReset?.(l.id);
+            else this.onCableSettings?.(l.id);
           });
           hit.addEventListener("dblclick", event => {
             event.stopPropagation();
@@ -1324,9 +1388,11 @@
   }
   return {
     Scene,
+    previewNode,
     paintNode,
     portGeometry,
     breakerButtons,
+    gridSupplyGeometry,
     pinColor,
     fill,
     simplify,

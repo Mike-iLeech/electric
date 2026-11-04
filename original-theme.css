@@ -855,3 +855,25 @@
 .projectSettingsRow{display:flex;gap:8px;margin-top:10px}.projectSettingsRow .btn{flex:1;min-width:0}#pcSettingsInline>section{border-top:1px solid #304565;margin-top:20px;padding-top:10px}#pcSettingsInline select{background:#0b1421;color:#e6edf7;padding:8px}#pcSettingsInline button{border:1px solid #304565;background:#142238;color:#e6edf7;border-radius:8px;padding:8px;margin:5px}#pcSettingsInline .switchRow{display:flex;justify-content:space-between}#pcSettingsInline .muted{display:block}
 
 .exportCompletionToast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);max-width:85vw;z-index:9999;padding:12px 18px;border:1px solid #38b87b;border-radius:12px;background:#10281e;color:#e5fff2;font-size:13px;overflow-wrap:anywhere}.exportCompletionToast .btn{margin-left:8px}
+
+/* Constructor fields reserve their own vertical space, including native focus rings. */
+#nodeModal .field { display:flex; flex-direction:column; gap:8px; min-width:0; line-height:1.4; margin:14px 0; }
+#nodeModal .field > .input,#nodeModal .field > .select { display:block; position:static; min-height:38px; margin:0; max-width:100%; }
+#nodeModal .builderGrid > *,#nodeModal .builderIdentity > * { min-width:0; }
+#nodeModal .hint { margin:12px 0 16px; }
+#nodeModal .outputRow { align-items:start; }
+#nodeModal .outputRow label { min-width:0; line-height:1.4; display:flex; flex-direction:column; gap:7px; }
+#nodeModal .outputRow [hidden],#nodeModal .field [hidden] { display:none!important; }
+#nodeModal .outputRow .input,#nodeModal .outputRow .select { margin:0; min-width:0; }
+#builderPreview { display:block; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; min-height:0; width:100%; }
+.nodePreviewFrame { position:relative; margin:0 auto; }
+.nodePreviewWorld { position:absolute; inset:0 auto auto 0; transform-origin:top left; }
+.nodePreviewWorld canvas { display:block; max-width:none; }
+.nodePreviewWorld .portBreakerButton { font-size:10px; }
+#nodeModal .builderPreviewStage { overflow:hidden; }
+
+.builderSaveLocation{padding:10px 14px;border:1px solid #304565;border-radius:10px;background:#101c2d;font-size:12px;overflow-wrap:anywhere;color:#acbfd9}.builderSaveLocation p{margin:5px 0}.catalogJustSaved{outline:2px solid #82abff;outline-offset:2px}
+
+.cableApproximateNotice{padding:10px 12px;border:1px solid #d9a441;border-radius:8px;color:#ffe2a3;background:#33280f;line-height:1.5}
+
+.importChoiceDialog{width:min(460px,calc(100vw - 32px));padding:22px;border:1px solid #405779;border-radius:14px;background:#101824;color:#e6edf7}.importChoiceDialog::backdrop{background:#0009}.importChoiceActions{display:flex;flex-direction:column;gap:12px;margin:20px 0}.importChoiceActions .btn{min-height:44px;text-align:left}

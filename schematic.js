@@ -286,7 +286,7 @@
     const format = new Intl.NumberFormat("ru-RU", {maximumFractionDigits:2});
     const types = {input:"Ввод", distributor:"Дистрибьютор", consumer:"Потребитель"};
     const deviceType = node => types[node.category] || (node.transition ? "Переход" : "Удлинитель");
-    const connectors = {cee1:"CEE", cee3:"CEE", euro:"Schuko", powercon:"TRUE1", terminal1:"Клеммы", terminal3:"Клеммы"};
+    const connectors = {cee1:"CEE", cee3:"CEE", euro:"Schuko", terminal1:"Клеммы", terminal3:"Клеммы"};
     const portLabel = (port, index) =>
       `${connectors[port.connType] || port.connType} ${port.nominalA}А ${port.phases}P · №${index + 1}`;
     const orderedLinks = new Map();
@@ -508,7 +508,6 @@
             cee1: "CEE P+N+PE",
             cee3: "CEE 3P+N+PE",
             euro: "Schuko",
-            powercon: "TRUE1",
           },
           input = n.inputs[0],
           out = n.outputs[0];

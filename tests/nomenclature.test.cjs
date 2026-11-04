@@ -70,9 +70,9 @@ test("ошибочный кабель CEE250 удаляется, реальны�
  assert.ok(!E.catalog().some(E.obsoleteCable));
 });
 
-test("каталог исключает нагрузки powerCON, сохраняя удлинитель",()=>{
- assert.ok(!E.catalog().some(t=>t.category==='consumer'&&t.inConnType==='powercon'));
- assert.ok(E.catalog().some(t=>t.category==='extender'&&t.inConnType==='powercon'));
+test("PowerCON полностью исключён из разъёмов и каталога",()=>{
+ assert.equal(E.CONNECTORS.powercon,undefined);
+ assert.ok(E.catalog().every(t=>t.inConnType!=='powercon' && t.outputs.every(o=>o.connType!=='powercon')));
 });
 
 test("группа на капсуле содержит вход и выход с типами разъёмов",()=>{

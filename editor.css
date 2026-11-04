@@ -500,3 +500,24 @@ body.desktopApp #projectBlock { height: 290px; }
 .desktopData small { grid-column: 1 / -1; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .helpDesktopNote { border-left: 2px solid #60a5fa; padding: 0 14px; margin: 16px 0; }
 .helpDesktopNote code { overflow-wrap: anywhere; }
+
+/* Module constructor: identity above a live preview, input and output controls beside it. */
+#nodeModal { width: min(1380px, calc(100% - 24px)); }
+.builderIdentity { display:grid; grid-template-columns:2fr 1fr 1fr; gap:18px; margin-bottom:20px; }
+.builderGrid { grid-template-columns:minmax(220px,1fr) minmax(300px,1.5fr) minmax(220px,1fr); align-items:start; }
+.builderPreviewStage { position:sticky; top:0; padding:16px; border-radius:18px; background:rgba(105,151,218,.05); min-width:0; }
+#builderPreview { margin-top:12px; max-width:none; min-height:240px; box-shadow:0 12px 35px #0002; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
+.previewProtection { margin-top:16px; font-size:12px; text-align:center; color:#a5b9d6; }
+#builderPreview.invalid { border-color:#ff9ba4; color:#ff9ba4; }
+#sourceSupplyField:has(input:disabled) { opacity:.45; }
+#nodeModal input:disabled { cursor:not-allowed; }
+#nodeModal .modalFooter { display:flex; flex-wrap:wrap; gap:10px; }
+#nodeModal .outputRow:has([data-key="phase"][disabled]) { grid-template-columns:75px 1.7fr .7fr .6fr .65fr .85fr .8fr; }
+#nodeModal .outputRow:has(label[hidden]) { grid-template-columns:75px 1.7fr .7fr .65fr .85fr .8fr; }
+@media(max-width:1000px) { .builderGrid {grid-template-columns:1fr 1fr;} .builderPreviewStage {grid-column:1/-1;grid-row:1;position:static;} #builderPreview {min-height:160px;} }
+@media(max-width:600px) { .builderIdentity,.builderGrid {grid-template-columns:1fr;} .builderPreviewStage {grid-column:auto;} #nodeModal .outputRow,#nodeModal .outputRow:has(label[hidden]),#nodeModal .outputRow:has([data-key="phase"][disabled]) {grid-template-columns:repeat(2,minmax(0,1fr));} .builderIdentity {gap:0;} }
+
+.previewPort { padding:9px 10px; margin:6px 0; border:1px solid #456489; border-right:4px solid #efb15d; border-radius:8px; background:#0b1526; white-space:normal; }
+.previewPort[data-phase="L2"] { border-right-color:#8dcf7e; }
+.previewPort[data-phase="L3"] { border-right-color:#b79be7; }
+.previewPort[data-phase="3"] { border-right-color:#f18686; }

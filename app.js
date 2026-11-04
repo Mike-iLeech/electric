@@ -984,7 +984,7 @@
     const dialog = $("cableSettingsDialog");
     if (!dialog?.open) return;
     const link = p.links.find(item => item.id === dialog.dataset.linkId);
-    if (!link || !p.settings.advancedMode) {
+    if (!link) {
       dialog.close();
       return;
     }
@@ -1030,6 +1030,12 @@
     const inlet = port(link.to);
     const cable = E.cableParameters(link, out, inlet, p.settings);
     const profile = E.cableParameters({}, out, inlet, p.settings);
+    if (cable.sectionApproximate) {
+      const notice = document.createElement("p");
+      notice.className = "cableApproximateNotice"; notice.setAttribute("role", "status");
+      notice.textContent = "Взято примерное значение сечения кабеля для этой силы тока — " + cable.sectionMm2 + " мм² (S = 0,0368 · I^1,3754). Введите точное значение!";
+      panel.append(notice);
+    }
     const help = document.createElement("details");
     help.className = "cableProfileHelp";
     const question = document.createElement("summary");
@@ -1037,12 +1043,13 @@
     question.setAttribute("aria-label", "Справка по типовому кабелю на 100 метров");
     const reference = E.cableEstimate({...profile, lengthM:100}, out.phases,
       out.phases === 3 ? Object.fromEntries(E.PHASES.map(phase => [phase,profile.ampacityA])) : {L1:profile.ampacityA});
-    const voltage = p.settings.voltageLN * (reference.lineVoltage ? Math.sqrt(3) : 1);
+    const voltage = p.settings.voltageLN * (reference?.lineVoltage ? Math.sqrt(3) : 1);
     const info = document.createElement("p");
-    info.textContent = "Типовой профиль: " + (profile.material === "al" ? "алюминий, " : "медь, ") + profile.sectionMm2 + " мм², " + profile.ampacityA +
+    info.textContent = reference ? "Типовой профиль: " + (profile.material === "al" ? "алюминий, " : "медь, ") + profile.sectionMm2 + " мм², " + profile.ampacityA +
       " А. На 100 м при номинальном токе и cos φ = " + p.settings.powerFactor + ": падение " + reference.dropV.toFixed(2) +
       " В (" + (100*reference.dropV/voltage).toFixed(2) + "%), потери " + reference.lossW.toFixed(1) +
-      " Вт. Для 3 фаз предполагается равномерная нагрузка. Допустимое падение проверяют по всей цепи.";
+      " Вт. Для 3 фаз предполагается равномерная нагрузка. Допустимое падение проверяют по всей цепи."
+      : "Для номинала " + profile.ampacityA + " А типовой профиль кабеля не задан. Укажите сечение жилы в свойствах кабеля для расчёта падения напряжения и потерь.";
     const method = document.createElement("a");
     method.href = "https://www.electrical-installation.org/enwiki/Calculation_of_voltage_drop_in_steady_load_conditions";
     method.target = "_blank";
@@ -1402,6 +1409,7 @@
         (a, b) => (a.watts || 0) - (b.watts || 0),
       )) {
         const el = button("", () => addTemplate(t), "nodeItem");
+        el.dataset.templateId = t.id;
         el.innerHTML =
           '<span class="meta"><span class="name">' +
           esc(moduleCaption(t, { connectors: true }).replace(" -> ", " → ")) +
@@ -1979,10 +1987,7 @@
     return $(id).value.split(":")[0];
   }
   function syncRatings(input, conn) {
-    const c = E.CONNECTORS[conn];
-    if (!c.ratings.includes(Number(input.value)))
-      input.value = c.ratings.includes(16) ? 16 : c.ratings[0];
-    input.setAttribute("list", "ratings-" + conn);
+    input.setAttribute("list", "moduleRatings");
   }
   function renderRows() {
     const body = $("outputRows");
@@ -1990,7 +1995,7 @@
     draftRows.forEach((row, i) => {
       const el = document.createElement("div");
       el.className = "outputRow";
-      el.innerHTML = `<strong>Выход ${i + 1}</strong><label>Разъём<select class="select" data-key="connType">${options(row.connType, Number($("modulePhases").value) === 1 ? 1 : null).replaceAll(/value="([^"]+):[13]"/g, 'value="$1"')}</select></label><label>Номинал, А<select class="select" data-key="nominalA">${E.CONNECTORS[row.connType].ratings.map((a) => `<option${a === row.nominalA ? " selected" : ""}>${a}</option>`).join("")}</select></label><label>Фаза<select class="select" data-key="phase"${E.CONNECTORS[row.connType].phases === 3 || Number($("modulePhases").value) === 1 ? " disabled" : ""}>${E.PHASES.map((k) => `<option${k === row.phase ? " selected" : ""}>${k}</option>`).join("")}</select></label><label>Автомат<input type="checkbox" data-key="protected"${row.protected ? " checked" : ""}></label><label>Номинал автомата, А<input class="input" type="number" min="1" max="${row.nominalA}" value="${row.ratingA}" data-key="ratingA"${row.protected ? "" : " disabled"}></label><label>Характеристика<select class="select" data-key="curve"${row.protected ? "" : " disabled"}>${["B", "C", "D"].map((k) => `<option${row.curve === k ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
+      el.innerHTML = `<strong>Выход ${i + 1}</strong><label>Разъём<select class="select" data-key="connType">${options(row.connType, Number($("modulePhases").value) === 1 ? 1 : null).replaceAll(/value="([^"]+):[13]"/g, 'value="$1"')}</select></label><label>Номинал, А<input class="input" type="number" min="1" max="1000" list="moduleRatings" data-key="nominalA" value="${row.nominalA}"></label><label${Number($("modulePhases").value) === 1 ? " hidden" : ""}>Фаза<select class="select" data-key="phase"${E.CONNECTORS[row.connType].phases === 3 || Number($("modulePhases").value) === 1 ? " disabled" : ""}>${E.PHASES.map((k) => `<option${k === row.phase ? " selected" : ""}>${k}</option>`).join("")}</select></label><label>Автомат<input type="checkbox" data-key="protected"${row.protected ? " checked" : ""}></label><label>Номинал автомата, А<input class="input" type="number" min="1" max="${row.nominalA}" list="moduleRatings" value="${row.ratingA}" data-key="ratingA"${row.protected ? "" : " disabled"}></label><label>Характеристика<select class="select" data-key="curve"${row.protected ? "" : " disabled"}>${["B", "C", "D"].map((k) => `<option${row.curve === k ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
       for (const field of el.querySelectorAll("[data-key]"))
         field.addEventListener("change", () => {
           const key = field.dataset.key;
@@ -2000,17 +2005,16 @@
               : ["nominalA", "ratingA"].includes(key)
                 ? Number(field.value)
                 : field.value;
-          if (key === "connType") {
-            row.nominalA = E.CONNECTORS[row.connType].ratings.includes(
-              row.nominalA,
-            )
-              ? row.nominalA
-              : E.CONNECTORS[row.connType].ratings[0];
-          }
           row.ratingA = Math.min(row.ratingA, row.nominalA);
           renderRows();
           previewBuilder();
         });
+      for (const field of el.querySelectorAll('input[type="number"]')) {
+        field.addEventListener("input", () => {
+          row[field.dataset.key] = Number(field.value);
+          previewBuilder();
+        });
+      }
       body.append(el);
     });
   }
@@ -2025,23 +2029,28 @@
     $("builderDefaults").hidden = consumer;
     $("builderInput").hidden = false;
     $("sourceShieldField").hidden = !source;
-    $("sourceSupplyField").hidden = !source;
-    $("mainBreakerField").hidden = !(
-      category === "distributor"
-    );
+    $("sourceShield").checked = $("sourceKind").value === "shield";
+    $("sourceSupplyField").hidden = false;
+    $("sourceSupplyA").disabled = !source;
+    $("mainBreakerField").hidden = false;
     $("newNodeInConn").disabled = false;
-    $("newNodeInA").disabled = source;
+    $("newNodeInA").disabled = false;
     const input = connectorValue("newNodeInConn");
     $("newNodeInConn").innerHTML = options(input, phases);
+    if ((source && $("sourceShield").checked) || category === "distributor") {
+      for (const option of [...$("newNodeInConn").options])
+        if (!/^(terminal|cee)/.test(option.value)) option.remove();
+    }
+    if (source && !$("sourceShield").checked) {
+      for (const option of [...$("newNodeInConn").options]) if (option.value.startsWith("terminal")) option.remove();
+    }
     const terminalSource =
       source &&
       (connectorValue("newNodeInConn").startsWith("terminal") ||
         draftRows.some((o) => o.connType.startsWith("terminal")));
     $("sourceShield").disabled = terminalSource;
     if (terminalSource) $("sourceShield").checked = true;
-    $("mainBreakerField").hidden = !(
-      category === "distributor"
-    );
+    $("mainBreakerField").hidden = false;
     syncRatings($("newNodeInA"), connectorValue("newNodeInConn"));
     const output = connectorValue("newNodeOutConn");
     $("newNodeOutConn").innerHTML = options(output, phases === 1 ? 1 : null);
@@ -2093,15 +2102,17 @@
         category,
         phases,
         inConnType: connectorValue("newNodeInConn"),
-        inA: Number($(source ? "sourceSupplyA" : "newNodeInA").value),
+        inA: Number($("newNodeInA").value),
         outputs,
         watts: category === "consumer" ? Number($("newNodeW").value) : 0,
         shield: source && $("sourceShield").checked,
-        mainA: Number($("mainBreakerA").value),
+        mainA: $("mainBreakerEnabled").checked ? Number($("mainBreakerA").value) : null,
       });
+    if (source) { n.supplyA = Number($("sourceSupplyA").value); n.supplyNominalA = Number($("newNodeInA").value); }
+    n.mainBreaker = $("mainBreakerEnabled").checked ? E.breaker(Number($("mainBreakerA").value), phases) : null;
     n.outputs.forEach(
       (v, i) =>
-        (v.breaker = source || draftRows[i].protected
+        (v.breaker = draftRows[i].protected
           ? {
               ...E.breaker(draftRows[i].ratingA, v.phases),
               curve: draftRows[i].curve,
@@ -2113,37 +2124,27 @@
     E.validate(test);
     return n;
   }
+  let builderPreviewResize = null;
+  window.addEventListener("resize", () => builderPreviewResize?.());
   function previewBuilder() {
+    $("mainBreakerA").disabled = !$("mainBreakerEnabled").checked;
     try {
       const n = builderNode(),
         container = $("builderPreview");
       container.replaceChildren();
-      const title = document.createElement("strong");
-      title.dataset.noTranslate = "true";
-      title.textContent = moduleCaption(n);
-      const ports = document.createElement("div");
-      ports.className = "previewPorts";
-      const left = document.createElement("div"),
-        right = document.createElement("div");
-      left.textContent =
-        n.inputs
-          .map((v) => `← ${E.CONNECTORS[v.connType].name} ${v.nominalA} А`)
-          .join("\n") || "Источник";
-      right.textContent =
-        n.outputs
-          .map(
-            (v) =>
-              `${v.connType.toUpperCase()} ${v.nominalA} А${v.phase ? " " + v.phase : ""} →`,
-          )
-          .join("\n") || "Нагрузка " + n.consumerWatts + " Вт";
-      ports.append(left, right);
-      const loads = document.createElement("p");
-      loads.textContent =
-        n.phases === 3 ? "L1: 0 А   ·   L2: 0 А   ·   L3: 0 А" : "L: 0 А";
-      container.append(title, ports, loads);
+      container.classList.remove("invalid");
+      builderPreviewResize = ElectricRender.previewNode(container, n, p);
+      $("builderSaveLocation").hidden = false;
+      $("builderCatalogDestination").textContent = "Раздел каталога (по номиналу входа): " + E.catalogPath(moduleTemplate(n)).join(" → ");
+      $("builderStorageDestination").textContent = desktop
+        ? "Файл каталога: " + desktop.info.dataDirectory + "\\Settings\\custom-modules.json"
+        : "Хранение: локально в этом браузере. Для переноса модуля используйте «Экспорт JSON».";
       $("builderError").textContent = "";
       $("btnCreateNode").disabled = false;
     } catch (e) {
+      $("builderSaveLocation").hidden = true;
+      $("builderPreview").classList.add("invalid");
+      $("builderPreview").textContent = "Проверьте параметры: " + e.message;
       $("builderError").textContent = e.message;
       $("btnCreateNode").disabled = true;
     }
@@ -2154,13 +2155,16 @@
     $("modulePhases").value = n?.phases || 3;
     $("newNodeName").value = n ? E.nomenclature(n).split(" | ")[0] : "";
     $("sourceShield").checked = n ? n.shield : true;
+    $("sourceKind").value = n && !n.shield ? "socket" : "shield";
     const input = n?.inputs[0];
     $("sourceSupplyA").value = n?.supplyA || 32;
     $("newNodeInConn").innerHTML = options(
       input?.connType || n?.supplyConnType || "cee3",
       n?.phases || 3,
     );
-    $("newNodeInA").value = input?.nominalA || 32;
+    $("newNodeInA").value = input?.nominalA || n?.supplyNominalA || n?.supplyA || 32;
+    $("mainBreakerEnabled").checked = n ? !!n.mainBreaker : true;
+    $("mainBreakerA").disabled = !$("mainBreakerEnabled").checked;
     $("mainBreakerA").value = n?.mainBreaker?.ratingA || input?.nominalA || 32;
     $("newNodeW").value = n?.consumerWatts ?? 1000;
     $("newNodeOutCount").value = n?.outputs.length || 3;
@@ -2176,9 +2180,10 @@
           curve: v.breaker?.curve || "C",
         }))
       : [];
-    $("btnCreateNode").textContent = n ? "Применить изменения" : "Создать";
+    $("btnCreateNode").textContent = n ? "Применить изменения" : "Добавить в схему (без сохранения)";
     syncBuilder();
     openModal("nodeModal");
+    builderPreviewResize?.();
   }
   function applyBuilder() {
     try {
@@ -2259,10 +2264,11 @@
     return {
       id: typeof template.id === "string" ? template.id : E.uid("custom"),
       name: node.name, category: node.category, phases: node.phases,
-      inConnType: template.inConnType, inA: node.supplyA,
+      inConnType: template.inConnType, inA: template.inA,
+      supplyA: template.supplyA ?? node.supplyA, supplyNominalA: template.supplyNominalA,
       outputs: node.outputs.map(({connType, nominalA, phase, breaker}) => ({connType, nominalA, phase, breaker})),
       watts: node.consumerWatts, shield: Boolean(node.shield), transition: Boolean(node.transition),
-      mainA: node.mainBreaker?.ratingA, catalogPath: template.catalogPath ?? null,
+      mainA: node.mainBreaker?.ratingA ?? null, catalogPath: template.catalogPath ?? null,
     };
   }
 
@@ -2292,6 +2298,35 @@
       notify("Импорт модулей: " + error.message);
     }
   }
+  function moduleTemplate(n) {
+    return {name:n.name, category:n.category, phases:n.phases,
+      inConnType:n.inputs[0]?.connType || n.supplyConnType,
+      inA:n.inputs[0]?.nominalA || n.supplyNominalA || n.supplyA,
+      supplyA:n.supplyA, supplyNominalA:n.supplyNominalA,
+      outputs:n.outputs.map(({connType,nominalA,phase,breaker})=>({connType,nominalA,phase,breaker})),
+      watts:n.consumerWatts, shield:n.shield, mainA:n.mainBreaker?.ratingA ?? null};
+  }
+  function exportBuilderModule() {
+    try {
+      const data = moduleTemplate(builderNode());
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}));
+      const link = document.createElement("a"); link.href=url; link.download="electriccad-module.json"; link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    } catch(error) { notify(error.message); }
+  }
+  async function importBuilderModule(file) {
+    if (!file) return;
+    try {
+      if (file.size > 2*1024*1024) throw Error("Файл модуля больше 2 МБ");
+      const raw=JSON.parse((await file.text()).replace(/^\uFEFF/,""));
+      const template=normalizeCustomTemplate(raw);
+      const edit=builderEdit;
+      openBuilder(E.makeNode(template));
+      builderEdit=edit;
+      $("btnCreateNode").textContent=edit ? "Применить изменения" : "Добавить в схему (без сохранения)";
+    } catch(error) { notify("Импорт модуля: " + error.message); }
+    finally { $("moduleJsonFile").value=""; }
+  }
   function saveTemplate() {
     try {
       const n = builderNode(),
@@ -2300,8 +2335,9 @@
           name: n.name,
           category: n.category,
           phases: n.phases,
-          inConnType: n.inputs[0]?.connType || "euro",
-          inA: n.inputs[0]?.nominalA || n.supplyA,
+          inConnType: n.inputs[0]?.connType || n.supplyConnType || "euro",
+          supplyA: n.supplyA, supplyNominalA: n.supplyNominalA,
+          inA: n.inputs[0]?.nominalA || n.supplyNominalA || n.supplyA,
           outputs: n.outputs.map((v) => ({
             connType: v.connType,
             nominalA: v.nominalA,
@@ -2310,13 +2346,22 @@
           })),
           watts: n.consumerWatts,
           shield: n.shield,
-          mainA: n.mainBreaker?.ratingA,
+          mainA: n.mainBreaker?.ratingA ?? null,
         };
-      const next = [...custom, normalizeCustomTemplate(t)];
+      const saved = normalizeCustomTemplate(t);
+      const next = [...custom, saved];
       storage.setItem(CUSTOM, JSON.stringify(next));
       custom = next;
+      catalogQuery = ""; $("catalogSearch").value = "";
       renderCatalog();
-      notify("Шаблон сохранён в локальном каталоге");
+      const path = E.catalogPath(saved);
+      for (const details of $("catalog").querySelectorAll("details")) {
+        if (path.map((_,i)=>path.slice(0,i+1).join("/")).includes(details.dataset.path)) details.open = true;
+      }
+      const item = [...$("catalog").querySelectorAll(".nodeItem")].find(el=>el.dataset.templateId === saved.id);
+      item?.classList.add("catalogJustSaved");
+      notify("Модуль сохранён: " + path.join(" → "));
+
     } catch (e) {
       notify(e.message);
     }
@@ -2797,6 +2842,21 @@
     $("btnExport").onclick = exportScheme;
     $("btnDownloadProject").onclick = exportProject;
     $("btnImport").onclick = () => $("fileImport").click();
+    const importChoice = $("importChoiceDialog");
+    $("btnImport").addEventListener("contextmenu", event => {
+      event.preventDefault();
+      if (!importChoice.open) importChoice.showModal();
+    });
+    $("btnImportFromDisk").onclick = () => { importChoice.close(); $("fileImport").click(); };
+    $("btnCancelImportChoice").onclick = () => importChoice.close();
+    $("btnLoadDemoProject").onclick = () => {
+      importChoice.close();
+      if (transaction(() => { p = window.ElectricDefaultProject.create(); selection.clear(); transient(); })) {
+        $("projectName").value = p.meta.name;
+        $("voltageLN").value = p.settings.voltageLN;
+        fitAll(); notify("Демо-схема загружена. Ctrl+Z — отменить.");
+      }
+    };
     $("fileImport").onchange = (e) => importFile(e.target.files[0]);
     $("btnClear").onclick = clearProject;
     const cableSettings = $("cableSettingsDialog");
@@ -2939,7 +2999,7 @@
     }
 
     scene.onCableSettings = id => {
-      if (!p.settings.advancedMode || !p.links.some(link => link.id === id)) return;
+      if (!p.links.some(link => link.id === id)) return;
       cableSettings.dataset.linkId = id;
       if (!cableSettings.open) cableSettings.showModal();
       refreshCableSettings();
@@ -3332,6 +3392,10 @@
     $("overlay").onclick = closeModal;
     $("btnCreateNode").onclick = applyBuilder;
     $("btnSaveTemplate").onclick = saveTemplate;
+    $("btnExportModule").onclick = exportBuilderModule;
+    $("btnImportModule").onclick = () => $("moduleJsonFile").click();
+    $("moduleJsonFile").onchange = e => { void importBuilderModule(e.target.files[0]); };
+    $("newNodeOutCount").addEventListener("input", () => syncBuilder());
     $("btnImportTemplates").onclick = () => $("fileImportTemplates").click();
     $("fileImportTemplates").onchange = event => {
       const input = event.target;
@@ -3375,8 +3439,9 @@
       "modulePhases",
       "newNodeOutCount",
       "sourceShield",
+      "sourceKind",
     ])
-      $(id).addEventListener("change", () => syncBuilder(id === "newNodeType"));
+      $(id).addEventListener("change", () => syncBuilder(id === "newNodeType" || id === "sourceKind"));
     for (const id of ["newNodeInConn", "newNodeOutConn"])
       $(id).addEventListener("change", () => {
         syncRatings(
@@ -3394,6 +3459,7 @@
       "sourceSupplyA",
     ])
       $(id).addEventListener("input", previewBuilder);
+    $("mainBreakerEnabled").addEventListener("change", previewBuilder);
     $("btnApplyPorts").onclick = () => syncBuilder(true);
     $("catalogSearch").oninput = (e) => {
       catalogQuery = e.target.value;

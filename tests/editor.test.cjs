@@ -570,6 +570,7 @@ test("конструктор щита допускает ввод 63А и нес
   s.change("newNodeType", "input");
   s.change("sourceSupplyA", 63);
   s.$("sourceSupplyA").dispatchEvent(new s.w.Event("input"));
+  s.change("newNodeInA", 63);
   s.change("mainBreakerA", 63);
   s.$("mainBreakerA").dispatchEvent(new s.w.Event("input"));
   assert.equal(
@@ -580,7 +581,8 @@ test("конструктор щита допускает ввод 63А и нес
   s.$("btnCreateNode").click();
   const n = s.state().project.nodes.at(-1);
   assert.equal(n.supplyA, 63);
-  assert.equal(n.mainBreaker, null);
+  assert.equal(n.mainBreaker.ratingA, 63);
+  assert.equal(n.supplyNominalA, 63);
   assert.equal(n.outputs.length, 3);
   assert.ok(n.outputs.every((o) => o.breaker.ratingA === 16));
   s.dom.window.close();
@@ -1257,5 +1259,171 @@ test('диалог сохранения выбирается до построе
  assert.deepEqual(calls,['picker']);
  choose({createWritable:async()=>({write:async()=>{},close:async()=>{}})});
  await new Promise(resolve=>setTimeout(resolve,0));assert.deepEqual(calls,['picker','render']);
+ s.dom.window.close();
+});
+test("новая компоновка конструктора: уникальные поля и независимый ток источника", async () => {
+  const s=await setup(single()); s.$("btnNewNode").click();
+  const ids=[...s.$("nodeModal").querySelectorAll("[id]")].map(e=>e.id);
+  assert.equal(new Set(ids).size,ids.length);
+  assert.deepEqual([...s.$("nodeModal").querySelectorAll(".builderIdentity input,.builderIdentity select")].map(e=>e.id),["newNodeName","newNodeType","modulePhases"]);
+  assert.equal(s.$("sourceSupplyA").disabled,true);
+  assert.equal(s.$("sourceSupplyField").hidden,false);
+  s.change("newNodeType","input");
+  assert.equal(s.$("sourceSupplyA").disabled,false);
+  assert.ok([...s.$("newNodeInConn").options].every(o=>/^(cee|terminal)/.test(o.value)));
+  s.change("sourceSupplyA",600); s.change("newNodeInA",80); s.change("mainBreakerA",63);
+  s.$("mainBreakerA").dispatchEvent(new s.w.Event("input"));
+  const protection=s.$("outputRows").querySelector('[data-key="protected"]');
+  protection.checked=false; protection.dispatchEvent(new s.w.Event("change"));
+  assert.ok(s.$("builderPreview").querySelector("canvas[role=img]"));
+  assert.equal(s.$("builderPreview").querySelectorAll(".portBreakerButton").length,3);
+  assert.equal(s.$("builderError").textContent,"");
+  s.$("btnCreateNode").click();
+  const n=s.state().project.nodes.at(-1);
+  assert.equal(n.supplyA,600); assert.equal(n.supplyNominalA,80);
+  assert.equal(n.mainBreaker.ratingA,63); assert.equal(n.outputs[0].breaker,null);
+  const restored=E.migrate(JSON.parse(JSON.stringify(s.state().project)));
+  assert.equal(restored.nodes.at(-1).outputs[0].breaker,null);
+  assert.equal(restored.nodes.at(-1).mainBreaker.ratingA,63);
+  s.dom.window.close();
+});
+test("JSON модуля загружается в конструктор без добавления в каталог и схему", async () => {
+  const s=await setup(single()); s.$("btnNewNode").click();
+  const before=s.state().project.nodes.length;
+  const data={name:"Импортированный модуль",category:"input",phases:3,inConnType:"terminal3",inA:80,supplyA:600,supplyNominalA:80,mainA:63,outputs:[{connType:"euro",nominalA:20,phase:"L2",breaker:null}]};
+  Object.defineProperty(s.$("moduleJsonFile"),"files",{configurable:true,value:[{size:500,text:async()=>JSON.stringify(data)}]});
+  s.$("moduleJsonFile").dispatchEvent(new s.w.Event("change"));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(s.$("newNodeName").value,data.name);
+  assert.equal(s.$("newNodeInA").value,"80");
+  assert.equal(s.$("sourceSupplyA").value,"600");
+  assert.equal(s.state().project.nodes.length,before);
+  assert.equal(s.$("builderError").textContent,"");
+  s.$("btnCreateNode").click();
+  assert.equal(s.state().project.nodes.length,before+1);
+  s.dom.window.close();
+});
+
+test("вид ввода переключается между щитом и розеткой", async () => {
+ const s=await setup(single());s.$("btnNewNode").click();s.change("newNodeType","input");
+ s.change("sourceKind","socket");
+ assert.equal(s.$("sourceShield").checked,false);
+ assert.ok(![...s.$("newNodeInConn").options].some(o=>o.value.startsWith("terminal")));
+ s.$("btnCreateNode").click();assert.equal(s.state().project.nodes.at(-1).shield,false);
+ s.dom.window.close();
+});
+test("ПКМ на импорте восстанавливает демо и допускает отмену", async () => {
+ const s=await setup(single()),before=JSON.stringify(s.state().project);
+ const dialog=s.$("importChoiceDialog");
+ dialog.showModal=()=>dialog.setAttribute("open","");dialog.close=()=>dialog.removeAttribute("open");
+ const event=new s.w.MouseEvent("contextmenu",{bubbles:true,cancelable:true,button:2});
+ s.$("btnImport").dispatchEvent(event);
+ assert.ok(dialog.open);assert.deepEqual(s.state().project.nodes,JSON.parse(before).nodes);
+ s.$("btnLoadDemoProject").click();s.flush();
+ assert.equal(dialog.open,false);
+ assert.equal(event.defaultPrevented,true);
+ assert.ok(s.state().project.nodes.length>1);assert.ok(s.state().project.links.length>0);
+ s.$("btnUndo").click();s.flush();
+ assert.deepEqual(s.state().project.nodes,JSON.parse(before).nodes);
+ s.dom.window.close();
+});
+
+test("конструктор сохраняет цвета всех семейств каталога и отсутствие входного автомата", async () => {
+ const R=require("../renderer");
+ const families=new Map();
+ for(const template of E.catalog()) {
+   const key=[template.category,template.phases,template.shield,template.inConnType].join(":");
+   if(!families.has(key))families.set(key,template);
+ }
+ for(const [key,template] of families) {
+   const project=E.project();project.nodes=[E.makeNode(template,{x:400,y:350})];
+   const s=await setup(project), original=s.state().project.nodes[0];
+   s.change("moduleNavigator",original.id);
+   [...s.$("propsBody").querySelectorAll("button")].find(b=>b.textContent==="Изменить модуль / порты").click();
+   assert.equal(s.$("builderError").textContent,"",key);
+   assert.equal(s.$("mainBreakerEnabled").checked,!!original.mainBreaker,key);
+   s.$("btnCreateNode").click();
+   const updated=s.state().project.nodes[0];
+   assert.equal(R.fill(updated),R.fill(original),key);
+   assert.equal(updated.category,original.category,key);
+   assert.equal(updated.shield,original.shield,key);
+   assert.deepEqual(updated.outputs.map(o=>o.connType),original.outputs.map(o=>o.connType),key);
+   s.dom.window.close();
+ }
+});
+test("входной автомат отключается и отсутствие сохраняется в каталоге", async () => {
+ const s=await setup(single());s.$("btnNewNode").click();
+ s.$("mainBreakerEnabled").checked=false;
+ s.$("mainBreakerEnabled").dispatchEvent(new s.w.Event("change"));
+ assert.equal(s.$("mainBreakerA").disabled,true);
+ s.$("btnSaveTemplate").click();
+ const saved=JSON.parse(s.w.localStorage.getItem("electriccad.templates.v32")).at(-1);
+ assert.equal(saved.mainA,null);assert.equal(E.makeNode(saved).mainBreaker,null);
+ s.$("btnCreateNode").click();assert.equal(s.state().project.nodes.at(-1).mainBreaker,null);
+ s.dom.window.close();
+});
+
+test("нестандартный номинал показывает путь сохранения и раскрывает раздел каталога", async()=>{
+ const s=await setup(single());s.$("btnNewNode").click();
+ s.change("newNodeInA",80);s.$("newNodeInA").dispatchEvent(new s.w.Event("input"));
+ assert.match(s.$("builderCatalogDestination").textContent,/Дистрибьюторы → Трёхфазные → 80 А/);
+ assert.match(s.$("builderStorageDestination").textContent,/локально в этом браузере/);
+ s.$("btnSaveTemplate").click();
+ const saved=JSON.parse(s.w.localStorage.getItem("electriccad.templates.v32")).at(-1);
+ assert.equal(saved.inA,80);
+ const path=E.catalogPath(saved);
+ for(let i=0;i<path.length;i++){
+  const details=[...s.$("catalog").querySelectorAll("details")].find(d=>d.dataset.path===path.slice(0,i+1).join("/"));
+  assert.ok(details?.open,path.slice(0,i+1).join("/"));
+ }
+ assert.equal(s.$("catalog").querySelector(".catalogJustSaved").dataset.templateId,saved.id);
+ assert.match(s.$("toastMsg").textContent,/Модуль сохранён:.*80 А/);
+ s.dom.window.close();
+});
+
+test("переименование подключённой ноды с нестандартным номиналом не требует типового сечения",async()=>{
+ const project=E.project();project.settings.advancedMode=true;
+ const source=E.makeNode({name:"Источник 600",category:"input",phases:3,inConnType:"cee3",inA:600,outputs:[{connType:"cee3",nominalA:600}]},{x:0,y:0});
+ const target=E.makeNode({name:"Дистрибьютор 600",category:"distributor",phases:3,inConnType:"cee3",inA:600,outputs:[{connType:"euro",nominalA:16,phase:"L1"}]},{x:600,y:0});
+ project.nodes=[source,target];E.connect(project,{nodeId:source.id,portId:source.outputs[0].id},{nodeId:target.id,portId:target.inputs[0].id});
+ const s=await setup(project);s.change("moduleNavigator",target.id);
+ assert.match(s.$("propsBody").textContent,/Взято примерное значение сечения кабеля/);
+ const name=s.$("propsBody").querySelector('input[type="text"]');
+ name.dispatchEvent(new s.w.Event("focus"));name.value="Новое название";name.dispatchEvent(new s.w.Event("change"));s.flush();
+ assert.equal(s.state().project.nodes.find(n=>n.id===target.id).name,"Новое название");
+ assert.doesNotMatch(s.$("toastMsg").textContent,/Cannot read|lineVoltage/);
+ const section=[...s.$("propsBody").querySelectorAll("label")].find(l=>l.querySelector(".label")?.textContent==="Сечение жилы, мм²").querySelector("input");
+ section.value="120";section.dispatchEvent(new s.w.Event("change"));s.flush();
+ assert.equal(s.state().project.links[0].cable.sectionMm2,120);
+ assert.equal(s.state().project.nodes.find(n=>n.id===target.id).name,"Новое название");
+ s.dom.window.close();
+});
+
+test("ПКМ по линии открывает настройки в обычном режиме и снимает предупреждение после ручного сечения",async()=>{
+ const project=E.project();project.settings.advancedMode=false;
+ const a=E.makeNode({name:"Источник",category:"input",phases:3,inConnType:"cee3",inA:600,outputs:[{connType:"cee3",nominalA:600}]},{x:220,y:350});
+ const b=E.makeNode({name:"Щит",category:"distributor",phases:3,inConnType:"cee3",inA:600,outputs:[{connType:"euro",nominalA:16,phase:"L1"}]},{x:760,y:350});
+ project.nodes=[a,b];E.connect(project,{nodeId:a.id,portId:a.outputs[0].id},{nodeId:b.id,portId:b.inputs[0].id});
+ const s=await setup(project),dialog=s.$("cableSettingsDialog");
+ dialog.showModal=()=>dialog.setAttribute("open","");dialog.close=()=>dialog.removeAttribute("open");
+ const hit=s.w.document.querySelector(".cableHitArea");assert.ok(hit);
+ const event=new s.w.MouseEvent("contextmenu",{bubbles:true,cancelable:true,button:2});hit.dispatchEvent(event);
+ assert.equal(event.defaultPrevented,true);assert.ok(dialog.open);
+ assert.match(dialog.textContent,/Взято примерное значение сечения кабеля/);
+ const section=[...dialog.querySelectorAll("label")].find(l=>l.textContent.includes("Сечение жилы")).querySelector("input");
+ section.value="185";section.dispatchEvent(new s.w.Event("change"));s.flush();
+ assert.equal(s.state().project.links[0].cable.sectionMm2,185);
+ assert.equal(dialog.querySelector(".cableApproximateNotice"),null);
+ s.dom.window.close();
+});
+
+test("диалог импорта: отмена сохраняет проект, диск открывает выбор файла",async()=>{
+ const s=await setup(single()),before=JSON.stringify(s.state().project),d=s.$("importChoiceDialog");
+ d.showModal=()=>d.setAttribute("open","");d.close=()=>d.removeAttribute("open");
+ let files=0;s.$("fileImport").click=()=>files++;
+ const open=()=>s.$("btnImport").dispatchEvent(new s.w.MouseEvent("contextmenu",{bubbles:true,cancelable:true,button:2}));
+ open();s.$("btnCancelImportChoice").click();assert.equal(d.open,false);assert.equal(JSON.stringify(s.state().project),before);
+ open();s.$("btnImportFromDisk").click();assert.equal(files,1);assert.equal(d.open,false);assert.equal(JSON.stringify(s.state().project),before);
+ s.$("btnImport").click();assert.equal(files,2);
  s.dom.window.close();
 });
