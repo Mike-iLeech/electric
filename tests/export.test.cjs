@@ -265,3 +265,9 @@ test("мировые параметры кабеля применяются в �
  assert.equal(cable.material,'al');assert.equal(cable.ambientC,25);assert.equal(cable.maxDropPercent,3);assert.equal(cable.thermalResistance,2);
  assert.ok(E.cableEstimate(cable,1,{L1:10}).lossW > E.cableEstimate({...cable,material:'cu'},1,{L1:10}).lossW);
 });
+
+test('импорт отвергает некорректные мировые параметры кабелей',()=>{
+ for(const defaults of [null,[],true,'x',12,{sectionMm2:-1},{ampacityA:0},{lengthM:100}]){
+  const p=E.project();p.settings.cableDefaults=defaults;assert.throws(()=>E.validate(p));
+ }
+});

@@ -79,3 +79,13 @@ test('динамические свойства, поиск каталога и 
   assert.ok(s.$('builderPreview').querySelector('strong').textContent.startsWith('Сохранить'));
   s.dom.window.close();
 });
+
+test('управление и настройки переключают язык в обе стороны',async()=>{
+ const s=await editor('ru');
+ for(const language of ['en','ru','en']){
+  s.setLanguage(language);
+  assert.match(s.$('controlsDialog').textContent,language==='en'?/Touch screen/:/Сенсорный экран/);
+  if(language==='en')assert.doesNotMatch(s.$('appSettingsDialog').textContent,/[А-Яа-яЁё]/);
+ }
+ s.dom.window.close();
+});

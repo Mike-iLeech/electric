@@ -1237,3 +1237,13 @@ test("настройки мира открываются в веб-версии 
   assert.equal(s.w.electricDiagnostics().project.settings.cableDefaults.ambientC,35);
   s.dom.window.close();
 });
+
+test('открытый диалог блокирует команды редактора и не отменяет нативный Escape',async()=>{
+ const s=await setup(single());
+ const before=s.w.electricDiagnostics().project.nodes.length;
+ s.$('appSettingsDialog').setAttribute('open','');
+ const escape=new s.w.KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true,cancelable:true});s.$('closeAppSettings').dispatchEvent(escape);
+ assert.equal(escape.defaultPrevented,false);
+ s.$('closeAppSettings').dispatchEvent(new s.w.KeyboardEvent('keydown',{key:'Delete',code:'Delete',bubbles:true}));
+ assert.equal(s.w.electricDiagnostics().project.nodes.length,before);s.dom.window.close();
+});

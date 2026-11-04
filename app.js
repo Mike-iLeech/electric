@@ -2554,6 +2554,7 @@
     });
   }
   function keydown(e) {
+    if (document.querySelector("dialog[open]")) return;
     const modal = ["nodeModal", "helpModal"]
       .map($)
       .find((el) => el.style.display === "block");
@@ -2941,8 +2942,8 @@
     const controlsTitle=document.createElement("h2");controlsTitle.id="controlsDialogTitle";controlsTitle.textContent="Управление";
     const controlsClose=button("×",()=>controlsDialog.close());controlsClose.setAttribute("aria-label","Закрыть управление");
     controlsHeader.append(controlsTitle,controlsClose);
-    const controlsContent=$("helpNavigate").cloneNode(true);
-    controlsContent.removeAttribute("id");controlsContent.className="controlsContent";controlsContent.hidden=false;
+    const controlsContent=globalThis.ElectricI18n?.cloneSource($("helpNavigate")) || $("helpNavigate").cloneNode(true);
+    controlsContent.removeAttribute("id");controlsContent.className="controlsContent helpGuide";controlsContent.hidden=false;
     for(const element of controlsContent.querySelectorAll(".helpGifGallery,.helpControlsNav,.helpImageButton,h2,#helpControlDemos"))element.remove();
     for(const element of controlsContent.querySelectorAll("[id]"))element.removeAttribute("id");
     for(const paragraph of controlsContent.querySelectorAll("p"))if(paragraph.textContent.startsWith("Запустите нужную демонстрацию"))paragraph.remove();
@@ -2951,6 +2952,7 @@
       document.querySelector(link.getAttribute("href"))?.scrollIntoView?.();
     };
     controlsDialog.append(controlsHeader,controlsContent);document.body.append(controlsDialog);
+    globalThis.ElectricI18n?.refreshHelp();
     controlsDialog.onclick=event=>{if(event.target!==controlsDialog)return;const r=controlsDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)controlsDialog.close();};
     const appSettingsDialog = $("appSettingsDialog");
     $("worldVoltageFields").append($("generalSettings"));

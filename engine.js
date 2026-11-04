@@ -359,8 +359,9 @@
     finite(p.settings?.voltageLN, 100, 300, "Фазное напряжение");
     if (p.settings.powerFactor !== 1 || p.settings.frequency !== 50)
       throw Error("Модель поддерживает PF=1 и 50 Гц");
-    if (p.settings.cableDefaults) {
+    if (p.settings.cableDefaults !== undefined) {
       const defaults = p.settings.cableDefaults;
+      if (!defaults || typeof defaults !== "object" || Array.isArray(defaults) || Object.keys(defaults).some(key => !["ambientC","maxDropPercent","thermalResistance","material"].includes(key))) throw Error("Некорректные настройки кабелей мира");
       for (const [key,min,max] of [["ambientC",-50,100],["maxDropPercent",0.1,100],["thermalResistance",0.0001,1000]])
         if (defaults[key] !== undefined) finite(defaults[key],min,max,"Настройки мира: " + key);
       if (defaults.material !== undefined && !["cu","al"].includes(defaults.material)) throw Error("Неверный материал проводников по умолчанию");
