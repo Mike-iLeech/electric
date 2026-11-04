@@ -17,6 +17,24 @@
 Линейное, В|||Line, V
 Настройки|||Settings
 Настройки приложения|||Application settings
+Обновления и данные PC|||PC updates and data
+Настройки мира|||World settings
+Модель активной нагрузки: PF = cos φ = 1, частота 50 Гц. Индивидуальные параметры кабельной линии имеют приоритет над настройками мира.|||Model of active loads: PF = cos φ = 1, grid frequency 50 Hz. Individual cable parameters override world defaults.
+Значения по номиналу линии. Применяются к кабелям без своего сечения.|||Default values by circuit rating. Applied to cables without a custom cross-section.
+Модель учитывает активную нагрузку: PF = cos φ = 1, частота сети — 50 Гц. Для симметричной сети Uл = √3 × Uф.|||The model considers active loads: PF = cos φ = 1, grid frequency 50 Hz. For a balanced grid Uline = √3 × Uphase.
+Автоматы используют пороговую модель по току. Падение напряжения и потери оцениваются по длине, материалу и сечению кабеля. Тепловая оценка доступна при заданном тепловом сопротивлении.|||Breakers use a current-threshold model. Voltage drop and losses are estimated from cable length, material and cross-section. Thermal estimates require thermal resistance.
+Режимы работы|||Operating modes
+Управление|||Controls
+Номинал, А|||Rating, A
+Сечение, мм²|||Cross-section, mm²
+Допущения модели|||Model assumptions
+Подробнее — справка|||Learn more — help
+Температура среды по умолчанию, °C|||Default ambient temperature, °C
+Предел падения U на участке, %|||Section voltage drop limit, %
+Тепловое сопротивление участка по умолчанию, К/Вт|||Default section thermal resistance, K/W
+Материал проводников по умолчанию|||Default conductor material
+Коэффициент мощности PF|||Power factor PF
+Частота электрической сети, Гц|||Grid frequency, Hz
 Разъём|||Connector
 Фаза|||Phase
 Номинал автомата, А|||Breaker rating, A
@@ -540,7 +558,18 @@ CEE 3ф|||CEE 3-phase
     observer?.disconnect(); help(); scan();
     root.dispatchEvent(new CustomEvent("electric-language-changed", { detail: { language } }));
   }
-  root.ElectricI18n = { t: translate, setLanguage, get language() { return language; }, scan };
+  function cloneSource(source) {
+    const clone=source.cloneNode(true);
+    function restore(original,copy) {
+      const helpRecord=helpRecords.get(original);
+      if(helpRecord){copy.innerHTML=helpRecord.source;copy.removeAttribute("data-help-translated");return;}
+      if(original.nodeType===3){const record=records.get(original);if(record)copy.data=record.source;return;}
+      for(let i=0;i<original.childNodes.length;i++)restore(original.childNodes[i],copy.childNodes[i]);
+    }
+    restore(source,clone);
+    return clone;
+  }
+  root.ElectricI18n = { t: translate, setLanguage, get language() { return language; }, scan, cloneSource, refreshHelp(){help();scan();} };
   function boot() {
     help(); scan(); document.documentElement.lang = language; document.title = translate(sourceTitle);
     observer = new MutationObserver(changes => {

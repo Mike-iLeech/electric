@@ -1212,7 +1212,7 @@
         const load = calc.ports.get(l.from.portId);
         const inlet = project.nodes.find(n => n.id === l.to.nodeId)?.inputs.find(v => v.id === l.to.portId);
         const cable = project.settings.advancedMode && length > 0 && load && inlet
-          ? E.cableParameters(l, port, inlet) : null;
+          ? E.cableParameters(l, port, inlet, project.settings) : null;
         const estimate = cable ? E.cableEstimate(cable, port.phases, load.loadA) : null;
         const warnings = cable ? E.cableWarnings(cable, estimate, port, inlet, project.settings.voltageLN) : [];
         const receiving = calc.nodes.get(l.to.nodeId);

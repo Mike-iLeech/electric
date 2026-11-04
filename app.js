@@ -114,7 +114,7 @@
     }]));
     const links = indexed(p.links.map(link => {
       const out = port(link.from), inlet = port(link.to);
-      const cable = E.cableParameters(link, out, inlet);
+      const cable = E.cableParameters(link, out, inlet, p.settings);
       return {...link, трасса: `${nodeLabel(link.from.nodeId)} → ${nodeLabel(link.to.nodeId)}`,
         профиль: cable, расчёт: E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA)};
     }));
@@ -1017,7 +1017,7 @@
   }
   function checkCableEdit(link) {
     const out = port(link.from);
-    const estimate = E.cableEstimate(E.cableParameters(link, out, port(link.to)), out.phases, calc.ports.get(out.id).loadA);
+    const estimate = E.cableEstimate(E.cableParameters(link, out, port(link.to), p.settings), out.phases, calc.ports.get(out.id).loadA);
     const error = cableDropError(estimate);
     if (error) throw Error(error);
   }
@@ -1028,8 +1028,8 @@
     panel.append(title);
     const out = port(link.from);
     const inlet = port(link.to);
-    const cable = E.cableParameters(link, out, inlet);
-    const profile = E.cableParameters({}, out, inlet);
+    const cable = E.cableParameters(link, out, inlet, p.settings);
+    const profile = E.cableParameters({}, out, inlet, p.settings);
     const help = document.createElement("details");
     help.className = "cableProfileHelp";
     const question = document.createElement("summary");
@@ -1039,7 +1039,7 @@
       out.phases === 3 ? Object.fromEntries(E.PHASES.map(phase => [phase,profile.ampacityA])) : {L1:profile.ampacityA});
     const voltage = p.settings.voltageLN * (reference.lineVoltage ? Math.sqrt(3) : 1);
     const info = document.createElement("p");
-    info.textContent = "Типовой профиль: медь, " + profile.sectionMm2 + " мм², " + profile.ampacityA +
+    info.textContent = "Типовой профиль: " + (profile.material === "al" ? "алюминий, " : "медь, ") + profile.sectionMm2 + " мм², " + profile.ampacityA +
       " А. На 100 м при номинальном токе и PF = 1: падение " + reference.dropV.toFixed(2) +
       " В (" + (100*reference.dropV/voltage).toFixed(2) + "%), потери " + reference.lossW.toFixed(1) +
       " Вт. Для 3 фаз предполагается равномерная нагрузка. Допустимое падение проверяют по всей цепи.";
@@ -1112,7 +1112,7 @@
         const total = document.createElement("p");
         const estimates = route.map(segment => {
           const output = port(segment.from);
-          return E.cableEstimate(E.cableParameters(segment, output, port(segment.to)), output.phases, calc.ports.get(segment.from.portId).loadA);
+          return E.cableEstimate(E.cableParameters(segment, output, port(segment.to), p.settings), output.phases, calc.ports.get(segment.from.portId).loadA);
         });
         if (estimates.every(item => item?.dropV != null)) {
           const phase = calc.nodes.get(link.to.nodeId).inPhase;
@@ -2554,6 +2554,7 @@
     });
   }
   function keydown(e) {
+    if (document.querySelector("dialog[open]")) return;
     const modal = ["nodeModal", "helpModal"]
       .map($)
       .find((el) => el.style.display === "block");
@@ -2864,7 +2865,57 @@
       if (applied) $("worldSettingsPopup").open = false;
     });
     arrangeNodes.title = "Раздвинуть модули там, где зазор меньше 96 единиц";
-    $("worldSettingsPopup").querySelector(".settingsPopover").append(rebuildRoutes, arrangeNodes);
+    const toolActions = document.createElement("div");
+    toolActions.className = "worldToolActions";
+    toolActions.setAttribute("role", "group");
+    toolActions.setAttribute("aria-label", "Автоматы и трассировка");
+    const disableBreakers = button("Выключить все автоматы", () => {
+      let count = 0;
+      transaction(() => {
+        for (const n of p.nodes) for (const breaker of [n.mainBreaker,...n.inputs.map(v=>v.breaker),...n.outputs.map(v=>v.breaker)]) {
+          if (breaker && breaker.state !== "open") {breaker.state="open";count++;}
+        }
+      }, {geometry:false});
+      notify(count ? "Выключено автоматов: " + count : "Все автоматы уже выключены");
+    });
+    disableBreakers.id = "btnDisableBreakers";
+    rebuildRoutes.id = "btnRebuildRoutes";
+    arrangeNodes.id = "btnArrangeNodes";
+    const toolbarCommands = [
+      [$("btnEnableBreakers"),"Включить все автоматы","M12 3v9M6 6a8 8 0 1 0 12 0"],
+      [disableBreakers,"Выключить все автоматы","M8 8h8v8H8zM12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20"],
+      [$("btnTrip"),"Проверить автоматы","m12 3 9 17H3ZM12 9v4m0 3v1"],
+      [rebuildRoutes,"Перестроить все трассы","M3 5h7v7h11M3 19h7v-7M17 8l4 4-4 4"],
+      [arrangeNodes,"Авторасстановка модулей","M3 3h6v6H3zM15 15h6v6h-6zM15 3h6v6h-6zM3 15h6v6H3z"],
+    ];
+    for (const [command,label,path] of toolbarCommands) {
+      command.setAttribute("aria-label",label);
+      command.title ||= label;
+      command.dataset.tooltip = label;
+      command.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+path+'"/></svg><span class="toolActionLabel"></span>';
+      command.querySelector("span").textContent = label;
+      toolActions.append(command);
+    }
+    $("toggleRightSidebar").before(toolActions);
+    const modeSettings = document.createElement("section");
+    modeSettings.className = "modeSettings";
+    const modeTitle = document.createElement("h3");modeTitle.textContent="Режимы работы";
+    modeSettings.append(modeTitle);
+    for (const id of ["advancedMode","highlightBranch","autoTrip"]) {
+      const label = $(id).closest("label"), description = label.nextElementSibling;
+      modeSettings.append(label);
+      if (description?.tagName === "P") modeSettings.append(description);
+    }
+    $("appSettingsDialog").append(modeSettings);
+    $("worldSettingsPopup").hidden = true;
+    // One shared settings entry in the project panel for browser and desktop.
+    $("desktopData").before($("btnAppSettings"));
+    $("btnAppSettings").textContent = "Настройки приложения";
+    if (desktop) {
+      $("btnDesktopSettings").textContent = "Обновления и данные PC";
+      $("appSettingsDialog").append($("btnDesktopSettings"));
+    }
+
     scene.onCableSettings = id => {
       if (!p.settings.advancedMode || !p.links.some(link => link.id === id)) return;
       cableSettings.dataset.linkId = id;
@@ -2872,6 +2923,63 @@
       refreshCableSettings();
     };
     $("cableSettingsClose").onclick = () => cableSettings.close();
+    const toolbarStatus = document.createElement("div");
+    toolbarStatus.className="toolbarStatus";
+    toolbarStatus.append(document.querySelector(".topBar > .chip"),$("collapsedPowerTotal"));
+    $("toggleRightSidebar").before(toolbarStatus);
+    toolbarStatus.before($("collapsedPowerTotal"));
+    $("btnAppSettings").after($("sessionStatus"));
+    document.querySelector(".topBar").hidden=true;
+    const controlsButton=button("Управление",()=>controlsDialog.showModal());
+    controlsButton.id="btnControls";
+    controlsButton.title="Управление мышью, жесты и сочетания клавиш";
+    $("helpTip").before(controlsButton);
+    const controlsDialog=document.createElement("dialog");
+    controlsDialog.id="controlsDialog";
+    controlsDialog.className="controlsDialog";
+    controlsDialog.setAttribute("aria-labelledby","controlsDialogTitle");
+    const controlsHeader=document.createElement("div");controlsHeader.className="settingsHeader";
+    const controlsTitle=document.createElement("h2");controlsTitle.id="controlsDialogTitle";controlsTitle.textContent="Управление";
+    const controlsClose=button("×",()=>controlsDialog.close());controlsClose.setAttribute("aria-label","Закрыть управление");
+    controlsHeader.append(controlsTitle,controlsClose);
+    const controlsContent=globalThis.ElectricI18n?.cloneSource($("helpNavigate")) || $("helpNavigate").cloneNode(true);
+    controlsContent.removeAttribute("id");controlsContent.className="controlsContent helpGuide";controlsContent.hidden=false;
+    for(const element of controlsContent.querySelectorAll(".helpGifGallery,.helpControlsNav,.helpImageButton,h2,#helpControlDemos"))element.remove();
+    for(const element of controlsContent.querySelectorAll("[id]"))element.removeAttribute("id");
+    for(const paragraph of controlsContent.querySelectorAll("p"))if(paragraph.textContent.startsWith("Запустите нужную демонстрацию"))paragraph.remove();
+    controlsContent.addEventListener("click",event=>{
+      const link=event.target.closest('a[href^="#"]');
+      if(!link || !controlsContent.contains(link))return;
+      event.preventDefault();controlsDialog.close();$("helpTip").click();
+      document.querySelector(link.getAttribute("href"))?.scrollIntoView?.();
+    });
+    controlsDialog.append(controlsHeader,controlsContent);document.body.append(controlsDialog);
+    globalThis.ElectricI18n?.refreshHelp();
+    controlsDialog.onclick=event=>{if(event.target!==controlsDialog)return;const r=controlsDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)controlsDialog.close();};
+    const appSettingsDialog = $("appSettingsDialog");
+    $("worldVoltageFields").append($("generalSettings"));
+    const worldBindings = [["worldAmbient","ambientC",20],["worldDrop","maxDropPercent",5],["worldThermal","thermalResistance",null],["worldMaterial","material","cu"]];
+    $("btnAppSettings").onclick = () => {
+      for (const [id,key,fallback] of worldBindings) $(id).value = p.settings.cableDefaults?.[key] ?? fallback ?? "";
+      appSettingsDialog.showModal();
+    };
+    $("closeAppSettings").onclick = () => appSettingsDialog.close();
+    $("worldAssumptionsHelp").onclick = event => {
+      event.preventDefault();
+      appSettingsDialog.close();
+      $("helpTip").click();
+      document.querySelector(".modelAssumptions").open = true;
+      $("helpCalculations").scrollIntoView?.();
+    };
+    for (const [id,key] of worldBindings) $(id).onchange = () => {
+      const input=$(id);
+      if (!input.reportValidity()) return;
+      transaction(() => {
+        p.settings.cableDefaults ||= {};
+        if (input.value === "") delete p.settings.cableDefaults[key];
+        else p.settings.cableDefaults[key] = key === "material" ? input.value : Number(input.value);
+      }, {geometry:false});
+    };
     const sectionsDialog = $("cableSectionsDialog");
     const sectionsForm = $("cableSectionsForm");
     const sectionFields = new Map();
@@ -2886,24 +2994,35 @@
       $("cableSectionsFields").append(label);
       sectionFields.set(rating, {input, fallback});
     }
-    $("btnCableSections").onclick = () => {
-      for (const [rating, {input, fallback}] of sectionFields)
-        input.value = uiPrefs.cableSections?.[rating] ?? fallback;
-      sectionsDialog.showModal();
-    };
-    $("cableSectionsReset").onclick = () => {
-      for (const {input, fallback} of sectionFields.values()) input.value = fallback;
-    };
-    $("cableSectionsCancel").onclick = () => sectionsDialog.close();
-    sectionsForm.onsubmit = event => {
-      event.preventDefault();
+    const sectionTable = document.createElement("table");
+    sectionTable.className = "cableSectionsTable";
+    sectionTable.setAttribute("aria-label", "Сечения кабелей по номиналу: амперы и мм²");
+    const sectionHead = sectionTable.createTHead().insertRow();
+    const sectionRow = sectionTable.createTBody().insertRow();
+    const unitsHead = document.createElement("th");unitsHead.scope="row";unitsHead.textContent="Номинал, А";sectionHead.append(unitsHead);
+    const unitsCell = document.createElement("th");unitsCell.scope="row";unitsCell.textContent="Сечение, мм²";sectionRow.append(unitsCell);
+    for (const [rating,{input}] of sectionFields) {
+      const heading=document.createElement("th");heading.scope="col";heading.textContent=rating;sectionHead.append(heading);
+      sectionRow.insertCell().append(input);
+    }
+    $("cableSectionsFields").replaceChildren(sectionTable);
+    $("cableSectionsResetSlot").append($("cableSectionsReset"));
+    function saveCableSections() {
       if (!sectionsForm.reportValidity()) return;
-      uiPrefs.cableSections = Object.fromEntries([...sectionFields].map(([rating, {input}]) => [rating, Number(input.value)]));
+      uiPrefs.cableSections = Object.fromEntries([...sectionFields].map(([rating,{input}])=>[rating,Number(input.value)]));
       saveUI();
       E.setCableSections(uiPrefs.cableSections);
-      sectionsDialog.close();
       changed({geometry:false});
+    }
+    for (const [rating,{input,fallback}] of sectionFields) {
+      input.value = uiPrefs.cableSections?.[rating] ?? fallback;
+      input.onchange = saveCableSections;
+    }
+    $("cableSectionsReset").onclick = () => {
+      for (const {input,fallback} of sectionFields.values()) input.value=fallback;
+      saveCableSections();
     };
+    sectionsForm.onsubmit = event => {event.preventDefault();saveCableSections();};
     const cableDialog = $("cableLengthDialog");
     const lengthInput = $("cableLengthInput");
     const lengthWarning = $("cableLengthWarning");
@@ -2919,7 +3038,7 @@
         const load = calc.ports.get(link.from.portId);
         if (out && inlet && load) {
           const draft = {...link, cable: {...link.cable, lengthM: Number(lengthInput.value)}};
-          const cable = E.cableParameters(draft, out, inlet);
+          const cable = E.cableParameters(draft, out, inlet, p.settings);
           const estimate = E.cableEstimate(cable, out.phases, load.loadA);
           warnings = E.cableWarnings(cable, estimate, out, inlet, p.settings.voltageLN, {includeLength:false});
           const error = cableDropError(estimate);

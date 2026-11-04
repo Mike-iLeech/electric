@@ -257,3 +257,17 @@ test("короткая таблица журнала остаётся в одн�
     assert.equal(printed.filter(value=>value==='№ трассы').length,1,paper);
   }
 });
+
+test("мировые параметры кабеля применяются в расчётах с приоритетом индивидуальных", () => {
+ const settings={cableDefaults:{material:'al',ambientC:35,maxDropPercent:3,thermalResistance:2}};
+ const port={nominalA:16};
+ const cable=E.cableParameters({cable:{lengthM:10,ambientC:25}},port,port,settings);
+ assert.equal(cable.material,'al');assert.equal(cable.ambientC,25);assert.equal(cable.maxDropPercent,3);assert.equal(cable.thermalResistance,2);
+ assert.ok(E.cableEstimate(cable,1,{L1:10}).lossW > E.cableEstimate({...cable,material:'cu'},1,{L1:10}).lossW);
+});
+
+test('импорт отвергает некорректные мировые параметры кабелей',()=>{
+ for(const defaults of [null,[],true,'x',12,{sectionMm2:-1},{ampacityA:0},{lengthM:100}]){
+  const p=E.project();p.settings.cableDefaults=defaults;assert.throws(()=>E.validate(p));
+ }
+});

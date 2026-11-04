@@ -702,7 +702,7 @@ test("Дерево соединений справа; напряжения в м
       s.w.Node.DOCUMENT_POSITION_FOLLOWING,
   );
   assert.ok(
-    s.$("workspaceWrap").querySelector(".topBar").contains(s.$("generalSettings")),
+    s.$("appSettingsDialog").contains(s.$("generalSettings")),
   );
   assert.equal(
     s.$("leftPanel").querySelectorAll(".compactActions button").length,
@@ -1216,4 +1216,34 @@ test("сохранение восстановленного проекта не 
   assert.equal(s.w.localStorage.getItem("electriccad.session.v32.backup"), backup);
   assert.equal(JSON.parse(s.w.localStorage.getItem("electriccad.session.v32")).nodes.length, 1);
   s.dom.window.close();
+});
+
+test("настройки мира открываются в веб-версии и сохраняют кабельные значения проекта", async () => {
+  const s=await setup(single());
+  s.$('appSettingsDialog').showModal = () => s.$('appSettingsDialog').setAttribute('open','');
+  s.$('btnAppSettings').click();
+  assert.equal(s.$('appSettingsDialog').open,true);
+  assert.ok(s.$('appSettingsDialog').contains(s.$('voltageLN')));
+  for (const id of ['advancedMode','highlightBranch','autoTrip']) assert.ok(s.$('appSettingsDialog').contains(s.$(id)));
+  for (const id of ['btnEnableBreakers','btnDisableBreakers','btnTrip','btnRebuildRoutes','btnArrangeNodes']) assert.ok(s.w.document.querySelector('.editorToolbar').contains(s.$(id)));
+  assert.ok(s.$('leftPanel').contains(s.$('btnAppSettings')));
+  assert.ok(s.w.document.querySelector('.editorToolbar').contains(s.$('zoomReadout')));
+  assert.ok(s.w.document.querySelector('.editorToolbar').contains(s.$('collapsedPowerTotal')));
+  assert.equal(s.w.document.querySelector('.topBar').hidden,true);
+  assert.ok(s.$('controlsDialog').textContent.includes('Ctrl/Cmd+Shift+S'));
+  assert.ok(s.$('controlsDialog').textContent.includes('Сенсорный экран'));
+  assert.ok(s.$('helpCalculations').querySelector('.modelAssumptions'));
+  const field=s.$('worldAmbient');field.value='35';field.dispatchEvent(new s.w.Event('change'));
+  assert.equal(s.w.electricDiagnostics().project.settings.cableDefaults.ambientC,35);
+  s.dom.window.close();
+});
+
+test('открытый диалог блокирует команды редактора и не отменяет нативный Escape',async()=>{
+ const s=await setup(single());
+ const before=s.w.electricDiagnostics().project.nodes.length;
+ s.$('appSettingsDialog').setAttribute('open','');
+ const escape=new s.w.KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true,cancelable:true});s.$('closeAppSettings').dispatchEvent(escape);
+ assert.equal(escape.defaultPrevented,false);
+ s.$('closeAppSettings').dispatchEvent(new s.w.KeyboardEvent('keydown',{key:'Delete',code:'Delete',bubbles:true}));
+ assert.equal(s.w.electricDiagnostics().project.nodes.length,before);s.dom.window.close();
 });

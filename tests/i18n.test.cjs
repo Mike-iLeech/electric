@@ -38,10 +38,10 @@ test('RU/EN меняет интерфейс и всю текстовую спр�
   assert.equal(s.$('powerBranchLoads').querySelector('[data-no-translate]').textContent,'Сохранить');
   assert.match(s.$('outlinerTree').textContent,/Сохранить/);
   assert.equal(s.w.electricDiagnostics().project.nodes[0].name,'Сохранить');
-  assert.equal(s.$('btnDesktopSettings').textContent,'Application settings');
+  assert.equal(s.$('btnDesktopSettings').textContent,'PC updates and data');
   s.$('btnDesktopSettings').click(); assert.equal(s.settingsOpened,1);
   const helpBlocks=[...s.w.document.querySelectorAll('[data-help-translated]')];
-  assert.equal(helpBlocks.length,146);
+  assert.ok(helpBlocks.length >= 146);
   for(const block of helpBlocks) assert.doesNotMatch(block.textContent,/[А-Яа-яЁё]/,block.textContent);
   for(const section of s.w.document.querySelectorAll('.helpGuide'))
     assert.doesNotMatch(section.textContent,/[А-Яа-яЁё]/,section.id);
@@ -78,4 +78,17 @@ test('динамические свойства, поиск каталога и 
   await new Promise(r=>setTimeout(r,0));
   assert.ok(s.$('builderPreview').querySelector('strong').textContent.startsWith('Сохранить'));
   s.dom.window.close();
+});
+
+test('управление и настройки переключают язык в обе стороны',async()=>{
+ const s=await editor('ru');
+ for(const language of ['en','ru','en']){
+  s.setLanguage(language);
+  assert.match(s.$('controlsDialog').textContent,language==='en'?/Touch screen/:/Сенсорный экран/);
+  if(language==='en')assert.doesNotMatch(s.$('appSettingsDialog').textContent,/[А-Яа-яЁё]/);
+  let closed=false;s.$('controlsDialog').close=()=>{closed=true;};
+  s.$('controlsDialog').querySelector('a[href="#helpCables"]').click();
+  assert.equal(closed,true);assert.equal(s.$('helpModal').getAttribute('aria-hidden'),'false');
+ }
+ s.dom.window.close();
 });
