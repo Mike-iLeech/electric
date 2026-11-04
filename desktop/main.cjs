@@ -201,8 +201,7 @@ if (!app.requestSingleInstanceLock()) {
     function updateMenu() {
     const menu = [
       { label: "Проект", submenu: [
-        { label: "Сохранить текущий проект", click: () => command("btnSave") },
-        { label: "Сохранить копию JSON…", click: () => command("btnDownloadProject") },
+        { label: "Сохранить проект JSON…", click: () => command("btnSave") },
         { label: "Импортировать JSON…", click: () => command("btnImport") },
         { label: "Экспорт схемы…", click: () => command("btnExport") },
         { type: "separator" }, { label: "Открыть папку данных", click: () => shell.openPath(root) },

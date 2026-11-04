@@ -49,8 +49,7 @@ app.on("browser-window-created", (_event, win) => {
         fs.writeFileSync(path.join(directory, "settings-en.png"), (await settings.webContents.capturePage()).toPNG());
         settings.close();
         await js(`electricDesktop.storage.setItem('electriccad.templates.v32', '[]');
-          document.getElementById('toggleLeftSidebar').click();
-          document.getElementById('btnSave').click();`);
+          document.getElementById('toggleLeftSidebar').click();`);
         // Close immediately, before the app's 500 ms save debounce.
         await js(`const name = document.getElementById('projectName'); name.focus();
           name.value = 'Desktop persistence — немедленное закрытие'; name.dispatchEvent(new Event('change'));`);
@@ -80,7 +79,7 @@ app.on("browser-window-created", (_event, win) => {
           await done;
           return fs.readFileSync(file);
         };
-        const json = await download("json", "document.getElementById('btnDownloadProject').click()");
+        const json = await download("json", "document.getElementById('btnSave').click()");
         assert.equal(JSON.parse(json).meta.name, "Desktop persistence — немедленное закрытие");
         await js("document.getElementById('btnExport').click()");
         for (let i = 0; i < 150 && !await js("!!document.querySelector('[title=\"Сохранить PDF\"]')"); i++)
@@ -91,7 +90,7 @@ app.on("browser-window-created", (_event, win) => {
         assert.equal(png.subarray(1, 4).toString(), "PNG");
         const jpg = await download("jpg", "document.querySelector('[title=\"Сохранить JPG\"]').click()");
         assert.equal(jpg.subarray(0, 2).toString("hex"), "ffd8");
-        assert.equal(await js("document.querySelectorAll('.projectSettingsRow > button').length"),2);
+        assert.equal(await js("document.querySelectorAll('.projectSettingsRow > button').length"),1);
         await js("document.querySelector('.schemeExport [aria-label=\"Закрыть\"]').click();document.getElementById('btnAppSettings').click()");
         assert.equal(await js("document.getElementById('appSettingsDialog').open && !document.getElementById('pcSettingsInline').hidden"),true);
         assert.equal(await js("document.getElementById('appSettingsDialog').contains(document.getElementById('autoUpdate'))"),true);

@@ -2835,12 +2835,10 @@
     logProjectChanges();
     initPointers();
     $("btnSave").onclick = () => {
-      if (save()) notify(desktop
-        ? "Проект сохранён на компьютере. Для отдельной копии используйте «Скачать»."
-        : "Сессия сохранена локально. Для переноса используйте Экспорт JSON.");
+      save();
+      exportProject();
     };
     $("btnExport").onclick = exportScheme;
-    $("btnDownloadProject").onclick = exportProject;
     $("btnImport").onclick = () => $("fileImport").click();
     const importChoice = $("importChoiceDialog");
     $("btnImport").addEventListener("contextmenu", event => {
@@ -2989,9 +2987,21 @@
     $("worldSettingsPopup").hidden = true;
     // One shared settings entry in the project panel for browser and desktop.
     const projectSettingsRow=document.createElement("div");projectSettingsRow.className="projectSettingsRow";
-    $("desktopData").before(projectSettingsRow);projectSettingsRow.append($("btnAppSettings"));
+    $("desktopData").before(projectSettingsRow);
+    const projectActions = document.querySelector("#projectBlock .compactActions");
+    projectActions.append($("btnAppSettings"));
     if(desktop) projectSettingsRow.append($("btnDataFolder"));
-    $("btnAppSettings").textContent = "Настройки приложения";
+    $("btnAppSettings").innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    for (const command of projectActions.querySelectorAll("button")) {
+      const label = command.getAttribute("aria-label") || command.title || command.textContent.trim();
+      command.setAttribute("aria-label", label);
+      command.title = label;
+      const caption = document.createElement("span");
+      caption.className = "projectActionLabel";
+      for (const child of [...command.childNodes]) if (child.nodeType === Node.TEXT_NODE) caption.append(child);
+      if (!caption.textContent.trim()) caption.textContent = label;
+      command.append(caption);
+    }
     if (desktop) {
       $("btnDesktopSettings").textContent = "Обновления и данные PC";
       $("btnDesktopSettings").hidden=true;
@@ -3010,7 +3020,7 @@
     toolbarStatus.append(document.querySelector(".topBar > .chip"),$("collapsedPowerTotal"));
     $("toggleRightSidebar").before(toolbarStatus);
     toolbarStatus.before($("collapsedPowerTotal"));
-    $("btnAppSettings").closest(".projectSettingsRow").after($("sessionStatus"));
+    projectActions.append($("sessionStatus"));
     document.querySelector(".topBar").hidden=true;
     const controlsButton=button("Управление",()=>controlsDialog.showModal());
     controlsButton.id="btnControls";
@@ -3386,7 +3396,6 @@
     };
     }
     bindSidebarSplitter($("sidebarSplitter"), $("outlinerBlock"), "propsScroll", $("rightPanel"), "treeHeight", 100, 240);
-    bindSidebarSplitter($("leftSidebarSplitter"), $("projectBlock"), "catalogBlock", $("leftPanel"), "projectHeight", 72, 150);
     $("btnCloseHelp").onclick = closeModal;
     $("btnCloseNodeModal").onclick = closeModal;
     $("overlay").onclick = closeModal;
