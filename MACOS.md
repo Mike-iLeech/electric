@@ -25,7 +25,7 @@ pnpm desktop:mac
 
 ```sh
 pnpm build
-pnpm exec electron-builder --config electron-builder.cjs --mac --arm64 --publish never
+pnpm exec electron-builder --config electron-builder.cjs --config.compression=normal --mac --arm64 --publish never
 node scripts/mac-verify.cjs arm64
 ```
 

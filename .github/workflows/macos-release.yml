@@ -42,7 +42,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: node scripts/desktop-smoke.cjs
-      - run: pnpm exec electron-builder --config electron-builder.cjs --mac --${{ matrix.arch }} --publish never
+      - run: pnpm exec electron-builder --config electron-builder.cjs --config.compression=normal --mac --${{ matrix.arch }} --publish never
       - run: node scripts/mac-verify.cjs ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:

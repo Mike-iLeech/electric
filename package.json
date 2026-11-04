@@ -15,7 +15,7 @@
     "desktop:dir": "pnpm build && electron-builder --config electron-builder.cjs --win --x64 --dir --publish never",
     "desktop:build": "pnpm build && electron-builder --config electron-builder.cjs --win nsis --x64 --publish never",
     "desktop:release": "node scripts/signed-release.cjs",
-    "desktop:mac": "pnpm build && electron-builder --config electron-builder.cjs --mac --arm64 --x64 --publish never"
+    "desktop:mac": "pnpm build && electron-builder --config electron-builder.cjs --config.compression=normal --mac --arm64 --x64 --publish never"
   },
   "devDependencies": {
     "electron": "45.2.1",
