@@ -5,6 +5,16 @@ const assert = require("node:assert/strict");
 const phase = process.argv[2];
 const directory = process.env.ELECTRICCAD_DATA_DIR;
 const errors = [];
+async function screenshot(win,filename){
+  for(let attempt=0;attempt<3;attempt++){
+    try{fs.writeFileSync(path.join(directory,filename),(await win.webContents.capturePage()).toPNG());return;}
+    catch(error){
+      if(process.platform!=="darwin"||!process.env.CI||error.message!=="UnknownVizError")throw error;
+      if(attempt===2){console.warn("Hosted macOS compositor cannot capture screenshot: "+filename);return;}
+      win.show();win.focus();await new Promise(resolve=>setTimeout(resolve,250));
+    }
+  }
+}
 let editorObserved = false;
 const timer = setTimeout(() => { console.error("Desktop smoke timeout", errors); app.exit(1); }, 80000);
 app.on("browser-window-created", (_event, win) => {
@@ -61,7 +71,7 @@ app.on("browser-window-created", (_event, win) => {
         assert.equal((await js("electricDesktop.getSettings()")).update.canInstall, false);
         const blocked = await settingsJS("(() => { try { electricDesktop.storage.getItem('electriccad.session.v32'); return false; } catch { return true; } })()");
         assert.equal(blocked, true, "settings frame cannot read the editor project via IPC");
-        fs.writeFileSync(path.join(directory, "settings-en.png"), (await settings.webContents.capturePage()).toPNG());
+        await screenshot(settings,"settings-en.png");
         settings.close();
         await js(`electricDesktop.storage.setItem('electriccad.templates.v32', '[]');
           document.getElementById('toggleLeftSidebar').click();`);
@@ -112,7 +122,7 @@ app.on("browser-window-created", (_event, win) => {
         assert.equal(await js("!!document.querySelector('.exportCompletionToast button')"),true);
       }
       await new Promise(resolve=>setTimeout(resolve,200));
-      fs.writeFileSync(path.join(directory, phase + ".png"), (await win.webContents.capturePage()).toPNG());
+      await screenshot(win,phase+".png");
       assert.equal(await js("electricPrepareToExit()"), true);
       assert.deepEqual(errors, []);
       clearTimeout(timer);
