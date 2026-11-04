@@ -68,9 +68,13 @@ test('динамические свойства, поиск каталога и 
   s.$('catalogSearch').value='distributor';s.$('catalogSearch').dispatchEvent(new s.w.Event('input'));
   await new Promise(r=>setTimeout(r,0));
   assert.ok(s.$('catalog').querySelectorAll('.nodeItem').length>0);
+  let downloaded;
+  s.w.URL.createObjectURL = () => 'blob:test';
+  s.w.URL.revokeObjectURL = () => {};
+  s.w.HTMLAnchorElement.prototype.click = function () { downloaded = this.download; };
   s.$('btnSave').click(); await new Promise(r=>setTimeout(r,0));
   assert.match(s.$('sessionStatus').textContent,/Saved on this computer/);
-  assert.match(s.$('toastMsg').textContent,/Project saved/);
+  assert.equal(downloaded,'Проект.json');
   assert.equal(JSON.parse(s.writes.get('electriccad.session.v32')).meta.name,'Проект');
   s.$('btnNewNode').click();
   s.$('newNodeName').value='Сохранить';

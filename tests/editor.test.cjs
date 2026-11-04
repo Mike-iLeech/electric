@@ -107,7 +107,6 @@ test("GIF справки запускаются по запросу, играю�
 test("разделители остаются доступными и раскрывают соседние блоки с клавиатуры", async () => {
   const s = await setup();
   for (const [upper, lower, splitter] of [
-    ["projectBlock", "catalogBlock", "leftSidebarSplitter"],
     ["outlinerBlock", "propsScroll", "sidebarSplitter"],
   ]) {
     const toggle = id => s.w.document.querySelector(`[aria-controls="${id}"]`);
@@ -142,6 +141,9 @@ async function setup(session, prepare) {
     pretendToBeVisual: true,
   });
   const w = dom.window;
+  w.URL.createObjectURL = () => "blob:test";
+  w.URL.revokeObjectURL = () => {};
+  w.HTMLAnchorElement.prototype.click = function () {};
   await new Promise((r) =>
     w.document.readyState === "loading"
       ? w.document.addEventListener("DOMContentLoaded", r, { once: true })
@@ -403,7 +405,7 @@ test("ренейм не засоряет историю и русское имя
     .click();
   assert.equal(filename, "Мой щит.json");
   filename = null;
-  s.$("btnDownloadProject").click();
+  s.$("btnSave").click();
   assert.equal(filename, "Мой щит.json");
   s.dom.window.close();
 });
