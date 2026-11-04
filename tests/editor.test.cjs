@@ -108,7 +108,11 @@ test("сечения: новые дефолты, мощность и локал�
     inputs[2].dispatchEvent(new s.w.Event("input"));
     assert.equal(rows[1].querySelector('[data-rating="16"]').textContent,"3×4 mm²");
     inputs[2].dispatchEvent(new s.w.Event("change"));
-    if(desktop) await new Promise(r=>setTimeout(r,200));
+    if(desktop) {
+      for(let i=0;i<100&&!data.has("electriccad.ui.v32");i++)
+        await new Promise(r=>setTimeout(r,50));
+      assert.ok(data.has("electriccad.ui.v32"),"desktop settings save completes");
+    }
     else data.set("electriccad.ui.v32",s.w.localStorage.getItem("electriccad.ui.v32"));
     assert.equal(JSON.parse(data.get("electriccad.ui.v32")).cableSections[16],4);
     s.w.close();
