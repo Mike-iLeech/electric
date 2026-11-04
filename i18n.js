@@ -1,6 +1,23 @@
 (function (root) {
   "use strict";
   const phrases = `
+Загрузить проект|||Load project
+Загрузить проект с диска|||Load project from disk
+Загрузить Демо-Проект|||Load demo project
+Импорт JSON · ПКМ — выбрать источник проекта|||Import JSON · Right click — choose project source
+СЕТЬ|||GRID
+Вид ввода|||Source type
+Ввод — щит|||Supply — panel
+Ввод — розетка|||Supply — socket
+Предпросмотр модуля|||Module preview
+Автомат на входе, А|||Input breaker, A
+Разъём выхода по умолчанию|||Default output connector
+Сохранить в каталог|||Save to catalog
+Добавить в схему (без сохранения)|||Add to drawing (without saving)
+Экспорт JSON|||Export JSON
+Импорт JSON|||Import JSON
+Импорт JSON · ПКМ — загрузить демо-схему|||Import JSON · Right click — load demo drawing
+Демо-схема загружена. Ctrl+Z — отменить.|||Demo drawing loaded. Ctrl+Z — undo.
 ← Хаб|||← Hub
 Проект|||Project
 Название проекта|||Project name

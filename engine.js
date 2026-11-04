@@ -32,14 +32,6 @@
       ratings: [16, 32, 63, 125, 250],
       exact: true,
     },
-    powercon: {
-      name: "powerCON TRUE1",
-      phases: 1,
-      pins: "P+N+PE",
-      voltage: "1ф",
-      ratings: [16],
-      exact: true,
-    },
     terminal1: {
       name: "Клеммный ввод 1ф",
       phases: 1,
@@ -76,7 +68,6 @@
         cee1: "CEE P+N+PE",
         cee3: "CEE 3P+N+PE",
         euro: "Schuko",
-        powercon: "powerCON",
         terminal1: "Клеммы P+N+PE",
         terminal3: "Клеммы 3P+N+PE",
       }[key] || "Ввод"
@@ -109,9 +100,9 @@
     const phase = n.phases === 3 ? "Трёхфазный" : "Однофазный";
     const input = n.inputs?.[0];
     const connection = (key, amps) => compactConnectors
-      ? ({cee1:`CEE ${amps}А 1P`,cee3:`CEE ${amps}А 3P`,euro:`SHUKO ${amps}А`,powercon:`powerCON ${amps}А`,terminal1:`Клеммы ${amps}А 1P`,terminal3:`Клеммы ${amps}А 3P`}[key] || `${connectorLabel(key)} ${amps}А`)
+      ? ({cee1:`CEE ${amps}А 1P`,cee3:`CEE ${amps}А 3P`,euro:`SHUKO ${amps}А`,terminal1:`Клеммы ${amps}А 1P`,terminal3:`Клеммы ${amps}А 3P`}[key] || `${connectorLabel(key)} ${amps}А`)
       :
-      (connectors ? ({cee1:"CEE 1ф", cee3:"CEE 3ф", euro:"Schuko", powercon:"powerCON", terminal1:"Клеммы 1ф", terminal3:"Клеммы 3ф"}[key] || connectorLabel(key)) + " " : "") + amps + "А";
+      (connectors ? ({cee1:"CEE 1ф", cee3:"CEE 3ф", euro:"Schuko", terminal1:"Клеммы 1ф", terminal3:"Клеммы 3ф"}[key] || connectorLabel(key)) + " " : "") + amps + "А";
     const from = n.category === "input" ? "Сеть" : connection(input?.connType || n.inConnType, input?.nominalA || n.inA || n.supplyA);
     const groups = new Map();
     for (const o of n.outputs || []) {
@@ -155,7 +146,7 @@
         n.supplyConnType = key;
 
       }
-      if (n.category === "input") {
+      if (n.category === "input" && n.supplyNominalA == null) {
         for (const out of n.outputs) {
           out.breaker ??= n.mainBreaker ? clone(n.mainBreaker) : breaker(out.nominalA, out.phases);
           out.breaker.ratingA = Math.min(out.breaker.ratingA, out.nominalA);
@@ -215,7 +206,9 @@
       shield = false,
       transition = false,
       catalogPath = null,
-      mainA = inA,
+      mainA = category === "distributor" ? inA : null,
+      supplyA = inA,
+      supplyNominalA,
     },
     pos = { x: 0, y: 0 },
   ) {
@@ -236,7 +229,8 @@
         transition ||
         (category === "extender" && inConnType.startsWith("terminal")),
       catalogPath,
-      supplyA: inA,
+      supplyA,
+      ...(supplyNominalA != null ? {supplyNominalA} : {}),
       ...(category === "input" ? { supplyConnType: inConnType } : {}),
       pos: clone(pos),
       inputs: category === "input" ? [] : [port("in", inConnType, inA)],
@@ -259,7 +253,7 @@
             })),
       consumerWatts: watts,
       mainBreaker:
-        category === "distributor" ? breaker(mainA, phases) : null,
+        mainA != null ? breaker(mainA, phases) : null,
     };
     return n;
   }
@@ -427,8 +421,6 @@
           if (!c || c.phases !== v.phases || v.kind !== kind)
             throw Error("Неверный разъём");
           finite(v.nominalA, 1, 1000, "Номинал порта");
-          if (!c.ratings.includes(v.nominalA))
-            throw Error("Такого номинала нет в каталоге разъёмов");
           if (n.phases === 1 && v.phases === 3)
             throw Error("Пассивный переход 1ф → 3ф невозможен");
           if (
@@ -447,7 +439,8 @@
       if (n.category === "input")
         finite(n.supplyA, 1, 1000, "Номинал источника");
       validateBreaker(n.mainBreaker, n.phases);
-      const capacity = n.inputs[0]?.nominalA ?? n.supplyA;
+      if (n.supplyNominalA != null) finite(n.supplyNominalA, 1, 1000, "Номинал ввода");
+      const capacity = n.inputs[0]?.nominalA ?? n.supplyNominalA ?? n.supplyA;
       if (n.mainBreaker && n.mainBreaker.ratingA > capacity)
         throw Error("Вводной автомат выше номинала ввода");
     }
@@ -659,7 +652,7 @@
             : c.loadA[c.inPhase || "L1"];
         const active = activeInputs.get(id);
         const inlet = active ? ix.ports.get(active.to.portId).port : n.inputs[0];
-        c.overload = mx > (inlet?.nominalA ?? n.supplyA) + 1e-8;
+        c.overload = mx > (inlet?.nominalA ?? Math.min(n.supplyA, n.supplyNominalA ?? Infinity)) + 1e-8;
       }
       for (const o of n.outputs) {
         const l = (ix.outgoing.get(id) || []).find(
@@ -722,7 +715,7 @@
       const inlet = link && ix.ports.get(link.to.portId).port;
       const out = link && ix.ports.get(link.from.portId).port;
       let currentLimit = Math.min(upstream?.currentLimit ?? Infinity,
-        inlet?.nominalA ?? n.supplyA, out?.nominalA ?? Infinity,
+        inlet?.nominalA ?? Math.min(n.supplyA, n.supplyNominalA ?? Infinity), out?.nominalA ?? Infinity,
         inlet?.breaker?.ratingA ?? Infinity, out?.breaker?.ratingA ?? Infinity,
         n.mainBreaker?.ratingA ?? Infinity);
       const voltages = upstream ? {...upstream.phaseVoltage} :
@@ -811,7 +804,10 @@
   }
   function cableParameters(link, output, input, settings = {}) {
     const ampacityA = Math.min(output.nominalA, input.nominalA);
-    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable, powerFactor:settings.powerFactor ?? 1};
+    const approximate = cableSections[ampacityA] == null && ampacityA >= 6 && ampacityA <= 600;
+    const profile = {material:"cu", sectionMm2:cableSections[ampacityA] ?? (approximate ? Number((0.0368 * ampacityA ** 1.3754).toFixed(2)) : undefined), ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable, powerFactor:settings.powerFactor ?? 1};
+    profile.sectionApproximate = approximate && !(settings.cableDefaults?.sectionMm2 > 0) && !(link.cable?.sectionMm2 > 0);
+    return profile;
   }
 
   function cableEstimate(cable, phaseCount, currents) {
@@ -886,6 +882,7 @@
       const active = calc.activeInputs.get(n.id);
       const inlet = active ? n.inputs.find(port => port.id === active.to.portId) : n.inputs[0];
       if (inlet) check(c.loadA, inlet.nominalA);
+      else if (n.category === "input") check(c.loadA, Math.min(n.supplyA, n.supplyNominalA ?? Infinity));
       if(n.mainBreaker) check(c.loadA, n.mainBreaker.ratingA);
       for (const out of n.outputs) check(calc.ports.get(out.id)?.loadA, Math.min(out.nominalA, out.breaker?.ratingA ?? Infinity));
       return {nodeId:n.id, phases:[...phases]};
@@ -912,7 +909,7 @@
   }
   function portBodyWidth(n,v){
     if(v.connType.startsWith("terminal"))return v.phases===3?148:128;
-    const label=({powercon:"TRUE1"}[v.connType]||v.connType.toUpperCase())+" "+v.nominalA+"A";
+    const label=v.connType.toUpperCase()+" "+v.nominalA+"A";
     const phase=v.kind==="out"&&n.phases===3&&v.phases===1;
     return 43+(label.length*5.5+16)+(phase?6+23:0);
   }
@@ -1140,7 +1137,7 @@
           phase: PHASES[Math.floor(i / (count / 3))],
         })),
       );
-    for (const conn of ["euro", "cee1", "powercon"])
+    for (const conn of ["euro", "cee1"])
       add(
         "Удлинитель " + CONNECTORS[conn].name + " → 5×Schuko",
         "extender",
@@ -1149,7 +1146,7 @@
         16,
         Array.from({ length: 5 }, () => ({ connType: "euro", nominalA: 16 })),
       );
-    for (const conn of ["euro", "cee1", "powercon"])
+    for (const conn of ["euro", "cee1"])
       for (const w of [1000, 2000, 3000, 3500])
         add(
           CONNECTORS[conn].name + " " + w + " Вт",
@@ -1226,7 +1223,6 @@
         const outs = [
           ...(CONNECTORS[cee].ratings.includes(rating) ? [cee] : []),
           ...(phases === 1 && rating <= 16 ? ["euro"] : []),
-          ...(phases === 1 && rating === 16 ? ["powercon"] : []),
         ];
         for (const conn of outs) {
           add(
@@ -1273,7 +1269,7 @@
           row.category === "input" &&
           !row.shield &&
           row.inConnType.startsWith("terminal")
-        ) && !(row.category === "consumer" && row.inConnType === "powercon"),
+        ),
     );
   }
   function catalogPath(t) {
@@ -1294,8 +1290,6 @@
           ? "Shuko"
           : conn?.startsWith("cee")
             ? "CEE"
-            : conn === "powercon"
-              ? "Powercon"
               : conn?.startsWith("terminal")
                 ? "Клеммные"
                 : "Другие";
@@ -1324,8 +1318,6 @@
           ? "CEE → SHUKO ×5"
           : conn === "euro"
             ? "SHUKO → SHUKO ×5"
-            : conn === "powercon"
-              ? "Powercon → SHUKO ×5"
               : family,
       ];
     return [...path, `${nominal} А`];

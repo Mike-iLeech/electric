@@ -76,7 +76,7 @@ test('динамические свойства, поиск каталога и 
   s.$('newNodeName').value='Сохранить';
   s.$('newNodeName').dispatchEvent(new s.w.Event('input'));
   await new Promise(r=>setTimeout(r,0));
-  assert.ok(s.$('builderPreview').querySelector('strong').textContent.startsWith('Сохранить'));
+  assert.ok(s.$('builderPreview').querySelector('canvas').getAttribute('aria-label').startsWith('Сохранить'));
   s.dom.window.close();
 });
 

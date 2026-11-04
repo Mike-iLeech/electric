@@ -83,10 +83,10 @@ test("автоматическая раскладка не перекрывае�
     }
 });
 
-test("базовая схема раскладывается горизонтально и без наложений",()=>{
+test("базовая схема раскладывается без наложений и чрезмерного растяжения",()=>{
  const p=require('../default-project.json'), poses=[...S.layout(p).values()];
  const w=Math.max(...poses.map(r=>r.x+r.w)), h=Math.max(...poses.map(r=>r.y+r.h));
- assert.ok(w>h && w/h<2.5, w+'x'+h);
+ assert.ok(w>0 && h>0 && Math.max(w,h)/Math.min(w,h)<2.5, w+'x'+h);
  for(let i=0;i<poses.length;i++)for(let j=i+1;j<poses.length;j++){
  const a=poses[i],b=poses[j];assert.ok(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);
  }

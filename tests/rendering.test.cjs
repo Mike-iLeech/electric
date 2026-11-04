@@ -276,7 +276,6 @@ test("каталог содержит все запрошенные ветви �
     "Переходные коробки и кабели",
     "Удлинители/CEE → SHUKO ×5",
     "Удлинители/SHUKO → SHUKO ×5",
-    "Удлинители/Powercon → SHUKO ×5",
     "Потребители/Трёхфазные/CEE",
   ])
     assert.ok(
@@ -351,7 +350,7 @@ test("все шаблоны и максимальный модуль: номен
       E.nomenclature(n, {connectors:true,compactConnectors:true})
         .split(" | ")
         .forEach((part, i) =>
-          assert.equal(texts[i].s, part.replaceAll(" -> ", " → "), "Полная номенклатура: " + n.name),
+          assert.ok(i === 1 ? texts[i].s.endsWith(" " + part) : texts[i].s === part.replaceAll(" -> ", " → "), "Полная номенклатура: " + n.name),
         );
     assert.ok(!texts.some(t => ["ДИСТРИБЬЮТОР","ПОТРЕБИТЕЛЬ","ИСТОЧНИК","ЩИТ","УДЛИНИТЕЛЬ","ПЕРЕХОД"].includes(t.s)), "Нет дублирующей плашки типа");
     for (const t of texts)
@@ -382,5 +381,55 @@ test("плашки автоматов внутри модулей, слева о
  const rects=[...buttons.map(b=>({left:b.left,right:b.left+b.w,top:b.top,bottom:b.top+b.h})),...ports];
  for(const b of buttons){assert.ok(b.left>=r.left&&b.left+b.w<=r.right&&b.top>=r.top&&b.top+b.h<=r.bottom,t.name);const g=R.portGeometry(n,[...n.inputs,...n.outputs].find(v=>v.id===b.portId));assert.ok(n.inputs.some(v=>v.id===b.portId)?b.left>g.right:b.left+b.w<g.left);assert.equal(b.top,g.top);assert.equal(b.h,g.bottom-g.top);}
  for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){const a=rects[i],b=rects[j];assert.ok(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top,t.name);}
+ }
+});
+
+test("цвет ввода-розетки соответствует каталогу и не зависит от выходов", () => {
+  for (const [phases, conn, color] of [[3,"cee3","#ef4444"],[1,"cee1","#1e40af"],[1,"euro","#FFFACD"]]) {
+    const template=E.catalog().find(t=>t.category==="input" && !t.shield && t.phases===phases && t.inConnType===conn);
+    assert.ok(template);
+    const reference=E.makeNode(template);
+    assert.equal(R.fill(reference),color);
+    const customized=E.makeNode({...template,outputs:[{connType:"euro",nominalA:16,phase:phases===3?"L1":null}]});
+    assert.equal(R.fill(customized),R.fill(reference));
+    customized.shield=true;
+    assert.equal(R.fill(customized),"#ffffff");
+  }
+});
+
+test("значок СЕТЬ отображается у всех вводов и не создаёт порт",()=>{
+ for (const template of E.catalog().filter(t=>t.category==="input")) {
+   const n=E.makeNode(template),p=E.project();p.nodes=[n];
+   const labels=[];
+   const ctx=new Proxy({measureText:s=>({width:s.length*5.5}),fillText:s=>labels.push(s)}, {get:(o,k)=>k in o?o[k]:()=>{}});
+   R.paintNode(ctx,n,E.calculate(p).nodes.get(n.id),{project:p,selected:false});
+   assert.ok(labels.includes("СЕТЬ"),template.name);
+   assert.equal(n.inputs.length,0);
+ }
+});
+
+test("вводной автомат стоит у СЕТИ, выходной — у своего порта",()=>{
+ for(const template of E.catalog().filter(t=>t.category==="input")){
+  const n=E.makeNode(template),network=R.gridSupplyGeometry(n),buttons=R.breakerButtons(n);
+  const main=buttons.find(b=>b.main);assert.ok(main,template.name);
+  assert.equal(main.left,network.left+network.w+6);
+  assert.equal(main.top,network.top+1);
+  for(const output of buttons.filter(b=>!b.main)){
+   const port=n.outputs.find(p=>p.id===output.portId),g=R.portGeometry(n,port);
+   assert.equal(output.left,g.left-38);
+   assert.ok(main.left+main.w+2<=output.left || main.top+main.h<=output.top,template.name);
+  }
+ }
+});
+
+test("вторая строка всех нод содержит тип и фазность независимо от названия",()=>{
+ for (const template of E.catalog()) {
+  const n=E.makeNode({...template,name:"Мой модуль",templateName:null}),p=E.project();p.nodes=[n];
+  const labels=[];
+  const ctx=new Proxy({measureText:s=>({width:s.length*5.5}),fillText:s=>labels.push(s)},{get:(o,k)=>k in o?o[k]:()=>{}});
+  R.paintNode(ctx,n,E.calculate(p).nodes.get(n.id),{project:p,selected:false});
+  const type=n.category==="input" ? (n.shield?"Ввод — щит":"Ввод — розетка") : n.category==="distributor"?"Дистрибьютор":n.category==="consumer"?"Потребитель":n.transition?"Переход":"Удлинитель";
+  assert.equal(labels[0],"Мой модуль");
+  assert.equal(labels[1],type+" "+(n.phases===3?"Трёхфазный":"Однофазный"),template.name);
  }
 });

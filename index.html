@@ -667,7 +667,7 @@
             <button class="btn" id="btnExport" title="Экспорт схемы и проекта">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V3m-4 4 4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Экспорт
             </button>
-            <button class="btn" id="btnImport" title="Импорт JSON">
+            <button class="btn" id="btnImport" title="Импорт JSON · ПКМ — выбрать источник проекта">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v13m-4-4 4 4 4-4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Импорт
             </button>
             <button class="btn danger" id="btnClear">
@@ -973,7 +973,7 @@
     <ol>
       <li>Наведите указатель на прямой участок кабеля вдали от порта и подписи, зажмите ЛКМ и тяните <strong>поперёк</strong> линии: горизонтальную — вверх или вниз, вертикальную — влево или вправо.</li>
       <li>Отпустите кнопку, чтобы сохранить ручной изгиб. Если новое положение пересекает модуль или занятый кабельный коридор, оно не принимается: попробуйте меньший сдвиг или освободите место.</li>
-      <li>ПКМ по самой линии возвращает этой линии автоматическую трассировку. «Перестроить все трассы» в шестерёнке пересчитывает все маршруты и сбрасывает все ручные изгибы. Завершённое изменение можно отменить через <kbd>Ctrl/Cmd+Z</kbd>.</li>
+      <li>ПКМ по самой линии открывает настройки кабеля. Shift+ПКМ возвращает этой линии автоматическую трассировку. «Перестроить все трассы» в шестерёнке пересчитывает все маршруты и сбрасывает все ручные изгибы. Завершённое изменение можно отменить через <kbd>Ctrl/Cmd+Z</kbd>.</li>
     </ol>
     <p>Перекладка рисунка линии не меняет заданную длину кабеля в метрах. В продвинутом режиме двойной клик по линии или обычный клик по её плашке открывает длину, а ПКМ по плашке — профиль кабеля. Плашку с длиной, ΔU и ΔP можно перетащить вдоль линии отдельно от маршрута. Если плашки нет, включите «Продвинутый режим» в шестерёнке и задайте положительную длину кабеля.</p>
     <h3>Копирование, удаление и исправление ошибок</h3>
@@ -1014,7 +1014,7 @@
   <section class="helpGuide" id="helpConnect"><h2>Порты и трассировка</h2>
     <figure class="helpScreenshot"><button type="button" class="helpImageButton" aria-label="Увеличить изображение: Порты и трассировка"><img class="helpDrawing" src="help-images/connections.jpg" alt="Имена соединённых модулей и кнопка «Разъединить» в свойствах линии." loading="lazy"><span>Увеличить</span></button><figcaption>В свойствах линии указано, какие модули соединены. Кнопка «Разъединить» удаляет это соединение.</figcaption></figure>
     <p>Соединяйте выход со входом: перетащите линию от одного порта к другому или нажмите порты последовательно. Разъединение — ПКМ по порту, кнопка разъединения при выборе порта или действие в его свойствах. Связь проверяется на совместимость разъёмов, фазности, номиналов и занятость портов; петли в графе не допускаются.</p>
-    <p>Маршрут прокладывается автоматически. Перетащите прямой сегмент поперёк, чтобы изменить его положение; ПКМ по линии возвращает автоматический маршрут. В меню шестерёнки «Перестроить трассы» заново строит все линии и сбрасывает ручные изгибы. Авторасстановка раздвигает модули там, где не хватает расстояния. При отсутствии свободного пути раздвиньте модули и перестройте трассы.</p>
+    <p>Маршрут прокладывается автоматически. Перетащите прямой сегмент поперёк, чтобы изменить его положение; ПКМ по линии открывает настройки кабеля, Shift+ПКМ возвращает автоматический маршрут. В меню шестерёнки «Перестроить трассы» заново строит все линии и сбрасывает ручные изгибы. Авторасстановка раздвигает модули там, где не хватает расстояния. При отсутствии свободного пути раздвиньте модули и перестройте трассы.</p>
     <p>Опция «Подсветка всей ветки» показывает путь между двумя выбранными модулями. На полотне выбирайте их с Shift; в дереве также подходят Ctrl или Cmd. Ветками считаются цепи от отдельных вводов.</p>
   </section>
   <section class="helpGuide" id="helpProperties"><h2>Свойства, фазы и автоматы</h2>
@@ -1084,120 +1084,53 @@
         </div>
       </div>
       <div class="modalBody">
-        <div class="builderGrid">
-          <div>
-            <label class="field"
-              >Тип<select class="select" id="newNodeType">
+<div class="builderIdentity"><label class="field">Название<input class="input" id="newNodeName" maxlength="160" placeholder="Название модуля"></label>
+<label class="field">Тип<select class="select" id="newNodeType">
                 <option value="input">Ввод / щит</option>
                 <option value="distributor">Дистрибьютор</option>
                 <option value="extender">Удлинитель / переход</option>
                 <option value="consumer">Потребитель</option>
-              </select></label
-            ><label class="field"
-              >Фазность модуля<select class="select" id="modulePhases">
+              </select></label>
+<label class="field">Фазность модуля<select class="select" id="modulePhases">
                 <option value="1">Однофазный</option>
                 <option value="3">Трёхфазный</option>
-              </select></label
-            ><label class="field"
-              >Название<input
-                class="input"
-                id="newNodeName"
-                maxlength="160"
-                placeholder="Название модуля" /></label
-            ><label class="field" id="sourceSupplyField"
-              >Доступный ток источника, А<input
-                id="sourceSupplyA"
-                type="number"
-                class="input"
-                min="1"
-                max="1000"
-                value="32" /></label
-            ><label class="field" id="sourceShieldField"
-              ><input type="checkbox" id="sourceShield" checked="" /> Щит с
-              автоматами</label
-            >
-            <div id="builderInput">
-              <h3>Вход слева</h3>
-              <label class="field"
-                >Разъём входа<select class="select" id="newNodeInConn">
+              </select></label></div>
+<div class="builderGrid">
+<section class="builderIncoming"><label class="field" id="sourceSupplyField">Доступный ток источника, А<input id="sourceSupplyA" type="number" class="input" min="1" max="1000" value="32"></label><label class="field" id="sourceShieldField">Вид ввода<select class="select" id="sourceKind"><option value="shield">Ввод — щит</option><option value="socket">Ввод — розетка</option></select><input type="checkbox" id="sourceShield" hidden checked></label><div id="builderInput">
+              <h3>Вход</h3>
+              <label class="field">Разъём входа<select class="select" id="newNodeInConn">
                   <option value="cee3:3">CEE 3ф</option>
-                </select></label
-              ><label class="field"
-                >Номинал входа, А<input
-                  class="input"
-                  id="newNodeInA"
-                  type="number"
-                  min="1"
-                  value="32"
-              /></label>
-            </div>
-            <label class="field" id="consumerWField"
-              >Потребление, Вт<input
-                class="input"
-                id="newNodeW"
-                type="number"
-                min="0"
-                max="10000000"
-                value="1000"
-            /></label>
-            <div id="mainBreakerField">
-              <label class="field"
-                >Вводной автомат, А<input
-                  class="input"
-                  id="mainBreakerA"
-                  type="number"
-                  min="1"
-                  value="32"
-              /></label>
+                </select></label><label class="field">Номинал входа, А<input class="input" id="newNodeInA" list="moduleRatings" type="number" min="1" value="32"></label>
+            </div><div id="mainBreakerField"><label class="field builderCheck"><span><input type="checkbox" id="mainBreakerEnabled" checked> Автомат</span></label>
+              <label class="field">Автомат на входе, А<input class="input" id="mainBreakerA" list="moduleRatings" type="number" min="1" value="32"></label>
               <p class="hint">
                 Связанный 3P для трёхфазного, 1P для однофазного модуля.
                 Коммутируемые N/PE не моделируются.
               </p>
-            </div>
-          </div>
-          <div>
-            <div id="builderDefaults">
-              <h3>Выходы справа</h3>
-              <label class="field" id="outputsCountField"
-                >Количество выходов<input
-                  class="input"
-                  id="newNodeOutCount"
-                  type="number"
-                  min="1"
-                  max="32"
-                  value="3" /></label
-              ><label class="field"
-                >Разъём по умолчанию<select class="select" id="newNodeOutConn">
+            </div><label class="field" id="consumerWField">Потребление, Вт<input class="input" id="newNodeW" type="number" min="0" max="10000000" value="1000"></label></section>
+<div class="builderPreviewStage"><span class="hint">Предпросмотр модуля</span><div id="builderPreview" aria-label="Предпросмотр модуля" aria-live="polite"></div></div>
+<section class="builderOutgoing"><div id="builderDefaults">
+              <h3>Выходы</h3>
+              <label class="field" id="outputsCountField">Количество выходов<input class="input" id="newNodeOutCount" type="number" min="1" max="32" value="3"></label><label class="field">Разъём выхода по умолчанию<select class="select" id="newNodeOutConn">
                   <option value="euro:1">Schuko</option>
-                </select></label
-              ><label class="field"
-                >Номинал по умолчанию, А<input
-                  class="input"
-                  id="newNodeOutA"
-                  type="number"
-                  min="1"
-                  value="16" /></label
-              ><button class="btn" id="btnApplyPorts">
+                </select></label><label class="field">Номинал по умолчанию, А<input class="input" id="newNodeOutA" type="number" min="1" value="16"></label><button class="btn" id="btnApplyPorts">
                 Применить ко всем выходам
               </button>
               <p class="hint">
                 Каждый выход настраивается отдельно ниже: разъём, номинал, фаза
                 и автомат. Для 1ф ветки фаза наследуется от питания.
               </p>
-            </div>
-            <div id="builderPreview" aria-label="Предпросмотр модуля"></div>
-          </div>
-        </div>
-        <div id="builderOutputs">
+            </div></section></div>
+<datalist id="moduleRatings"><option value="6"></option><option value="10"></option><option value="16"></option><option value="32"></option><option value="63"></option><option value="125"></option><option value="250"></option></datalist><div id="builderOutputs">
           <h3>Порты и автоматы выходов</h3>
           <div id="outputRows"></div>
         </div>
-        <p id="builderError" role="alert"></p>
+        <p id="builderError" role="alert"></p><div class="builderSaveLocation" id="builderSaveLocation"><p id="builderCatalogDestination"></p><p id="builderStorageDestination"></p></div>
       </div>
       <div class="modalFooter">
         <button class="btn" id="btnSaveTemplate">
-          Сохранить в свой каталог</button
-        ><button class="btn primary" id="btnCreateNode">Создать</button>
+          Сохранить в каталог</button
+        ><button class="btn primary" id="btnCreateNode">Добавить в схему (без сохранения)</button><button class="btn" id="btnExportModule">Экспорт JSON</button><button class="btn" id="btnImportModule">Импорт JSON</button><input id="moduleJsonFile" type="file" accept=".json,application/json" hidden>
       </div>
     </div>
     <script src="i18n-help.js" defer></script>
@@ -1254,7 +1187,7 @@
       <option value="63"></option>
       <option value="125"></option>
       <option value="250"></option></datalist
-    ><datalist id="ratings-powercon"><option value="16"></option></datalist
+    ><datalist id="ratings-standard"><option value="16"></option></datalist
     ><datalist id="ratings-terminal1">
       <option value="16"></option>
       <option value="32"></option>
@@ -1268,7 +1201,15 @@
       <option value="125"></option>
       <option value="250"></option>
     </datalist>
-    <dialog id="cableSettingsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSettingsTitle">
+    <dialog id="importChoiceDialog" class="importChoiceDialog" aria-labelledby="importChoiceTitle">
+        <strong id="importChoiceTitle">Загрузить проект</strong>
+        <div class="importChoiceActions">
+          <button class="btn" id="btnImportFromDisk" type="button">Загрузить проект с диска</button>
+          <button class="btn primary" id="btnLoadDemoProject" type="button">Загрузить Демо-Проект</button>
+        </div>
+        <button class="btn" id="btnCancelImportChoice" type="button">Отмена</button>
+      </dialog>
+      <dialog id="cableSettingsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSettingsTitle">
       <strong id="cableSettingsTitle">Настройки кабельной линии</strong>
       <div id="cableSettingsAlert" class="cableWarning" role="alert" hidden></div>
       <div id="cableSettingsBody"></div>

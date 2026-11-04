@@ -217,7 +217,9 @@ test("1ф→3ф пассивный переход, недопустимый но
   p.nodes = [];
   const n = ext(p);
   n.outputs[0].nominalA = 32;
-  assert.throws(() => E.validate(p), /номинала/);
+  assert.doesNotThrow(() => E.validate(p));
+  n.outputs[0].nominalA = 1001;
+  assert.throws(() => E.validate(p), /Номинал порта/);
   n.outputs[0].nominalA = 16;
   n.outputs[0].breaker = E.breaker(20);
   assert.throws(() => E.validate(p), /выше/);
@@ -460,4 +462,34 @@ test("сценарий защиты вычисляет ток петли, диа
   assert.ok(Math.abs(result.thermal[0] - .5*(1+Math.exp(-1))) < 1e-9);
   assert.equal(result.ttTouchV,3);
   assert.ok(result.rcdThresholdReached && result.disconnectionWithinTarget);
+});
+
+test("примерное сечение нестандартных номиналов рассчитывается по заданной формуле",()=>{
+ for(const nominalA of [6,16,80,300,600,601,5]) {
+  const p={nominalA};const cable=E.cableParameters({},p,p);
+  if([80,300,600].includes(nominalA)) {
+   assert.equal(cable.sectionMm2,Number((0.0368*nominalA**1.3754).toFixed(2)));
+   assert.equal(cable.sectionApproximate,true);
+  } else if([6,16].includes(nominalA)) {
+   assert.equal(cable.sectionMm2,E.CABLE_SECTIONS[nominalA]);assert.equal(cable.sectionApproximate,false);
+  } else {assert.equal(cable.sectionMm2,undefined);assert.equal(cable.sectionApproximate,false);}
+ }
+ const p={nominalA:600};
+ assert.equal(E.cableParameters({cable:{sectionMm2:185}},p,p).sectionApproximate,false);
+ assert.equal(E.cableParameters({cable:{sectionMm2:185}},p,p).sectionMm2,185);
+ assert.equal(E.cableParameters({},p,p,{cableDefaults:{sectionMm2:240}}).sectionApproximate,false);
+});
+
+test("номинал ввода источника ограничивает доступную мощность независимо от запаса сети",()=>{
+ const p=E.project();p.settings.advancedMode=true;
+ const source=E.makeNode({name:"Сеть 600 / ввод 16",category:"input",phases:1,inConnType:"cee1",inA:16,supplyA:600,supplyNominalA:16,mainA:null,outputs:[{connType:"cee1",nominalA:63,breaker:null}]});
+ const load=E.makeNode({name:"Нагрузка",category:"consumer",phases:1,inConnType:"cee1",inA:63,watts:4600,mainA:null});
+ p.nodes=[source,load];E.connect(p,{nodeId:source.id,portId:source.outputs[0].id},{nodeId:load.id,portId:load.inputs[0].id});
+ const calc=E.calculate(p);
+ assert.equal(calc.nodes.get(source.id).currentLimit,16);
+ assert.equal(calc.nodes.get(source.id).availableWatts,3680);
+ assert.equal(calc.nodes.get(load.id).currentLimit,16);
+ assert.equal(calc.nodes.get(load.id).availableWatts,3680);
+ assert.equal(calc.nodes.get(source.id).overload,true);
+ assert.deepEqual(E.overloadOrigins(p,calc).find(o=>o.nodeId===source.id).phases,["L1"]);
 });
