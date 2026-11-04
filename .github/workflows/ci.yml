@@ -10,6 +10,49 @@ permissions:
   contents: read
 
 jobs:
+  macos-desktop:
+    name: macOS ${{ matrix.arch }} DMG and ZIP
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - name: Native Electron persistence and exports
+        run: node scripts/desktop-smoke.cjs
+      - name: Build native macOS app and disk image
+        run: pnpm exec electron-builder --config electron-builder.cjs --config.compression=normal --mac --${{ matrix.arch }} --publish never
+        env:
+          # Ad-hoc identity "-" needs no certificate or signing secrets.
+          CSC_FOR_PULL_REQUEST: 'true'
+      - name: Verify app architecture, signature and icons
+        run: node scripts/mac-verify.cjs ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElectricCAD-Easy-macOS-${{ matrix.arch }}
+          path: |
+            release/*-mac-${{ matrix.arch }}.dmg
+            release/*-mac-${{ matrix.arch }}.zip
+          if-no-files-found: error
   test-and-build:
     name: Test and build
     runs-on: ubuntu-latest
