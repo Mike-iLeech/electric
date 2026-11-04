@@ -271,3 +271,15 @@ test('импорт отвергает некорректные мировые п
   const p=E.project();p.settings.cableDefaults=defaults;assert.throws(()=>E.validate(p));
  }
 });
+
+test('cos φ повышает ток при той же мощности и снижает доступную активную мощность',()=>{
+ const p=E.project();const source=E.makeNode(E.catalog().find(n=>n.category==='input'));
+ const load=E.makeNode(E.catalog().find(n=>n.category==='consumer'));
+ p.nodes=[source,load];
+ // A standalone load still has demand current independent of whether it is powered.
+ p.settings.powerFactor=1;const first=E.calculate(p);
+ p.settings.powerFactor=.5;E.validate(p);const second=E.calculate(p);
+ assert.equal(E.sum(second.nodes.get(load.id).demandA),E.sum(first.nodes.get(load.id).demandA)*2);
+ assert.equal(second.nodes.get(source.id).availableWatts,first.nodes.get(source.id).availableWatts/2);
+ for(const value of [0,1.1,NaN]){p.settings.powerFactor=value;assert.throws(()=>E.validate(p));}
+});

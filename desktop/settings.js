@@ -1,6 +1,7 @@
 "use strict";
 (() => {
   const api = window.electricDesktop, $ = id => document.getElementById(id);
+  if(!api?.getSettings)return;
   const messages = {
     ru: {
       title:"Настройки", languageTitle:"Язык приложения", languageLabel:"Язык интерфейса", languageHint:"Применяется сразу. Названия ваших проектов и модулей сохраняются.",
@@ -29,9 +30,9 @@
   function render(value) {
     snapshot = value;
     const { preferences: p, update: u } = value, m = messages[p.language] || messages.ru;
-    document.documentElement.lang = p.language; document.title = m.title + " — ElectricCAD Easy";
+    document.documentElement.lang = p.language; if(location.pathname.endsWith("settings.html")) document.title = m.title + " — ElectricCAD Easy";
     for (const item of document.querySelectorAll("[data-text]")) item.textContent = m[item.dataset.text];
-    $("version").textContent = "ElectricCAD Easy " + value.version;
+    if($("version")) $("version").textContent = "ElectricCAD Easy " + value.version;
     $("language").value = p.language; $("autoUpdate").checked = p.autoUpdate;
     $("dataPath").textContent = value.dataDirectory;
     $("lastCheck").textContent = p.lastUpdateCheck ? m.last + new Date(p.lastUpdateCheck).toLocaleString(p.language === "ru" ? "ru-RU" : "en-US") : m.never;

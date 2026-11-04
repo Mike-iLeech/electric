@@ -357,8 +357,9 @@
       throw Error("Неподдерживаемый формат проекта");
     text(p.meta.name, "Название");
     finite(p.settings?.voltageLN, 100, 300, "Фазное напряжение");
-    if (p.settings.powerFactor !== 1 || p.settings.frequency !== 50)
-      throw Error("Модель поддерживает PF=1 и 50 Гц");
+    finite(p.settings.powerFactor, 0.01, 1, "Коэффициент мощности");
+    if (p.settings.frequency !== 50)
+      throw Error("Модель поддерживает частоту 50 Гц");
     if (p.settings.cableDefaults !== undefined) {
       const defaults = p.settings.cableDefaults;
       if (!defaults || typeof defaults !== "object" || Array.isArray(defaults) || Object.keys(defaults).some(key => !["ambientC","maxDropPercent","thermalResistance","material"].includes(key))) throw Error("Некорректные настройки кабелей мира");
@@ -648,8 +649,8 @@
       for (const l of (ix.outgoing.get(id) || []).filter(link => activeInputs.get(link.to.nodeId) === link))
         add(c.loadW, computed.get(l.to.nodeId).loadW);
       for (const k of PHASES) {
-        c.loadA[k] = c.loadW[k] / p.settings.voltageLN;
-        c.demandA[k] = c.demandW[k] / p.settings.voltageLN;
+        c.loadA[k] = c.loadW[k] / (p.settings.voltageLN * p.settings.powerFactor);
+        c.demandA[k] = c.demandW[k] / (p.settings.voltageLN * p.settings.powerFactor);
       }
       {
         const mx =
@@ -675,8 +676,8 @@
           overload: false,
         };
         for (const k of PHASES) {
-          v.demandA[k] = demandW[k] / p.settings.voltageLN;
-          v.loadA[k] = loadW[k] / p.settings.voltageLN;
+          v.demandA[k] = demandW[k] / (p.settings.voltageLN * p.settings.powerFactor);
+          v.loadA[k] = loadW[k] / (p.settings.voltageLN * p.settings.powerFactor);
         }
         const mx = Math.max(...Object.values(v.loadA));
         v.overload = mx > o.nominalA + 1e-8;
@@ -744,7 +745,7 @@
       c.phaseVoltage = voltages;
       c.voltageLN = n.phases === 3 ? Math.min(...Object.values(voltages)) : voltages[c.inPhase || "L1"];
       c.currentLimit = currentLimit;
-      c.availableWatts = c.powered ? currentLimit * c.voltageLN * n.phases : 0;
+      c.availableWatts = c.powered ? currentLimit * c.voltageLN * n.phases * p.settings.powerFactor : 0;
       c.localVoltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
         c.voltageLN < p.settings.voltageLN - 1e-8 && sum(c.loadW) > c.availableWatts + 1e-8;
       c.upstreamVoltagePowerDeficit = !!p.settings.advancedMode && c.powered &&
@@ -810,7 +811,7 @@
   }
   function cableParameters(link, output, input, settings = {}) {
     const ampacityA = Math.min(output.nominalA, input.nominalA);
-    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable};
+    return {powerFactor:settings.powerFactor ?? 1, material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable};
   }
 
   function cableEstimate(cable, phaseCount, currents) {
@@ -823,11 +824,12 @@
     const total = values.reduce((sum, value) => sum + value, 0);
     const squares = values.reduce((sum, value) => sum + value ** 2, 0);
     const neutralSquared = Math.max(0, (3 * squares - total ** 2) / 2);
+    const pf = cable.powerFactor ?? 1;
     const phaseDropV = Object.fromEntries(PHASES.map((phase, i) => [
-      phase, resistance * (2 * values[i] - (total - values[i]) / 2),
+      phase, pf * resistance * (2 * values[i] - (total - values[i]) / 2),
     ]));
-    const dropV = phaseCount === 1 ? 2 * current * resistance
-      : balanced ? Math.sqrt(3) * current * resistance : Math.max(...Object.values(phaseDropV));
+    const dropV = phaseCount === 1 ? 2 * current * resistance * pf
+      : balanced ? Math.sqrt(3) * current * resistance * pf : Math.max(...Object.values(phaseDropV));
     const lossW = resistance * (squares + neutralSquared);
     return { dropV, lossW, phaseDropV, lineVoltage: phaseCount === 3 && balanced,
       resistance, current, exceedsAmpacity: current > ampacityA };
@@ -847,7 +849,7 @@
     const currentLimit = Math.min(cable.ampacityA, nominalA);
     if (estimate.current > currentLimit)
       warnings.push("Ток " + estimate.current.toFixed(1) + " А выше допустимых " + currentLimit + " А для линии.");
-    const nominalW = nominalA * output.phases * voltageLN;
+    const nominalW = nominalA * output.phases * voltageLN * (cable.powerFactor ?? 1);
     if (estimate.lossW > nominalW)
       warnings.push("Потери " + estimate.lossW.toFixed(0) + " Вт выше номинальной мощности линии " + nominalW.toFixed(0) + " Вт.");
     if (warnings.length) warnings.push("Увеличьте сечение, снизьте нагрузку или сократите длину линии. При превышении номинала разъёмов снизьте нагрузку или замените разъёмы.");

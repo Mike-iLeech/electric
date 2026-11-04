@@ -91,7 +91,13 @@ app.on("browser-window-created", (_event, win) => {
         assert.equal(png.subarray(1, 4).toString(), "PNG");
         const jpg = await download("jpg", "document.querySelector('[title=\"Сохранить JPG\"]').click()");
         assert.equal(jpg.subarray(0, 2).toString("hex"), "ffd8");
+        assert.equal(await js("document.querySelectorAll('.projectSettingsRow > button').length"),2);
+        await js("document.querySelector('.schemeExport [aria-label=\"Закрыть\"]').click();document.getElementById('btnAppSettings').click()");
+        assert.equal(await js("document.getElementById('appSettingsDialog').open && !document.getElementById('pcSettingsInline').hidden"),true);
+        assert.equal(await js("document.getElementById('appSettingsDialog').contains(document.getElementById('autoUpdate'))"),true);
+        assert.equal(await js("!!document.querySelector('.exportCompletionToast button')"),true);
       }
+      await new Promise(resolve=>setTimeout(resolve,200));
       fs.writeFileSync(path.join(directory, phase + ".png"), (await win.webContents.capturePage()).toPNG());
       assert.equal(await js("electricPrepareToExit()"), true);
       assert.deepEqual(errors, []);

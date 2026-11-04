@@ -20,6 +20,7 @@ app.setAppUserModelId("org.ileech.electriccad");
 protocol.registerSchemesAsPrivileged([{ scheme: "electriccad", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 let mainWindow, settingsWindow, preferences, updates;
+const exportedFiles = new Map();
 const t = value => translate(preferences?.read().language || "ru", value);
 function isAppURL(value) {
   try { const url = new URL(value); url.hash = ""; return url.href === APP_URL; }
@@ -133,6 +134,7 @@ if (!app.requestSingleInstanceLock()) {
       return callback(value);
     });
     handle("electric:open-settings", () => openSettings());
+    handle("electric:open-export", async token => {const file=exportedFiles.get(token);if(!file)throw Error("Неизвестный экспорт");const error=await shell.openPath(file);if(error)throw Error(error);});
     handle("electric:get-settings", () => snapshot());
     handle("electric:set-preferences", changes => {
       const before = preferences.read();
@@ -187,6 +189,11 @@ if (!app.requestSingleInstanceLock()) {
       item.setSaveDialogOptions({ title: t("Сохранить") + " " + ext.toUpperCase(), defaultPath: path.join(root, folder, filename),
         filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
       item.once("done", (_event, state) => {
+        if(state === "completed" && !mainWindow.isDestroyed() && ext !== "json") {
+          const token=crypto.randomUUID(), file=item.getSavePath();exportedFiles.set(token,file);
+          if(exportedFiles.size>100)exportedFiles.delete(exportedFiles.keys().next().value);
+          mainWindow.webContents.send("electric:export-completed",{token,path:file});
+        }
         if (state === "interrupted" && !mainWindow.isDestroyed())
           dialog.showMessageBox(mainWindow, { type: "error", message: t("Не удалось сохранить файл"), detail: t("Проверьте свободное место и доступ к выбранной папке.") });
       });
@@ -202,8 +209,8 @@ if (!app.requestSingleInstanceLock()) {
         { type: "separator" }, { label: "Выход", role: "quit" },
       ] },
       { label: "Настройки", submenu: [
-        { label: "Настройки приложения…", accelerator:"Ctrl+,", click:openSettings },
-        { label: "Проверить обновления…", click: () => { openSettings(); void updates.check({manual:true}); } },
+        { label: "Настройки приложения…", accelerator:"Ctrl+,", click:()=>command("btnAppSettings") },
+        { label: "Проверить обновления…", click: () => { command("btnAppSettings"); void updates.check({manual:true}); } },
       ] },
       { label: "Окно", submenu: [{ label: "На весь экран", role: "togglefullscreen" }] },
       { label: "Помощь", submenu: [

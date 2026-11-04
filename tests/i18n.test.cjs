@@ -45,7 +45,7 @@ test('RU/EN меняет интерфейс и всю текстовую спр�
   for(const block of helpBlocks) assert.doesNotMatch(block.textContent,/[А-Яа-яЁё]/,block.textContent);
   for(const section of s.w.document.querySelectorAll('.helpGuide'))
     assert.doesNotMatch(section.textContent,/[А-Яа-яЁё]/,section.id);
-  assert.match(s.$('helpCalculations').textContent,/Iphase = Pphase\/Uphase/);
+  assert.match(s.$('helpCalculations').textContent,/Iphase = Pphase\/\(Uphase × cos φ\)/);
   const project=JSON.stringify(s.w.electricDiagnostics().project);
   s.setLanguage('ru'); await new Promise(r=>setTimeout(r,0));
   assert.equal(s.$('btnSave').textContent.trim(),'Сохранить');

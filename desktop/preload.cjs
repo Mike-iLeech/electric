@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld("electricDesktop", {
     getItem: key => request("get", key),
     setItem: (key, value) => request("set", key, value),
   },
+  openExport: token => ipcRenderer.invoke("electric:open-export", token),
+  onExportCompleted: callback => {const listener=(_event,value)=>callback(value);ipcRenderer.on("electric:export-completed",listener);return ()=>ipcRenderer.removeListener("electric:export-completed",listener);},
   openDataFolder: () => ipcRenderer.invoke("electric:open-data"),
   openSettings: () => ipcRenderer.invoke("electric:open-settings"),
   getSettings: () => ipcRenderer.invoke("electric:get-settings"),

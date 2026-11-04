@@ -864,7 +864,7 @@
     if (n.category === "consumer") {
       const a =
         n.consumerWatts /
-        (ui.project.settings.voltageLN * (n.phases === 3 ? 3 : 1));
+        (ui.project.settings.voltageLN * ui.project.settings.powerFactor * (n.phases === 3 ? 3 : 1));
       capsule(
         ctx,
         `${(n.consumerWatts / 1000).toFixed(1)}кВт / ${a.toFixed(1)}А${n.phases === 3 ? "/ф" : ""}`,

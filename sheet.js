@@ -93,7 +93,7 @@
     c.strokeRect(f.x, f.y, f.w, f.h);
     text("СХЕМА ЭЛЕКТРИЧЕСКАЯ ОДНОЛИНЕЙНАЯ", f.x + 5 * mm, f.y + 6 * mm, 3.5);
     text(
-      `${p.settings.voltageLN} / ${fmt(p.settings.voltageLN * Math.sqrt(3))} В; 50 Гц; cos φ = 1`,
+      `${p.settings.voltageLN} / ${fmt(p.settings.voltageLN * Math.sqrt(3))} В; 50 Гц; cos φ = ${p.settings.powerFactor}`,
       f.x + 5 * mm,
       f.y + 12 * mm,
       2.5,
