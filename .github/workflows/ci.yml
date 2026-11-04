@@ -41,6 +41,9 @@ jobs:
         run: node scripts/desktop-smoke.cjs
       - name: Build native macOS app and disk image
         run: pnpm exec electron-builder --config electron-builder.cjs --mac --${{ matrix.arch }} --publish never
+        env:
+          # Ad-hoc identity "-" needs no certificate or signing secrets.
+          CSC_FOR_PULL_REQUEST: 'true'
       - name: Verify app architecture, signature and icons
         run: node scripts/mac-verify.cjs ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4

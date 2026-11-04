@@ -32,7 +32,7 @@ module.exports = {
     ...signing.win,
   },
   mac: {
-    target: [{target:"dmg",arch:["arm64","x64"]},{target:"zip",arch:["arm64","x64"]}],
+    target: ["dmg","zip"],
     artifactName: "ElectricCAD-Easy-${version}-mac-${arch}.${ext}",
     icon: "desktop/assets/icon.png",
     category: "public.app-category.productivity",
