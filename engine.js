@@ -359,6 +359,12 @@
     finite(p.settings?.voltageLN, 100, 300, "Фазное напряжение");
     if (p.settings.powerFactor !== 1 || p.settings.frequency !== 50)
       throw Error("Модель поддерживает PF=1 и 50 Гц");
+    if (p.settings.cableDefaults) {
+      const defaults = p.settings.cableDefaults;
+      for (const [key,min,max] of [["ambientC",-50,100],["maxDropPercent",0.1,100],["thermalResistance",0.0001,1000]])
+        if (defaults[key] !== undefined) finite(defaults[key],min,max,"Настройки мира: " + key);
+      if (defaults.material !== undefined && !["cu","al"].includes(defaults.material)) throw Error("Неверный материал проводников по умолчанию");
+    }
     finite(p.view?.panX, -1e7, 1e7, "Pan X");
     finite(p.view?.panY, -1e7, 1e7, "Pan Y");
     finite(p.view?.zoom, 0.01, 2.5, "Масштаб");
@@ -720,7 +726,7 @@
       const voltages = upstream ? {...upstream.phaseVoltage} :
         Object.fromEntries(PHASES.map(phase => [phase, p.settings.voltageLN]));
       if (p.settings.advancedMode && c.powered && link?.cable?.lengthM > 0) {
-        const cable = cableParameters(link, out, inlet);
+        const cable = cableParameters(link, out, inlet, p.settings);
         const estimate = cableEstimate(cable, out.phases, portLoads.get(out.id).loadA);
         if (estimate) {
           const sendingVoltage = upstream.voltageLN * (estimate.lineVoltage ? Math.sqrt(3) : 1);
@@ -801,9 +807,9 @@
       return [rating, Number.isFinite(section) && section > 0 && section <= 1000 ? section : fallback];
     }));
   }
-  function cableParameters(link, output, input) {
+  function cableParameters(link, output, input, settings = {}) {
     const ampacityA = Math.min(output.nominalA, input.nominalA);
-    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...link.cable};
+    return {material:"cu", sectionMm2:cableSections[ampacityA], ampacityA, ambientC:20, maxDropPercent:5, ...settings.cableDefaults, ...link.cable};
   }
 
   function cableEstimate(cable, phaseCount, currents) {

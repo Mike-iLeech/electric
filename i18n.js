@@ -17,6 +17,20 @@
 Линейное, В|||Line, V
 Настройки|||Settings
 Настройки приложения|||Application settings
+Обновления и данные PC|||PC updates and data
+Настройки мира|||World settings
+Режимы работы|||Operating modes
+Управление|||Controls
+Номинал, А|||Rating, A
+Сечение, мм²|||Cross-section, mm²
+Допущения модели|||Model assumptions
+Подробнее — справка|||Learn more — help
+Температура среды по умолчанию, °C|||Default ambient temperature, °C
+Предел падения U на участке, %|||Section voltage drop limit, %
+Тепловое сопротивление участка по умолчанию, К/Вт|||Default section thermal resistance, K/W
+Материал проводников по умолчанию|||Default conductor material
+Коэффициент мощности PF|||Power factor PF
+Частота электрической сети, Гц|||Grid frequency, Hz
 Разъём|||Connector
 Фаза|||Phase
 Номинал автомата, А|||Breaker rating, A

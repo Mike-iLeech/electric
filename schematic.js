@@ -316,7 +316,7 @@
     for (const link of orderedLinks.values()) {
       const out = ix.ports.get(link.from.portId).port;
       const inlet = ix.ports.get(link.to.portId).port;
-      const cable = E.cableParameters(link, out, inlet);
+      const cable = E.cableParameters(link, out, inlet, p.settings);
       const estimate = E.cableEstimate(cable, out.phases, calc.ports.get(out.id).loadA);
       const length = cable.lengthM > 0 ? format.format(cable.lengthM) + " м" : "—";
       rows.set(link.id, {

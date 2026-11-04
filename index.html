@@ -765,10 +765,10 @@
             class="btn"
             id="btnTrip"
             title="Отключить включённые автоматы, где текущий ток выше номинала"
-          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Продвинутый режим даёт оценку потерь и падения напряжения на заданном кабеле.</p></div></details></div>
+          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 17H3ZM12 9v4m0 3v1"/></svg><span>Проверить автоматы</span></button></div></details><div class="worldModelCard">          <div id="sessionStatus" role="status"></div></div>
 </div>
 <span class="chip" id="collapsedPowerTotal"></span>
-<button class="chip" id="btnCableSections" type="button">Сечения кабелей</button>
+<button class="btn" id="btnAppSettings" type="button" title="Настройки приложения">⚙ Настройки</button>
         </div>
         <div
           class="workspace"
@@ -946,7 +946,7 @@
       <li>Если потеряли схему, нажмите «Вся схема» или <kbd>Shift+F</kbd>. Кнопка «0;0» или <kbd>F</kbd> возвращает начало координат в центр и устанавливает масштаб 100%.</li>
       <li>Чтобы найти отдельный модуль, выберите его в списке «Быстрый выбор» дерева проекта или дважды нажмите его название в дереве. Вид центрируется на модуле с сохранением текущего масштаба.</li>
     </ol>
-    <p>Текущий масштаб показан в верхней строке как Zoom, смещение вида — как Pan. Масштаб полотна не изменяет расчётные длины кабелей и настройки масштаба экспортируемого чертежа.</p>
+    <p>Текущий масштаб показан справа в тулбаре как Zoom, смещение вида — как Pan. Масштаб полотна не изменяет расчётные длины кабелей и настройки масштаба экспортируемого чертежа.</p>
     <h3 id="helpControlSelection">Выделение одного модуля и группы</h3>
     <ul>
       <li><strong>Один модуль:</strong> нажмите ЛКМ на его корпус. Его параметры появятся в блоке «Свойства» справа; если панель скрыта, раскройте её кнопкой. Клик по свободному месту снимает выделение.</li>
@@ -981,7 +981,7 @@
     <p><kbd>Ctrl/Cmd+X</kbd> вырезает выделение. «Удалить», <kbd>Delete</kbd> или <kbd>Backspace</kbd> удаляют выбранные модули вместе с подключёнными к ним связями. «Отменить» и «Повторить» возвращают изменения проекта; изменение масштаба и панорамы не является отдельным шагом истории. Во время переноса модуля, лассо, панорамы или выбора первого порта <kbd>Escape</kbd> отменяет незавершённое действие. В открытой справке или редакторе модуля Escape закрывает окно; при просмотре увеличенного изображения сначала закрывается изображение.</p>
     <h3>Боковые панели, свойства и режимы расчёта</h3>
     <p>Кнопки у левого и правого края панели инструментов скрывают соответствующие сайдбары. Заголовок каждого блока сворачивает его содержимое. Перегородка с ручкой между блоками изменяет их высоту; перетаскивание раскрывает соседние свёрнутые блоки. Для управления перегородкой с клавиатуры выберите её клавишей Tab, затем используйте ↑/↓; Home задаёт минимальную высоту верхнего блока, End — максимальную.</p>
-    <p>Нажатие на корпус выбирает модуль для «Свойств». Раскройте нужный порт в свойствах для его параметров. Клик по плашке автомата переключает его состояние; номинал и характеристика настраиваются в свойствах. Шестерёнка содержит продвинутый режим, подсветку ветки, автоматическое срабатывание, действия с автоматами и трассировкой. Продвинутый режим добавляет настройки и расчёты кабелей; режим «Панорама» меняет только работу указателя. В <a href="#helpCables">«Кабелях»</a> и <a href="#helpProperties">«Свойствах»</a> описаны параметры этих режимов.</p>
+    <p>Нажатие на корпус выбирает модуль для «Свойств». Раскройте нужный порт в свойствах для его параметров. Клик по плашке автомата переключает его состояние; номинал и характеристика настраиваются в свойствах. Окно «Настройки приложения» содержит продвинутый режим, подсветку ветки и автоматическое срабатывание. Команды включения и выключения всех автоматов, проверки автоматов, перестройки трасс и авторасстановки модулей находятся в тулбаре. Продвинутый режим добавляет настройки и расчёты кабелей; режим «Панорама» меняет только работу указателя. В <a href="#helpCables">«Кабелях»</a> и <a href="#helpProperties">«Свойствах»</a> описаны параметры этих режимов.</p>
     <h3>Сенсорный экран</h3>
     <ul>
       <li>Коснитесь корпуса для выбора, удерживайте и перемещайте его для переноса. Двойное касание корпуса открывает правую панель свойств.</li>
@@ -1048,7 +1048,7 @@
     <p>«Файл больше 12 МБ» — уменьшите файл проекта. «Ошибка импорта» описывает несоответствие формата, версии, идентификаторов, параметров или связей; исходный проект остаётся открытым. «Проект импортирован. Фазы пересчитаны» подтверждает успех. Для каталога: «Импорт модулей: …» сообщает причину отклонения файла или ошибку записи; «Импортировано модулей: N», «Все модули из файла уже есть в каталоге» и «Шаблон сохранён в локальном каталоге» описывают результат. «Не удалось сохранить каталог» — проверьте хранилище; перед удалением своего шаблона требуется подтверждение.</p>
     <h3>Операции и проверка ввода</h3><p>«Включено автоматов: N», «Все автоматы уже включены», «Отключено автоматов: N», «Перегрузок включённых автоматов нет» и «Скопировано N модулей» сообщают результат действия. При «Нет свободного места» или «Нет места для вставки» освободите место на поле. «Введите мощность», «Проверьте значение/диапазон» и ошибки конструктора требуют исправить указанные параметры. При «Сначала разъедините удаляемые порты» или «Сначала разъедините резервный ввод» удалите соответствующие соединения. Для паспортной кривой нужны точки с возрастающим током и допустимым диапазоном времени; некорректная операция не применяется.</p>
   </section>
-  <section class="helpGuide" id="helpCalculations"><h2>Как рассчитываются значения</h2>
+  <section class="helpGuide" id="helpCalculations"><details class="modelAssumptions"><summary>Допущения модели</summary><div class="modelExplanation"><div id="modelInfo"></div><p>PF = 1 — коэффициент мощности принят равным единице: учитываем активную нагрузку, без реактивной составляющей.</p><p>50 Гц — частота сети. Uф — фазное напряжение между фазой и нейтралью; Uл — линейное между фазами. Для симметричной трёхфазной сети Uл = √3 × Uф. Изменение одного поля пересчитывает второе.</p><p>Автоматы — пороговая модель по току. B/C/D — справочные характеристики. Продвинутый режим даёт оценку потерь и падения напряжения на заданном кабеле.</p></div></details><h2>Как рассчитываются значения</h2>
     <figure class="helpScreenshot"><button type="button" class="helpImageButton" aria-label="Увеличить изображение: Как рассчитываются значения"><img class="helpDrawing" src="help-images/calculations.jpg" alt="Профиль кабельной линии с током, падением напряжения, потерями и напряжением по пути." loading="lazy"><span>Увеличить</span></button><figcaption>Расчёт в профиле линии: ток, падение напряжения ΔU, потери ΔP и напряжение по пути питания.</figcaption></figure>
     <h3>1. Исходные данные и граф</h3><p>Модель использует фазное напряжение Uф, линейное Uл = √3 × Uф, частоту 50 Гц и коэффициент мощности PF = 1. По умолчанию Uф = 230 В. Источники, порты, автоматы и соединения образуют направленный граф. Резервный ввод выбирается из доступных подключённых путей; при отсутствии доступного используется первый подключённый.</p>
     <h3>2. Нагрузки и фазы</h3><p>Однофазная нагрузка относится к наследуемой фазе, трёхфазная делится поровну: Pф = P/3. Требуемые мощности суммируются снизу вверх независимо от питания; фактические — для запитанных потребителей и выбранного пути. Ток каждой фазы Iф = Pф/Uф рассчитывается по номинальному напряжению. Мощность узла и «Итого» — сумма соответствующих фактических мощностей; ветка привязана к своему вводу.</p>
@@ -1268,20 +1268,6 @@
       <option value="125"></option>
       <option value="250"></option>
     </datalist>
-    <dialog id="cableSectionsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSectionsTitle">
-      <form id="cableSectionsForm">
-        <strong id="cableSectionsTitle">Сечения кабелей</strong>
-        <p>Значения по номиналу линии. Применяются к кабелям без своего сечения.</p>
-        <div id="cableSectionsFields">
-          <div class="cableSectionsHead"><span>Номинал</span><span>Сечение, мм²</span></div>
-        </div>
-        <div class="btnRow">
-          <button class="btn primary" type="submit">Сохранить</button>
-          <button class="btn" id="cableSectionsReset" type="button" title="По умолчанию" aria-label="По умолчанию"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 1 2.6 6.4M3 5v7h7"/></svg></button>
-          <button class="btn" id="cableSectionsCancel" type="button">Отмена</button>
-        </div>
-      </form>
-    </dialog>
     <dialog id="cableSettingsDialog" class="cableLengthDialog cableSettingsDialog" aria-labelledby="cableSettingsTitle">
       <strong id="cableSettingsTitle">Настройки кабельной линии</strong>
       <div id="cableSettingsAlert" class="cableWarning" role="alert" hidden></div>
@@ -1317,5 +1303,33 @@
       </div>
       <div id="actionLogCopyStatus" role="status"></div>
     </dialog>
-  </body>
+  <dialog id="appSettingsDialog" class="cableLengthDialog appSettingsDialog" aria-labelledby="appSettingsTitle">
+<div class="settingsHeader"><h2 id="appSettingsTitle">Настройки</h2><button class="btn" id="closeAppSettings" aria-label="Закрыть настройки">×</button></div>
+<section><h3>Настройки мира</h3><div id="worldVoltageFields"></div>
+<div class="worldFields">
+<label class="field">Температура среды по умолчанию, °C<input class="input" id="worldAmbient" type="number" min="-50" max="100" step="any"></label>
+<label class="field">Предел падения U на участке, %<input class="input" id="worldDrop" type="number" min="0.1" max="100" step="any"></label>
+<label class="field">Тепловое сопротивление участка по умолчанию, К/Вт<input class="input" id="worldThermal" type="number" min="0.0001" max="1000" step="any" placeholder="Не задано"></label>
+<label class="field">Материал проводников по умолчанию<select class="select" id="worldMaterial"><option value="cu">Медь</option><option value="al">Алюминий</option></select></label>
+<label class="field">Коэффициент мощности PF<input class="input" value="1" readonly aria-label="Коэффициент мощности PF"></label>
+<label class="field">cos φ<input class="input" value="1" readonly aria-label="cos φ"></label>
+<label class="field">Частота электрической сети, Гц<input class="input" value="50" readonly aria-label="Частота электрической сети"></label>
+</div><p class="muted">Модель активной нагрузки: PF = cos φ = 1, частота 50 Гц. Индивидуальные параметры кабельной линии имеют приоритет над настройками мира.</p>
+    <section class="settingsCableSections">
+      <form id="cableSectionsForm">
+        <div class="cableSectionsHeading"><h3 id="cableSectionsTitle">Сечения кабелей</h3><span id="cableSectionsResetSlot"></span></div>
+        <p>Значения по номиналу линии. Применяются к кабелям без своего сечения.</p>
+        <div id="cableSectionsFields">
+          <div class="cableSectionsHead"><span>Номинал</span><span>Сечение, мм²</span></div>
+        </div>
+        <div class="btnRow">
+
+          <button class="btn" id="cableSectionsReset" type="button" title="По умолчанию" aria-label="По умолчанию"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 1 2.6 6.4M3 5v7h7"/></svg></button>
+
+        </div>
+      </form>
+    </section>
+
+<details class="settingsAssumptions"><summary>Допущения модели</summary><div class="settingsAssumptionsPopup"><p>Модель учитывает активную нагрузку: PF = cos φ = 1, частота сети — 50 Гц. Для симметричной сети Uл = √3 × Uф.</p><p>Автоматы используют пороговую модель по току. Падение напряжения и потери оцениваются по длине, материалу и сечению кабеля. Тепловая оценка доступна при заданном тепловом сопротивлении.</p><a id="worldAssumptionsHelp" href="#helpCalculations">Подробнее — справка</a></div></details></section>
+</dialog></body>
 </html>
