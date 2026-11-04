@@ -98,3 +98,23 @@ test("все связи базовой схемы направлены впра�
  for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];assert.ok(b.x>=a.x,'Нет возврата влево');for(const r of poses.values())assert.ok(a.y===b.y?!(a.y>r.y&&a.y<r.y+r.h&&Math.max(a.x,b.x)>r.x&&Math.min(a.x,b.x)<r.x+r.w):!(a.x>r.x&&a.x<r.x+r.w&&Math.max(a.y,b.y)>r.y&&Math.min(a.y,b.y)<r.y+r.h));}
  }
 });
+
+test("печатные кабели выдерживают зазор от модулей кроме собственных подводов", () => {
+  const p = require('../default-project.json'), poses = S.layout(p);
+  const routes = S.connectionPaths(p, poses);
+  for (const link of p.links) {
+    const points = routes.get(link.id);
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i+1];
+      if (a.x === b.x && a.y === b.y) continue;
+      for (const [id,r] of poses) {
+        if ((id === link.from.nodeId && i === 0) ||
+            (id === link.to.nodeId && i === points.length-2)) continue;
+        const crossed = a.y === b.y
+          ? a.y > r.y-24 && a.y < r.y+r.h+24 && Math.max(a.x,b.x) > r.x-24 && Math.min(a.x,b.x) < r.x+r.w+24
+          : a.x > r.x-24 && a.x < r.x+r.w+24 && Math.max(a.y,b.y) > r.y-24 && Math.min(a.y,b.y) < r.y+r.h+24;
+        assert.equal(crossed, false, link.id + ' near ' + id);
+      }
+    }
+  }
+});

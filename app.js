@@ -135,10 +135,18 @@
     lastLoggedState = snapshot;
     if (lines.length) recordAction("Изменения проекта и расчёта\n" + lines.join("\n"));
   }
+  function notificationKind(message) {
+    if (message === "Вставлено") return "success";
+    if (/^Перегрузка на фазе/.test(message)) return "overload";
+    if (/^(Не удалось сохранить (проект|сессию)|Локальная сессия недоступна)/.test(message)) return "critical";
+    if (/^(Скопировано|Сессия сохранена|Проект сохран[её]н|Проект импортирован|Импортировано|Шаблон сохран[её]н|Включено автоматов|Восстановлена резервная)/.test(message)) return "success";
+    if (/^(Нажмите второй порт|Все модули|Все автоматы|Перегрузок включённых автоматов нет)/.test(message)) return "info";
+    return "warning";
+  }
   function notify(s) {
     recordAction(s);
     if (E.overloadOrigins(p, calc).length) { announceOverloads(); return; }
-    $("toast").dataset.kind = "info";
+    $("toast").dataset.kind = notificationKind(s);
     $("toastMsg").textContent = s;
     $("toast").style.display = "block";
     clearTimeout(toastTimer);
@@ -758,7 +766,7 @@
   }
   function paste() {
     if (!clipboard) return;
-    transaction(() => {
+    const inserted = transaction(() => {
       const maps = new Map(),
         newNodes = E.clone(clipboard.nodes),
         links = E.clone(clipboard.links),
@@ -810,6 +818,7 @@
         });
       selection = new Set(newNodes.map((n) => n.id));
     });
+    if (inserted) notify("Вставлено");
   }
   function button(text, action, cls = "btn") {
     const el = document.createElement("button");
@@ -1491,16 +1500,38 @@
     title.textContent = "Превью экспорта схемы";
     image.alt = "Вся электрическая схема для экспорта";
     image.draggable = false;
-    let previewZoom = 1, previewX = 0, previewY = 0, previewDrag = null, previewDetailTimer = null, previewDetailed = false;
+    let previewZoom = 1, previewX = 0, previewY = 0, previewDrag = null, previewDetailTimer = null;
     const zoomBar = document.createElement("div"), zoomValue = document.createElement("output");
     zoomBar.className = "exportPreviewControls";
     zoomBar.setAttribute("aria-label", "Масштаб предпросмотра");
+    let detailView = null;
+    const detail = document.createElement("canvas");
+    detail.className = "exportPreviewDetail";
+    const drawPreviewDetail = () => {
+      if (!backdrop.isConnected || previewDrag || !pagePlans?.[selectedPage] || !image.clientWidth) return;
+      const width = previewFrame.clientWidth, height = previewFrame.clientHeight;
+      const scale = image.clientWidth * previewZoom / pagePlans[selectedPage].pw;
+      const x = width / 2 + previewX - image.clientWidth * previewZoom / 2;
+      const y = height / 2 + previewY - image.clientHeight * previewZoom / 2;
+      const rendered = ElectricExport.previewCanvas(pagePlans[selectedPage], width, height, scale, x, y);
+      detail.width = rendered.width; detail.height = rendered.height;
+      detail.style.transform = "";
+      detailView = {zoom:previewZoom, x:previewX, y:previewY};
+      detail.getContext("2d").drawImage(rendered, 0, 0);
+    };
+    image.onload = drawPreviewDetail;
     const applyPreviewView = () => {
       image.style.transform = `translate(${previewX}px, ${previewY}px) scale(${previewZoom})`;
+      if (detailView) {
+        const factor = previewZoom / detailView.zoom;
+        detail.style.transform = `translate(${previewX - factor * detailView.x}px, ${previewY - factor * detailView.y}px) scale(${factor})`;
+      }
       zoomValue.textContent = Math.round(previewZoom * 100) + "%";
+      clearTimeout(previewDetailTimer);
+      previewDetailTimer = setTimeout(drawPreviewDetail, 350);
     };
     const setPreviewZoom = (next, px = 0, py = 0) => {
-      const zoom = Math.max(1, Math.min(8, next));
+      const zoom = Math.max(1, Math.min(32, next));
       const factor = zoom / previewZoom;
       previewX = px - (px - previewX) * factor;
       previewY = py - (py - previewY) * factor;
@@ -1508,12 +1539,7 @@
       if (zoom === 1) previewX = previewY = 0;
       applyPreviewView();
       clearTimeout(previewDetailTimer);
-      if (zoom > 1 && !previewDetailed) previewDetailTimer = setTimeout(() => {
-        if (!backdrop.isConnected) return;
-        const canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 120);
-        image.src = canvas.toDataURL("image/png");
-        previewDetailed = true;
-      }, 250);
+      previewDetailTimer = setTimeout(drawPreviewDetail, 350);
     };
     for (const [label, caption, action] of [
       ["Уменьшить предпросмотр", "−", () => setPreviewZoom(previewZoom / 1.25)],
@@ -1545,7 +1571,7 @@
       previewY = previewDrag.panY + event.clientY - previewDrag.y;
       applyPreviewView();
     };
-    previewFrame.onpointerup = previewFrame.onpointercancel = () => { previewDrag = null; previewFrame.classList.remove("isPanning"); };
+    previewFrame.onpointerup = previewFrame.onpointercancel = () => { previewDrag = null; previewFrame.classList.remove("isPanning"); applyPreviewView(); };
     applyPreviewView();
     const close = () => {
       backdrop.remove();
@@ -1570,7 +1596,7 @@
     };
     const downloadRaster = (ext, type) => {
       const index = selectedPage,
-        raster = ElectricExport.pageCanvas(pagePlans[index]);
+        raster = ElectricExport.rasterCanvas(pagePlans[index]);
       raster.toBlob(
         (b) => {
           download(b, ext, index);
@@ -1607,11 +1633,11 @@
     sheetLabel.textContent = "Лист превью";
     sheetSelect.setAttribute("aria-label", "Лист превью");
     sheetLabel.append(sheetSelect);
-    function refreshDrawing() {
+    function refreshDrawing(rebuild = true) {
       fields.querySelectorAll("[data-orientation]").forEach(button => {
         button.setAttribute("aria-pressed", String(button.dataset.orientation === drawingOptions.orientation));
       });
-      pagePlans = ElectricExport.plans(p, drawingOptions);
+      if (rebuild || !pagePlans) pagePlans = ElectricExport.plans(p, drawingOptions);
       selectedPage = Math.min(selectedPage, pagePlans.length - 1);
       sheetSelect.replaceChildren(
         ...pagePlans.map((v, i) => {
@@ -1619,16 +1645,32 @@
           o.value = i;
           o.textContent =
             `Лист ${i + 1}` +
-            (v.journal ? " · Кабельный журнал" : v.options.branchNumber
+            (v.journal ? " · Кабельный журнал" + (v.options.branchNumber
               ? ` · Ветка №${v.options.branchNumber}`
-              : " · Все ветки");
+              : v.options.withoutSupply ? " · Группа без ввода" : "") : v.options.branchNumber
+              ? ` · Ветка №${v.options.branchNumber}`
+              : v.options.withoutSupply ? " · Группа без ввода" : " · Все ветки");
           return o;
         }),
       );
       sheetSelect.value = selectedPage;
-      const canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 85);
+      let canvas;
+      try {
+        canvas = ElectricExport.pageCanvas(pagePlans[selectedPage], 85);
+      } catch (error) {
+        clearTimeout(previewDetailTimer);
+        detailView = null;
+        detail.width = detail.height = 1;
+        image.removeAttribute("src");
+        image.alt = "Не удалось построить выбранный лист";
+        notify("Не удалось построить выбранный лист: " + error.message);
+        return;
+      }
+      image.alt = "Предпросмотр выбранного листа";
       clearTimeout(previewDetailTimer);
-      previewDetailed = false;
+      detailView = null;
+      detail.width = 1; detail.height = 1;
+      detail.style.transform = "";
       image.src = canvas.toDataURL("image/png");
       if (previewZoom > 1) setPreviewZoom(previewZoom);
     }
@@ -1636,10 +1678,21 @@
       selectedPage = Number(sheetSelect.value);
       refreshDrawing();
     };
+    const extraStamp = document.createElement("details");
+    extraStamp.className = "extraStampFields";
+    const extraSummary = document.createElement("summary");
+    extraSummary.textContent = "Дополнительные графы";
+    extraStamp.append(extraSummary);
     for (const [key, label, type, initial] of [
-      ["drawingTitle", "Название детали", "text", p.meta.drawingTitle || ""],
-      ["designation", "Обозначение", "text", p.meta.designation || ""],
-      ["designer", "Проектировщик", "text", p.meta.designer || ""],
+      ["drawingTitle", "1 · Наименование изделия и документа", "text", p.meta.drawingTitle || ""],
+      ["designation", "2 · Обозначение документа", "text", p.meta.designation || ""],
+      ["organization", "9 · Организация", "text", p.meta.organization || ""],
+      ["designer", "11 · Разработал", "text", p.meta.designer || ""],
+      ["checkedBy", "11 · Проверил", "text", p.meta.checkedBy || ""],
+      ["technicalControlBy", "11 · Технический контроль", "text", p.meta.technicalControlBy || ""],
+      ["additionalBy", "11 · Дополнительная строка", "text", p.meta.additionalBy || ""],
+      ["standardsControlBy", "11 · Нормоконтроль", "text", p.meta.standardsControlBy || ""],
+      ["approvedBy", "11 · Утвердил", "text", p.meta.approvedBy || ""],
       [
         "drawingDate",
         "Дата чертежа",
@@ -1653,14 +1706,18 @@
       input.type = type;
       input.value = initial;
       if (key === "drawingTitle") {
-        input.placeholder = p.meta.name + " — Схема электрическая однолинейная";
+        input.placeholder = "Например: Электроснабжение сцены — Схема однолинейная";
         input.dataset.i18nUserPrefix = p.meta.name;
       }
-      if (key === "designation") input.placeholder = "Э3";
+      if (key === "designation") input.placeholder = "Например: ЭЛ.2026.001 Э3";
+      if (key === "organization") input.placeholder = "Например: ООО «Электропроект»";
+      if (["designer", "checkedBy", "technicalControlBy", "additionalBy", "standardsControlBy", "approvedBy"].includes(key))
+        input.placeholder = "Например: Иванов И. И.";
       input.maxLength = 120;
       input.setAttribute("aria-label", label);
       wrapper.append(input);
-      stampFields.append(wrapper);
+      if (["technicalControlBy", "standardsControlBy", "additionalBy"].includes(key)) extraStamp.append(wrapper);
+      else stampFields.append(wrapper);
       input.onchange = () => {
         p.meta[key] = input.value.trim();
         dirty = true;
@@ -1741,18 +1798,21 @@
         if(frame===null)frame=requestAnimationFrame(()=>{frame=null;if(backdrop.isConnected)refreshDrawing();});
       };
     }
-    if (ElectricSchematic.branches(p).length > 1) {
+    const exportSwitches = document.createElement("div");
+    exportSwitches.className = "exportSwitches";
+    {
       const wrapper = document.createElement("label"),
         checkbox = document.createElement("input");
       checkbox.type = "checkbox";
       checkbox.checked = drawingOptions.separateBranches;
       checkbox.setAttribute("aria-label", "Каждая ветка на отдельном листе");
+      wrapper.title = "Каждая ветка на отдельном листе";
       wrapper.append(
         checkbox,
         document.createTextNode("Каждая ветка на отдельном листе"),
       );
       wrapper.className = "branchPageToggle exportSwitch";
-      fields.append(wrapper);
+      exportSwitches.append(wrapper);
       checkbox.onchange = () => {
         drawingOptions.separateBranches = checkbox.checked;
         p.meta.exportSettings = { ...drawingOptions };
@@ -1767,20 +1827,52 @@
     const journalCheckbox = document.createElement("input");
     journalCheckbox.type = "checkbox";
     journalCheckbox.checked = !!drawingOptions.cableJournal;
-    journalToggle.append(journalCheckbox, document.createTextNode("Выгрузка кабельного журнала"));
+    journalToggle.title = "Выгрузка кабельного журнала";
+    journalCheckbox.setAttribute("aria-label", journalToggle.title);
+    journalToggle.append(journalCheckbox, document.createTextNode("Кабельный журнал"));
+    const journalBranchToggle = document.createElement("label");
+    journalBranchToggle.className = "branchPageToggle exportSwitch";
+    const journalBranchCheckbox = document.createElement("input");
+    journalBranchCheckbox.type = "checkbox";
+    journalBranchCheckbox.checked = !!drawingOptions.separateJournalBranches;
+    journalBranchCheckbox.disabled = !journalCheckbox.checked;
+    journalBranchToggle.title = "Каждая ветка кабельного журнала на отдельном листе";
+    journalBranchCheckbox.setAttribute("aria-label", journalBranchToggle.title);
+    journalBranchToggle.append(journalBranchCheckbox,
+      document.createTextNode("Журнал по веткам"));
+    journalBranchCheckbox.onchange = () => {
+      drawingOptions.separateJournalBranches = journalBranchCheckbox.checked;
+      p.meta.exportSettings = {...drawingOptions};
+      dirty = true;
+      scheduleSave();
+      selectedPage = Number.MAX_SAFE_INTEGER;
+      refreshDrawing();
+    };
     journalCheckbox.onchange = () => {
       drawingOptions.cableJournal = journalCheckbox.checked;
+      journalBranchCheckbox.disabled = !journalCheckbox.checked;
       p.meta.exportSettings = {...drawingOptions};
       dirty = true;
       scheduleSave();
       selectedPage = journalCheckbox.checked ? Number.MAX_SAFE_INTEGER : 0;
       refreshDrawing();
     };
-    fields.append(journalToggle, sheetLabel);
+    exportSwitches.append(journalToggle, journalBranchToggle);
+    stampFields.append(extraStamp);
+    fields.append(exportSwitches, sheetLabel);
     header.append(title, actions);
-    previewFrame.append(image, zoomBar);
+    previewFrame.append(image, detail, zoomBar);
     preview.append(sliders[0], previewFrame, sliders[1]);
-    panel.append(header, fields, preview, stampFields);
+    panel.classList.add("exportInspectorLayout");
+    const inspector = document.createElement("aside");
+    inspector.className = "exportInspector";
+    inspector.setAttribute("aria-label", "Настройки экспорта");
+    const downloads = document.createElement("div");
+    downloads.className = "exportDownloads exportActions";
+    const closeButton = actions.lastElementChild;
+    while (actions.firstElementChild !== closeButton) downloads.append(actions.firstElementChild);
+    inspector.append(fields, ...sliders, downloads);
+    panel.append(header, preview, stampFields, inspector);
     backdrop.append(panel);
     document.body.append(backdrop);
     refreshDrawing();
@@ -2224,6 +2316,7 @@
       "wheel",
       (e) => {
         e.preventDefault();
+        if (drag?.type === 'pan' && (drag.middleButton || (e.buttons & 4))) return;
         zoomAt(Math.exp(-e.deltaY * 0.0015), point(e));
       },
       { passive: false },
@@ -2261,7 +2354,7 @@
       }
       if (pointers.size > 2) return;
       if (e.button === 1 || $("toolPan").classList.contains("active")) {
-        drag = { type: "pan", start: at, view: { ...p.view } };
+        drag = { type: "pan", start: at, view: { ...p.view }, middleButton: e.button === 1 };
         return;
       }
       const hit = hitPort(at);
@@ -2319,7 +2412,7 @@
           e.pointerType === "touch" &&
           !$("toolSelect").classList.contains("active")
         ) {
-          drag = { type: "pan", start: at, view: { ...p.view } };
+          drag = { type: "pan", start: at, view: { ...p.view }, middleButton: e.button === 1 };
           return;
         }
         const base = e.shiftKey ? new Set(selection) : new Set();

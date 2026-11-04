@@ -165,7 +165,8 @@ test("ветки разделяются на страницы, ориентац�
     paper: "a4",
   });
   assert.equal(list.length, 2);
-  assert.equal(list[1].options.branchNumber, 2);
+  assert.equal(list[1].options.branchNumber, null);
+  assert.equal(list[1].options.withoutSupply, true);
   assert.ok(list[0].pw < list[0].ph);
   const full = X.plans(p, { scale: 100 })[0],
     half = X.plans(p, { scale: 50 })[0];
@@ -240,4 +241,19 @@ test("ползунок компоновки меняет размещение, �
  assert.ok(vertical.size.width<horizontal.size.width);
  const half=X.plans(p,{scale:50})[0],full=X.plans(p,{scale:100})[0];assert.equal(half.scale,full.scale/2);
  assert.deepEqual(half.sheet,full.sheet);
+});
+
+test("короткая таблица журнала остаётся в одном столбце на A4–A0", () => {
+  const p = require('../default-project.json');
+  const cables = [...S.cableRows(p).values()].slice(0,7);
+  for (const paper of ['a4','a3','a2','a1','a0']) {
+    const plan = exporter().plans(p,{paper,cableJournal:true}) .find(page => page.journal);
+    const printed=[];
+    const context = new Proxy({measureText:value=>({width:String(value).length*5}),fillText:value=>printed.push(String(value))}, {get:(target,key)=>key in target?target[key]:()=>{}});
+    const width=Sheet.journalWidths(cables,context).reduce((a,b)=>a+b,0);
+    const height=(50+20*cables.length)*Math.min(1,plan.sheet.drawing.w/width)+1;
+    plan.journalTables=[{rows:cables,number:1,offset:0,height}];
+    Sheet.draw(plan,context);
+    assert.equal(printed.filter(value=>value==='№ трассы').length,1,paper);
+  }
 });

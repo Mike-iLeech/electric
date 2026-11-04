@@ -34,6 +34,15 @@
     };
     return { frame, stamp, notes, drawing };
   }
+  const journalHeaders = ["№ трассы", "Источник", "Тип источника", "Выход · разъём", "Потребитель", "Тип потребителя", "Вход · разъём", "Состав жил", "Сечение жилы", "Длина линии", "Падение ΔU", "Напряжение, В", "Потери ΔP", "Фактическая нагрузка, Вт"];
+  function journalRows(cables) {
+    return [journalHeaders, ...cables.map(cable => [cable.id,cable.source,cable.sourceType,cable.output,cable.target,cable.targetType,cable.input,cable.conductors,cable.section,cable.length,cable.drop,cable.voltage,cable.loss,cable.load])];
+  }
+  function journalWidths(cables, c) {
+    c.font = `${3 * mm}px OpenGOST, sans-serif`;
+    const rows = journalRows(cables);
+    return journalHeaders.map((_, col) => 1.2 * Math.max(...rows.map(row => c.measureText(String(row[col])).width)) + ([3,6].includes(col) ? 14 : 0));
+  }
   function draw(plan, c) {
     const { frame: f, stamp: b, notes: n } = plan.sheet,
       p = plan.project,
@@ -127,18 +136,18 @@
     roles.forEach((role, i) =>
       fit(role, b.x + 0.7 * mm, b.y + (28.5 + i * 5) * mm, 16 * mm, 2.5),
     );
-    fit(
-      p.meta.designer || "Не указан",
-      b.x + 17.7 * mm,
-      b.y + 28.5 * mm,
-      21.5 * mm,
-      2.5,
-    );
+    const signatories = [p.meta.designer, p.meta.checkedBy, p.meta.technicalControlBy,
+      p.meta.additionalBy, p.meta.standardsControlBy, p.meta.approvedBy];
+    signatories.forEach((name, i) => {
+      if (name) fit(name, b.x + 17.7 * mm, b.y + (28.5 + i * 5) * mm, 21.5 * mm, 2.5);
+    });
     const date = p.meta.drawingDate || new Date().toLocaleDateString("sv-SE"),
       dateText = /^\d{4}-\d{2}-\d{2}$/.test(date)
         ? date.split("-").reverse().join(".")
         : date;
-    fit(dateText, b.x + 55.4 * mm, b.y + 28.5 * mm, 9.2 * mm, 2.3);
+    signatories.forEach((name, i) => {
+      if (name) fit(dateText, b.x + 55.4 * mm, b.y + (28.5 + i * 5) * mm, 9.2 * mm, 2.3);
+    });
     fit(p.meta.designation || "Э3", b.x + 68 * mm, b.y + 10 * mm, 104 * mm, 5);
     text("Вер.", b.x + 175.7 * mm, b.y + 3.7 * mm, 2.5);
     if (p.meta.revision)
@@ -148,7 +157,7 @@
       b.x + 67 * mm,
       b.y + 20 * mm,
       66 * mm,
-      3,
+      3.5,
       4,
     );
     for (const [t, x, w] of [
@@ -165,21 +174,21 @@
       3,
     );
     fit(
-      "Лист " + (o.pageIndex || 1),
+      "Лист " + ((o.pageCount || 1) > 1 ? (o.pageIndex || 1) : ""),
       b.x + 136 * mm,
       b.y + 38.5 * mm,
       18 * mm,
       2.5,
     );
     fit(
-      "Листов " + (o.pageCount || 1),
+      "Листов " + ((o.pageIndex || 1) === 1 ? (o.pageCount || 1) : ""),
       b.x + 156 * mm,
       b.y + 38.5 * mm,
       28 * mm,
       2.5,
     );
     if (p.meta.organization)
-      lines(p.meta.organization, b.x + 137 * mm, b.y + 46 * mm, 46 * mm, 3, 2);
+      lines(p.meta.organization, b.x + 137 * mm, b.y + 46 * mm, 46 * mm, 3.5, 2);
     text(
       "Формат " + String(o.paper || "a3").toUpperCase(),
       b.x + b.w - 35 * mm,
@@ -188,74 +197,81 @@
     );
     c.lineWidth = 0.35 * mm;
     if (plan.journal) {
-      const {x, y, w} = plan.sheet.drawing;
-      const rows = [["№ трассы", "Источник", "Тип источника", "Выход · разъём",
-        "Потребитель", "Тип потребителя", "Вход · разъём", "Состав жил", "Сечение жилы",
-        "Длина линии", "Падение ΔU", "Напряжение, В", "Потери ΔP", "Фактическая нагрузка, Вт"],
-        ...plan.journal.map(cable => [cable.id, cable.source, cable.sourceType, cable.output,
-          cable.target, cable.targetType, cable.input, cable.conductors, cable.section,
-          cable.length, cable.drop, cable.voltage, cable.loss, cable.load])];
-      if (!plan.journal.length) rows.push(rows[0].map((_, index) => index === 2 ? "Нет трасс" : "—"));
-      c.font = `${3 * mm}px OpenGOST, sans-serif`;
-      const widths = rows[0].map((_, col) =>
-        1.2 * Math.max(...rows.map(row => c.measureText(row[col]).width)) + ([3, 6].includes(col) ? 14 : 0));
-      const naturalWidth = widths.reduce((sum, width) => sum + width, 0);
-      const availableHeight = b.y - y - 5 * mm;
-      const gap = 18;
-      const layouts = [1, 2, 3].filter(count => count <= rows.length - 1).map(count => {
-        const perBlock = Math.ceil((rows.length - 1) / count);
-        const width = count * naturalWidth + (count - 1) * gap;
-        const height = 30 + (perBlock + 1) * 20;
-        return {perBlock, width, height, scale:Math.min(w / width, availableHeight / height)};
-      });
-      const {perBlock, width, height, scale} = layouts.reduce((best, candidate) =>
-        candidate.scale > best.scale ? candidate : best);
-      const left = x + (w - width * scale) / 2;
-      const headingY = y + (availableHeight - height * scale) / 2 + 14 * scale;
-      const heading = "КАБЕЛЬНЫЙ ЖУРНАЛ";
-      c.font = `${4 * mm * scale}px OpenGOST, sans-serif`;
-      text(heading, x + (w - c.measureText(heading).width) / 2, headingY, 4 * scale);
-      for (let offset = 1; offset < rows.length; offset += perBlock) {
-        const blockX = left + ((offset - 1) / perBlock) * (naturalWidth + gap) * scale;
-        [rows[0], ...rows.slice(offset, offset + perBlock)].forEach((row, index) => {
-        const top = headingY + (10 + index * 20) * scale;
-        let cellX = blockX;
-        row.forEach((value, col) => {
-          const width = widths[col] * scale;
-          c.strokeRect(cellX, top, width, 20 * scale);
-          c.font = `${3 * mm * scale}px OpenGOST, sans-serif`;
-          const cable = index ? plan.journal[offset + index - 2] : null;
-          const connector = col === 3 ? cable?.outputConnector : col === 6 ? cable?.inputConnector : null;
-          if (connector) {
-            const cx = cellX + 9 * scale, cy = top + 10 * scale;
-            const pin = (dx, dy, radius) => {
-              c.beginPath();
-              c.arc(cx + dx * scale, cy + dy * scale, radius * scale, 0, 2 * Math.PI);
-              c.stroke();
-            };
-            if (connector.startsWith("terminal")) {
-              c.strokeRect(cx - 5 * scale, cy - 3 * scale, 10 * scale, 6 * scale);
-              for (const dx of [-3, 0, 3]) pin(dx, 0, .75);
-            } else {
-              pin(0, 0, 5);
-              if (connector === "cee3") {
-                pin(0, -2.9, .65);
-                for (const side of [-1, 1]) {
-                  pin(side * 2.75, -.9, .65);
-                  pin(side * 1.7, 2.35, .65);
-                }
+      const {x, y: drawingY, w} = plan.sheet.drawing;
+      const tables = plan.journalTables || [{
+        rows: plan.journal, number: o.branchNumber, offset: 0,
+        height: b.y - drawingY - 5 * mm,
+      }];
+      for (const table of tables) {
+        const y = drawingY + table.offset;
+        const rows = journalRows(table.rows);
+        if (!table.rows.length) rows.push(rows[0].map((_, index) => index === 2 ? "Нет трасс" : "—"));
+        const widths = journalWidths(table.rows, c);
+        const naturalWidth = widths.reduce((sum, width) => sum + width, 0);
+        const availableHeight = table.height;
+        const gap = 18;
+        const rowCount = rows.length - 1;
+        let columnCount = 1, scale, perBlock;
+        for (;;) {
+          scale = Math.min(1, w / (columnCount * naturalWidth + (columnCount-1)*gap));
+          perBlock = Math.max(1, Math.floor((availableHeight / scale - 50) / 20));
+          if (rowCount <= perBlock * columnCount) break;
+          columnCount++;
+        }
+        const width = columnCount * naturalWidth + (columnCount-1)*gap;
+        const height = 50 + 20 * Math.min(perBlock, rowCount);
+        c.lineWidth = 0.65 * scale;
+        const left = x + (w - width * scale) / 2;
+        const headingY = y + (availableHeight - height * scale) / 2 + 14 * scale;
+        const heading = "КАБЕЛЬНЫЙ ЖУРНАЛ" + (table.number
+          ? " · Ветка №" + table.number
+          : table.rows.length ? " · Группа без ввода" : "");
+        c.font = `${4 * mm * scale}px OpenGOST, sans-serif`;
+        text(heading, x + (w - c.measureText(heading).width) / 2, headingY, 4 * scale);
+        for (let offset = 1; offset < rows.length; offset += perBlock) {
+          const blockX = left + ((offset - 1) / perBlock) * (naturalWidth + gap) * scale;
+          [rows[0], ...rows.slice(offset, offset + perBlock)].forEach((row, index) => {
+          const top = headingY + (10 + index * 20) * scale;
+          let cellX = blockX;
+          row.forEach((value, col) => {
+            const width = widths[col] * scale;
+            c.strokeRect(cellX, top, width, 20 * scale);
+            c.font = `${3 * mm * scale}px OpenGOST, sans-serif`;
+            const cable = index ? table.rows[offset + index - 2] : null;
+            const connector = col === 3 ? cable?.outputConnector : col === 6 ? cable?.inputConnector : null;
+            if (connector) {
+              c.lineWidth = 0.65 * scale;
+              const cx = cellX + 9 * scale, cy = top + 10 * scale;
+              const pin = (dx, dy, radius) => {
+                c.beginPath();
+                c.arc(cx + dx * scale, cy + dy * scale, radius * scale, 0, 2 * Math.PI);
+                c.stroke();
+              };
+              if (connector.startsWith("terminal")) {
+                c.strokeRect(cx - 5 * scale, cy - 3 * scale, 10 * scale, 6 * scale);
+                for (const dx of [-3, 0, 3]) pin(dx, 0, .75);
               } else {
-                pin(-2, 0, .75);
-                pin(2, 0, .75);
-                if (connector === "cee1") pin(0, 3, .75);
+                pin(0, 0, 5);
+                if (connector === "cee3") {
+                  pin(0, -2.9, .65);
+                  for (const side of [-1, 1]) {
+                    pin(side * 2.75, -.9, .65);
+                    pin(side * 1.7, 2.35, .65);
+                  }
+                } else {
+                  pin(-2, 0, .75);
+                  pin(2, 0, .75);
+                  if (connector === "cee1") pin(0, 3, .75);
+                }
               }
             }
-          }
-          const inset = connector ? 15 * scale : 0;
-          text(value, cellX + inset + (width - inset - c.measureText(value).width) / 2, top + 14 * scale, 3 * scale);
-          cellX += width;
-        });
-        });
+
+            const inset = connector ? 15 * scale : 0;
+            text(value, cellX + inset + (width - inset - c.measureText(value).width) / 2, top + 14 * scale, 3 * scale);
+            cellX += width;
+          });
+          });
+        }
       }
       return;
     }
@@ -369,5 +385,5 @@
       nt(label, x + 9, yy, 2.5);
     });
   }
-  return { geometry, draw };
+  return { geometry, draw, journalWidths };
 });

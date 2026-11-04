@@ -287,12 +287,12 @@ test("экспорт показывает настройки листов и р�
   );
   panel.querySelector('[data-orientation="portrait"]').click();
   assert.equal(s.state().project.meta.exportSettings.orientation, "portrait");
-  const title = panel.querySelector('[aria-label="Название детали"]');
+  const title = panel.querySelector('[aria-label="1 · Наименование изделия и документа"]');
   title.value = "Вводной щит";
   title.dispatchEvent(new s.w.Event("change"));
   assert.equal(s.state().project.meta.drawingTitle, "Вводной щит");
-  assert.ok(panel.querySelector('.exportPreview .exportSlider input[aria-label="Масштаб схемы"]'));
-  assert.ok(panel.querySelector('.exportPreview .exportSlider input[aria-label^="Компоновка"]'));
+  assert.ok(panel.querySelector('.exportInspector .exportSlider input[aria-label="Масштаб схемы"]'));
+  assert.ok(panel.querySelector('.exportInspector .exportSlider input[aria-label^="Компоновка"]'));
   const preview = panel.querySelector(".exportPreviewFrame");
   panel.querySelector('[aria-label="Увеличить предпросмотр"]').click();
   assert.equal(preview.querySelector("output").textContent, "125%");
