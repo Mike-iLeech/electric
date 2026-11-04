@@ -86,6 +86,9 @@ test('управление и настройки переключают язык
   s.setLanguage(language);
   assert.match(s.$('controlsDialog').textContent,language==='en'?/Touch screen/:/Сенсорный экран/);
   if(language==='en')assert.doesNotMatch(s.$('appSettingsDialog').textContent,/[А-Яа-яЁё]/);
+  let closed=false;s.$('controlsDialog').close=()=>{closed=true;};
+  s.$('controlsDialog').querySelector('a[href="#helpCables"]').click();
+  assert.equal(closed,true);assert.equal(s.$('helpModal').getAttribute('aria-hidden'),'false');
  }
  s.dom.window.close();
 });

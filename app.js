@@ -2947,10 +2947,12 @@
     for(const element of controlsContent.querySelectorAll(".helpGifGallery,.helpControlsNav,.helpImageButton,h2,#helpControlDemos"))element.remove();
     for(const element of controlsContent.querySelectorAll("[id]"))element.removeAttribute("id");
     for(const paragraph of controlsContent.querySelectorAll("p"))if(paragraph.textContent.startsWith("Запустите нужную демонстрацию"))paragraph.remove();
-    for(const link of controlsContent.querySelectorAll('a[href^="#"]'))link.onclick=event=>{
+    controlsContent.addEventListener("click",event=>{
+      const link=event.target.closest('a[href^="#"]');
+      if(!link || !controlsContent.contains(link))return;
       event.preventDefault();controlsDialog.close();$("helpTip").click();
       document.querySelector(link.getAttribute("href"))?.scrollIntoView?.();
-    };
+    });
     controlsDialog.append(controlsHeader,controlsContent);document.body.append(controlsDialog);
     globalThis.ElectricI18n?.refreshHelp();
     controlsDialog.onclick=event=>{if(event.target!==controlsDialog)return;const r=controlsDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)controlsDialog.close();};
