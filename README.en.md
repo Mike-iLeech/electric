@@ -1,4 +1,4 @@
-# ElectricCAD Easy 32.5.2
+# ElectricCAD Easy 32.6.0
 
 The current implementation is documented in [README.md](README.md), with design decisions and verification limits in [CHANGES-v32.md](CHANGES-v32.md).
 

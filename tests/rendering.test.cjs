@@ -2,6 +2,39 @@ const { test } = require("node:test"),
   assert = require("node:assert/strict"),
   E = require("../engine"),
   R = require("../renderer");
+
+test("K₂U виден одновременно с перегрузкой; несходимость имеет отдельное предупреждение", () => {
+  const n = E.makeNode(E.catalog().find(t=>t.phases===3)), p = E.project(); p.nodes=[n];
+  const c = E.calculate(p).nodes.get(n.id), labels=[];
+  const ctx = new Proxy({measureText:s=>({width:s.length*5.5}),fillText:s=>labels.push(s)},
+    {get:(o,k)=>k in o?o[k]:()=>{}});
+  Object.assign(c,{overload:true,voltageUnbalance:true,voltageUnbalancePercent:3});
+  R.paintNode(ctx,n,c,{project:p,selected:false});
+  assert.ok(labels.includes("⚠ ПЕРЕГРУЗКА"));
+  assert.ok(labels.some(s=>s.includes("K₂U 3.0%")));
+  labels.length=0; Object.assign(c,{powerFlowFailed:true,phaseImbalance:true,voltagePowerDeficit:true});
+  R.paintNode(ctx,n,c,{project:p,selected:false});
+  assert.ok(labels.includes("⚠ РАСЧЁТ НЕ СОШЁЛСЯ"));
+  assert.ok(labels.includes("⚠ ПЕРЕГРУЗКА"));
+  assert.ok(labels.includes("⚠ ДИСБАЛАНС ФАЗ"));
+  assert.ok(labels.some(s=>s.includes("K₂U 3.0%")));
+  assert.ok(labels.includes("⚠ НЕ ХВАТАЕТ МОЩНОСТИ (ΔU)"));
+});
+
+test("каждый трёхфазный модуль показывает ток и напряжение каждой фазы", () => {
+  for (const template of E.catalog().filter(t => t.phases === 3)) {
+    const n = E.makeNode(template), p = E.project(); p.nodes = [n];
+    const c = E.calculate(p).nodes.get(n.id), labels = [];
+    Object.assign(c.phaseVoltage, {L1:210, L2:235.2, L3:236.1});
+    const ctx = new Proxy({measureText:s=>({width:s.length*5.5}), fillText:s=>labels.push(s)},
+      {get:(o,k)=>k in o?o[k]:()=>{}});
+    R.paintNode(ctx, n, c, {project:p, selected:false});
+    for (const phase of E.PHASES)
+      assert.ok(labels.includes(`${phase} ${c.loadA[phase].toFixed(1)}A`), template.name);
+    for (const voltage of ["210.0 В", "235.2 В", "236.1 В"])
+      assert.ok(labels.includes(voltage), template.name);
+  }
+});
 test("порт 250А не мигает при перегрузке входа 16А на другом конце линии", () => {
   const p = E.project(),
     a = E.makeNode({

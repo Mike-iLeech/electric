@@ -1912,7 +1912,7 @@
         "portId": "in_mw1sih3p_6_673b7q"
       },
       "cable": {
-        "lengthM": 21.09,
+        "lengthM": 5,
         "labelFraction": 0.2510942276033059
       }
     },
@@ -1927,7 +1927,7 @@
         "portId": "in_mw1sih3q_m_kgj6qk"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.7168263312973773
       }
     },
@@ -1942,7 +1942,7 @@
         "portId": "in_mw1sih3q_1l_7zs4rl"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.20220963362716268
       },
       "manualRoute": [
@@ -1975,7 +1975,7 @@
         "portId": "in_mw1sih3q_1e_6rx5ma"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -1989,7 +1989,7 @@
         "portId": "in_mw1sih3q_t_yqhrjm"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.6770650391941644
       }
     },
@@ -2004,7 +2004,7 @@
         "portId": "in_mw1sih3q_17_74v89z"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.5785475109408018
       }
     },
@@ -2019,7 +2019,7 @@
         "portId": "in_mw1sih3q_10_omxwpk"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.6087982816925349
       }
     },
@@ -2034,7 +2034,7 @@
         "portId": "in_mw1sih3q_1s_on2wsv"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.3402837172984146
       },
       "manualRoute": [
@@ -2067,7 +2067,7 @@
         "portId": "in_mw1sih3q_1z_fjygfr"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.46742291887996307
       }
     },
@@ -2082,7 +2082,7 @@
         "portId": "in_mw1sih3q_26_hjcsy1"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.6089194749064555
       }
     },
@@ -2097,7 +2097,7 @@
         "portId": "in_mw1sih3q_2d_1s2ce5"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.6702517577678175
       }
     },
@@ -2112,7 +2112,7 @@
         "portId": "in_mw1sih3q_2k_5cnz8j"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.731595183187198
       }
     },
@@ -2127,7 +2127,7 @@
         "portId": "in_mw1sih3q_2r_dikz39"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.7215377743922076
       }
     },
@@ -2142,7 +2142,7 @@
         "portId": "in_mw1sih3q_2y_q5wgfn"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2174,7 +2174,7 @@
         "portId": "in_mw1sih3q_30_7e2o7a"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2206,7 +2206,7 @@
         "portId": "in_mw1sih3q_32_txyo6y"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2238,7 +2238,7 @@
         "portId": "in_mw1sih3q_34_6a7lfy"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2270,7 +2270,7 @@
         "portId": "in_mw1sih3q_36_494vuc"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2302,7 +2302,7 @@
         "portId": "in_mw1sih3q_38_j95jx1"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       },
       "manualRoute": [
         {
@@ -2334,7 +2334,7 @@
         "portId": "in_mw1sih3q_3a_utga9m"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -2348,7 +2348,7 @@
         "portId": "in_mw1sih3q_3c_q5gsxg"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -2362,7 +2362,7 @@
         "portId": "in_mw1sih3q_3e_x1i1n4"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -2376,7 +2376,7 @@
         "portId": "in_mw1sih3q_3g_13l5q0"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -2390,7 +2390,7 @@
         "portId": "in_mw1sih3q_3i_enw1o4"
       },
       "cable": {
-        "lengthM": 8.43,
+        "lengthM": 5,
         "labelFraction": 0.4872482020280031
       }
     },
@@ -2405,7 +2405,7 @@
         "portId": "in_mw1sih3q_e_zvyfvv"
       },
       "cable": {
-        "lengthM": 21.09,
+        "lengthM": 5,
         "labelFraction": 0.20504204874931148
       }
     },
@@ -2420,7 +2420,7 @@
         "portId": "in_mw1sih3q_3k_ic9s7q"
       },
       "cable": {
-        "lengthM": 8.43
+        "lengthM": 5
       }
     },
     {
@@ -2434,7 +2434,7 @@
         "portId": "in_mw1sih3p_2_6w618s"
       },
       "cable": {
-        "lengthM": 20
+        "lengthM": 5
       }
     },
     {
@@ -2448,7 +2448,7 @@
         "portId": "in_mw1sjdq2_4g_z8wh90"
       },
       "cable": {
-        "lengthM": 20
+        "lengthM": 5
       }
     }
   ]

@@ -17,6 +17,10 @@ const files = new Set([
   "routing.js",
   "editor.css",
   "original-theme.css",
+  "assets/brand/symbol.svg",
+  "assets/brand/favicon.svg",
+  "assets/brand/favicon.ico",
+  "assets/brand/apple-touch-icon.png",
   "help-images/project-tree.jpg",
   "help-images/overload.jpg",
   "help-images/cable.png",
@@ -55,6 +59,10 @@ http
       "Content-Type",
       name.endsWith(".html")
         ? "text/html; charset=utf-8"
+        : name.endsWith(".svg")
+          ? "image/svg+xml"
+        : name.endsWith(".ico")
+          ? "image/x-icon"
         : name.endsWith(".css")
           ? "text/css; charset=utf-8"
           : name.endsWith(".jpg")

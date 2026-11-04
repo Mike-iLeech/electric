@@ -1,6 +1,60 @@
 (function (root) {
   "use strict";
   const phrases = `
+Длина вне допустимого интервала|||Length outside the allowable interval
+Места не хватает, уменьшите масштаб|||Not enough space, reduce the scale
+Общая нагрузка:|||Total load:
+Добавить выбор режима потребителя|||Enable consumer mode selection
+Все нагрузки постоянной мощности|||All loads: constant power
+Все нагрузки постоянного сопротивления|||All loads: constant resistance
+Постоянная мощность|||Constant power
+Постоянное сопротивление|||Constant resistance
+Режим потребителя|||Consumer mode
+Режим потребителя: постоянное сопротивление|||Consumer mode: constant resistance
+Переключение общего режима перезаписывает индивидуальные режимы всех потребителей. При выключенной опции все потребители считаются нагрузками постоянной мощности.|||Changing the global mode overrides every consumer's individual mode. When this option is disabled, all consumers use constant power.
+Для постоянного сопротивления мощность задаётся при номинальном напряжении. При другом cos φ используется постоянное комплексное сопротивление.|||Constant-resistance power is specified at nominal voltage. For a non-unity power factor, constant complex impedance is used.
+ΔU = 100% при номинальном токе кабеля|||ΔU = 100% at rated cable current
+Превышен итоговый допустимый предел|||Combined allowable limit exceeded
+ΔU = 100% при фиксированном токе|||ΔU = 100% at fixed current
+Расчёт постоянной мощности не сошёлся.|||Constant-power flow did not converge.
+По токам питаемой сети|||By supplied-network currents
+По заданному пределу ΔU|||By configured voltage drop limit
+Итоговый допустимый предел|||Combined allowable limit
+Превышены ограничения по току в питаемой сети.|||Current limits are exceeded in the supplied network.
+Дефолтное значение из таблицы|||Default table value
+Изменённое значение из таблицы|||Custom table value
+Сечение введено вручную|||Manually entered cross-section
+Приближённое значение для нестандартного номинала|||Approximate value for a nonstandard rating
+Перезапись сечений кабеля введенных вручную|||Overwrite manually entered cable cross-sections
+Нет кабелей с сечением, введённым вручную.|||No cables have manually entered cross-sections.
+Таблица сохраняется автоматически. Перезапись применяется только к текущему проекту после подтверждения. Ручные сечения заменяются значениями из настроек, длины и остальные параметры сохраняются. Действие можно отменить.|||The table saves automatically. Overwriting applies only to the current project after confirmation. Manual sections are replaced with settings; lengths and other parameters are preserved. The action can be undone.
+Применить|||Apply
+вручную|||manual
+из настроек|||settings
+оценка|||estimate
+Оверрайд ручных сечений|||Override manual cross-sections
+Заменить ручные сечения на значения из настроек? Кабелей:|||Replace manual cross-sections with values from settings? Cables:
+Длины и остальные параметры сохранятся. Действие можно отменить.|||Lengths and other parameters will be preserved. This action can be undone.
+Таблица сохраняется автоматически. Оверрайд применяется только к текущему проекту после подтверждения: ручные сечения заменяются наследованием из настроек. Длины и остальные параметры кабелей сохраняются. Действие можно отменить.|||The table saves automatically. Override affects only the current project after confirmation: manual sections are replaced by inherited settings. Lengths and other cable parameters are preserved. The action can be undone.
+Мощность указана по номиналу тока при cos φ = 1: P1ф = 230 × I, P3ф = √3 × 400 × I. Изменение сечения влияет на падение напряжения и потери; номинал автомата остаётся ограничением мощности.|||Power uses rated current at PF = 1: single-phase P = 230 × I, three-phase P = √3 × 400 × I. Cross-section affects voltage drop and losses; the breaker rating still limits power.
+Кабель 1ф|||Single-phase cable
+Кабель 3ф|||Three-phase cable
+1 фаза, 230 В · кВт|||Single phase, 230 V · kW
+3 фазы, 400 В · кВт|||Three phases, 400 V · kW
+⚠ РАСЧЁТ НЕ СОШЁЛСЯ|||⚠ POWER FLOW DID NOT CONVERGE
+Расчёт постоянной мощности не сошёлся. Токи и напряжения приближённые; уменьшите нагрузку или сопротивление линий.|||Constant-power flow did not converge. Currents and voltages are approximate; reduce load or line resistance.
+Суммарная активная мощность:|||Total active power:
+Активная мощность:|||Active power:
+Полная мощность:|||Apparent power:
+Ток по фазам:|||Phase currents:
+Напряжение по фазам:|||Phase voltages:
+Включить треугольник|||Show voltage triangle
+Суммарная активная мощность|||Total active power
+Токи по фазам|||Phase currents
+Напряжения в сети, мин–макс|||Network voltages, min–max
+Линейные напряжения между фазами|||Line-to-line voltages
+L–N — фазное; стороны треугольника — линейное L–L. Диапазон по запитанным модулям.|||L–N: phase-to-neutral; triangle edges: line-to-line L–L. Range across powered modules.
+Неподключённые к «СЕТИ» ветки в расчёте не участвуют: не входят в суммарные мощность и токи и не влияют на баланс фаз. Ветки с отключёнными автоматами также исключены.|||Branches disconnected from GRID are excluded from total power, currents and phase balance. Branches with open breakers are also excluded.
 Загрузить проект|||Load project
 Загрузить проект с диска|||Load project from disk
 Загрузить Демо-Проект|||Load demo project

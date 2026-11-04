@@ -19,6 +19,14 @@ test("автономная сборка запускается без внешн
   assert.equal(animations.length, 5);
   for (const [, source] of animations) assert.match(source, /^data:image\/gif;base64,R0lGOD/);
   assert.equal(/(?:src|data-gif)="help-images\//.test(html), false);
+  // Branding must not depend on the hub favicon or a server beside the standalone file.
+  assert.equal(/(?:src|href)="(?:assets\/brand\/|\/favicon\.ico)/.test(html), false);
+  const document = new JSDOM(html).window.document;
+  assert.match(document.querySelector('link[rel="icon"][type="image/x-icon"]').href, /^data:image\/x-icon;base64,/);
+  assert.match(document.querySelector('link[rel="icon"][type="image/svg+xml"]').href, /^data:image\/svg\+xml;base64,/);
+  assert.match(document.querySelector('link[rel="apple-touch-icon"]').href, /^data:image\/png;base64,/);
+  assert.match(document.querySelector('.appBrandSymbol').src, /^data:image\/svg\+xml;base64,/);
+  assert.equal(document.querySelector('.appBrandName').textContent, 'ElectricCAD Easy');
   const dom = new JSDOM(html, {
     url: "https://electric.example/",
     runScripts: "dangerously",

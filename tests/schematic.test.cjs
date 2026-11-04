@@ -2,6 +2,45 @@ const { test } = require("node:test"),
   assert = require("node:assert/strict"),
   E = require("../engine"),
   S = require("../schematic");
+
+test("зоны семи веток вместе с трассами не перекрываются в компоновке листа", () => {
+  const p=E.project();
+  for(let branch=0;branch<7;branch++){
+    const source=E.makeNode({name:"Ввод "+branch,category:"input",phases:3,inA:63,outputs:[{connType:"cee3",nominalA:32}]});
+    const d=E.makeNode({name:"Раздача",phases:3,inA:32,outputs:E.PHASES.map(phase=>({connType:"euro",nominalA:16,phase}))});
+    p.nodes.push(source,d);
+    const connect=(a,b,index=0)=>E.connect(p,{nodeId:a.id,portId:a.outputs[index].id},{nodeId:b.id,portId:b.inputs[0].id});
+    connect(source,d);
+    for(let phase=0;phase<3;phase++){
+      const consumer=E.makeNode({name:"Нагрузка",category:"consumer",phases:1,inConnType:"euro",inA:16,watts:1000});
+      p.nodes.push(consumer);connect(d,consumer,phase);
+    }
+  }
+  for(const balance of [50,100,200]){
+    const poses=S.layoutForSheet(p,1200,800,balance),zones=S.branchZoneBounds(p,poses);
+    assert.equal(zones.length,7);
+    assert.doesNotThrow(()=>S.validateBranchZones(zones));
+    for(let i=1;i<zones.length;i++)assert.ok(zones[i].top-zones[i-1].bottom>=24);
+  }
+  assert.throws(()=>S.validateBranchZones([{left:0,right:100,top:0,bottom:100},{left:0,right:100,top:99,bottom:200}]),
+    /Места не хватает, уменьшите масштаб/);
+});
+
+test("подписи веток остаются в собственной зоне с отступом от рамки", () => {
+  const p=E.project();
+  p.nodes=[1,2].map(i=>E.makeNode({name:"Ввод "+i,category:"input",phases:3,inA:63,outputs:[]}));
+  const titles=[],ctx=new Proxy({font:"",measureText:t=>({width:String(t).length*24}),
+    fillText(t,x,y){if(String(t).startsWith("Ветка №"))titles.push({t,x,y,size:parseFloat(this.font)});}},
+    {get:(o,k)=>k in o?o[k]:()=>{}});
+  S.render(p,{context:ctx,renderScale:1,diagramOnly:true});
+  assert.equal(titles.length,2);
+  const poses=S.layout(p);
+  titles.forEach((title,i)=>{
+    const contentTop=poses.get(p.nodes[i].id).y,top=Math.max(84,contentTop-90);
+    assert.ok(title.y-title.size>=top+6,title.t);
+    assert.ok(title.y<=contentTop-8,title.t);
+  });
+});
 function fixture() {
   const p = E.project(),
     a = E.makeNode({

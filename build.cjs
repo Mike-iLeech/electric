@@ -52,6 +52,12 @@ html = html.replace(/\b(src|data-gif)="(help-images\/[a-z-]+\.(png|jpg|gif))"/g,
   const image = fs.readFileSync(path.join(__dirname, file)).toString("base64");
   return `${attribute}="data:image/${mime};base64,${image}"`;
 });
+// Keep the branded page portable: file://, the site and Electron use the same assets.
+const brandMime = { svg: "image/svg+xml", ico: "image/x-icon", png: "image/png" };
+html = html.replace(/\b(src|href)="(assets\/brand\/[a-z-]+\.(svg|ico|png))"/g, (_, attribute, file, extension) => {
+  const image = fs.readFileSync(path.join(__dirname, file)).toString("base64");
+  return `${attribute}="data:${brandMime[extension]};base64,${image}"`;
+});
 fs.mkdirSync(path.join(__dirname, "dist"), { recursive: true });
 fs.writeFileSync(path.join(__dirname, "dist/index.html"), html);
 fs.writeFileSync(

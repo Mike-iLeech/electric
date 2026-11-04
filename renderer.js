@@ -293,17 +293,16 @@
     label.group.classList.toggle("cableMetricWarning", warnings.length > 0);
     label.group.classList.toggle("cableMetricCritical", criticalDrop);
     label.group.classList.toggle("cableMetricDeficit", powerDeficit);
+    const source = E.CABLE_SECTION_SOURCES[estimate.sectionSource] || E.CABLE_SECTION_SOURCES.default;
     let tooltip = label.group.querySelector("title");
-    if (warnings.length) {
-      if (!tooltip) {
-        tooltip = document.createElementNS(ns,"title");
-        label.group.prepend(tooltip);
-      }
-      tooltip.textContent = warnings.join(" ");
-    } else tooltip?.remove();
+    if (!tooltip) {
+      tooltip = document.createElementNS(ns,"title"); label.group.prepend(tooltip);
+    }
+    tooltip.textContent = source.icon + " " + tr(source.label);
     const format = value => value.toLocaleString("ru-RU", {maximumFractionDigits:2});
-    const caption = (warnings.length ? "⚠ " : "") + format(length) + " м · ΔU" + (estimate.lineVoltage ? "л" : "ф") + " " +
-      format(estimate.dropV) + " В · ΔP " + format(estimate.lossW) + " Вт";
+    const caption = (warnings.length ? "⚠ " : "") + length.toLocaleString("ru-RU", {minimumFractionDigits:2,maximumFractionDigits:2}) + " м · ΔU" + (estimate.lineVoltage ? "л" : "ф") + " " +
+      format(estimate.dropV) + " В · ΔP " + format(estimate.lossW) + " Вт" +
+      (estimate.sectionMm2 > 0 ? " · " + source.icon + " " + format(estimate.sectionMm2) + " мм²" : "");
     if (label.text.textContent !== caption) {
       label.text.textContent = caption;
       const width = (label.text.getComputedTextLength?.() || caption.length * 6.6) + 16;
@@ -874,30 +873,26 @@
         false,
       ),
     );
-    if (c.overload)
-      capsule(ctx, "⚠ ПЕРЕГРУЗКА", n.pos.x, r.top + 82, {
-        fill: "#ff0000cc",
-        height: 20,
-      });
-    else if (c.phaseImbalance)
-      capsule(ctx, "⚠ ДИСБАЛАНС ФАЗ", n.pos.x, r.top + 82, {
-        fill: "#fbbf24cc",
-        color: "#000",
-      });
-    else if (c.voltagePowerDeficit)
-      capsule(ctx, "⚠ НЕ ХВАТАЕТ МОЩНОСТИ (ΔU)", n.pos.x, r.top + 82, {
-        size: 9, height: 18, fill: "#b91c1c", color: "#fff",
-      });
-    else capsule(ctx, c.status, n.pos.x, r.top + 82, { size: 9, height: 18 });
+    const warnings = [];
+    if (c.powerFlowFailed) warnings.push({label:"⚠ РАСЧЁТ НЕ СОШЁЛСЯ", fill:"#b91c1c", color:"#fff"});
+    if (c.overload) warnings.push({label:"⚠ ПЕРЕГРУЗКА", fill:"#ff0000cc", color:"#fff"});
+    if (c.phaseImbalance) warnings.push({label:"⚠ ДИСБАЛАНС ФАЗ", fill:"#fbbf24cc", color:"#000"});
+    if (c.voltageUnbalance) warnings.push({label:"⚠ K₂U " + c.voltageUnbalancePercent.toFixed(1) + "% > 2%", fill:"#fbbf24cc", color:"#000"});
+    if (c.voltagePowerDeficit) warnings.push({label:"⚠ НЕ ХВАТАЕТ МОЩНОСТИ (ΔU)", fill:"#b91c1c", color:"#fff"});
+    if (!warnings.length) capsule(ctx, c.status, n.pos.x, r.top + 82, {size:9, height:18});
+    warnings.forEach((warning, i) => {
+      const single = warnings.length === 1 || (i === warnings.length - 1 && i % 2 === 0);
+      capsule(ctx, warning.label, n.pos.x + (single ? 0 : (i % 2 ? 1 : -1) * W / 4),
+        r.top + 74 + Math.floor(i / 2) * 15,
+        {size:8, height:14, max:single ? W - 16 : W / 2 - 8, fill:warning.fill, color:warning.color});
+    });
     if (n.category === "consumer") {
-      const a =
-        n.consumerWatts /
-        (ui.project.settings.voltageLN * ui.project.settings.powerFactor * (n.phases === 3 ? 3 : 1));
+      const a = Math.max(...Object.values(c.loadA));
       capsule(
         ctx,
-        `${(n.consumerWatts / 1000).toFixed(1)}кВт / ${a.toFixed(1)}А${n.phases === 3 ? "/ф" : ""}`,
+        `${(E.sum(c.loadW) / 1000).toFixed(1)}кВт / ${a.toFixed(1)}А${n.phases === 3 ? "/ф" : ""}`,
         n.pos.x,
-        r.top + 114,
+        r.top + 142,
         { size: 12, height: 24 },
       );
     }
@@ -911,10 +906,17 @@
         a = c.loadA[k],
         limit = n.inputs[0]?.nominalA ?? Math.min(n.supplyA, n.supplyNominalA ?? Infinity),
         color = a > limit ? "#fb7185" : a > limit * 0.8 ? "#fbbf24" : "#4ade80";
-      round(ctx, x, r.bottom - 52, 85, 22, 11, "#0a0e16cc");
-      text(ctx, `${k} ${a.toFixed(1)}A`, x + 42.5, r.bottom - 41, color, 9);
+      round(ctx, x, r.bottom - 66, 85, 36, 11, "#0a0e16cc");
+      text(ctx, `${k} ${a.toFixed(1)}A`, x + 42.5, r.bottom - 56, color, 9);
+      const phaseVoltage = c.phaseVoltage[k];
+      const voltageColor = !c.powered ? "#94a3b8" :
+        Math.abs(phaseVoltage / ui.project.settings.voltageLN - 1) > 0.1 ? "#fb7185" : "#e2e8f0";
+      text(ctx, `${phaseVoltage.toFixed(1)} В`, x + 42.5, r.bottom - 41, voltageColor, 9);
     });
-    const voltage = n.phases === 3 ? c.voltageLN * Math.sqrt(3) : c.voltageLN;
+    const voltage = n.phases === 3 ? Math.max(...E.PHASES.map((phase, i) => {
+      const a = c.phaseVoltagePhasor[phase], b = c.phaseVoltagePhasor[E.PHASES[(i + 1) % 3]];
+      return Math.hypot(a.re - b.re, a.im - b.im);
+    })) : c.voltageLN;
     const capacity = ui.project.settings.advancedMode && Number.isFinite(c.availableWatts)
       ? ` / ${(c.availableWatts / 1000).toFixed(2)}` : "";
     const foot = `${(E.sum(c.loadW) / 1000).toFixed(2)}${capacity} кВт · ${Number(voltage.toFixed(1))} В`;
@@ -1276,8 +1278,12 @@
         const inlet = project.nodes.find(n => n.id === l.to.nodeId)?.inputs.find(v => v.id === l.to.portId);
         const cable = project.settings.advancedMode && length > 0 && load && inlet
           ? E.cableParameters(l, port, inlet, project.settings) : null;
-        const estimate = cable ? E.cableEstimate(cable, port.phases, load.loadA) : null;
+        const rawEstimate = cable ? E.cableEstimate(cable, port.phases, load.loadA, load.currentPhasor) : null;
+        const estimate = rawEstimate ? {...rawEstimate,...load.voltageDrop} : null;
         const warnings = cable ? E.cableWarnings(cable, estimate, port, inlet, project.settings.voltageLN) : [];
+        const beyond = !!estimate && (estimate.dropPercent > cable.maxDropPercent ||
+          estimate.current > Math.min(cable.ampacityA,port.nominalA,inlet.nominalA,port.breaker?.ratingA??Infinity,inlet.breaker?.ratingA??Infinity)+1e-8);
+        record.el.classList.toggle("cable-limit-exceeded",beyond);
         const receiving = calc.nodes.get(l.to.nodeId);
         const powerDeficit = !!estimate && powered && receiving.voltagePowerDeficit;
         if (powerDeficit) warnings.unshift("Недостаточно мощности из-за падения напряжения.");

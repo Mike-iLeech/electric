@@ -32,6 +32,9 @@ module.exports = {
     ...signing.win,
   },
   nsis: {
+    installerIcon: "desktop/assets/icon.ico",
+    uninstallerIcon: "desktop/assets/icon.ico",
+    installerHeaderIcon: "desktop/assets/icon.ico",
     artifactName: "ElectricCAD-Easy-${version}-Setup-${arch}.${ext}",
     differentialPackage: true,
     oneClick: false,
