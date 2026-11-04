@@ -192,7 +192,7 @@ test("PDF векторный, содержит встроенный OpenGOST и 
 });
 
 test("для полной базовой схемы авто выбирает A0 и сохраняет горизонтальную раскладку",()=>{
- const plan=exporter().plans(require('../default-project.json'),{paper:'auto'})[0];
+ const plan=exporter().plans(require('./fixtures/full-catalog-project.json'),{paper:'auto'})[0];
  assert.ok(Math.abs(plan.pw-1189*72/25.4)<0.01);
  assert.ok(plan.size.width*plan.scale<=plan.sheet.drawing.w+1e-8);
 });
