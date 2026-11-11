@@ -262,7 +262,7 @@
   function project() {
     return {
       meta: { app: APP, version: VERSION, name: "Новый проект" },
-      settings: { voltageLN: 230, frequency: 50, powerFactor: 1 },
+      settings: { voltageLN: 230, frequency: 50, powerFactor: 1, advancedMode: false },
       view: { panX: 0, panY: 0, zoom: 1 },
       nodes: [],
       links: [],

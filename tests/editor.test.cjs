@@ -504,6 +504,9 @@ test("редактор запускается, demo без коллизий, в�
   );
   for (const id of require("./legacy-control-ids.json"))
     assert.ok(s.$(id), "missing " + id);
+  assert.equal(s.$("advancedMode").checked, false);
+  assert.equal(s.state().project.settings.advancedMode, false);
+  assert.equal(s.$("advancedModeHint").previousElementSibling.className, "btnRow compactActions");
   assert.ok(s.$("sessionStatus").textContent);
   s.dom.window.close();
 });
