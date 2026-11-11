@@ -22,7 +22,7 @@
     "powerFactor": 1,
     "snapToGrid": true,
     "autoTrip": false,
-    "advancedMode": true,
+    "advancedMode": false,
     "highlightBranch": true
   },
   "view": {

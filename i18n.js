@@ -141,6 +141,7 @@ PF=1 · 50 Гц · Uл = √3 × Uф|||PF=1 · 50 Hz · Uline = √3 × Uphase
 конструктор модуля|||module editor
 КЛ1|||T1
 КЛ3|||T3
+Чтобы видеть длины и сечения кабелей - включите продвинутый режим в настройках|||To see cable lengths and cross-sections, enable advanced mode in settings
 Продвинутый режим|||Advanced mode
 Кабели, сценарии защиты и разъёмы в свойствах портов. Резервный ввод в свойствах дистрибьютора. Расширенный поиск трасс.|||Cables, protection scenarios and connectors in port properties. Backup input in distributor properties. Extended route search.
 Подсветка всей ветки|||Highlight entire branch

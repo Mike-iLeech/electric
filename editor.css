@@ -509,6 +509,7 @@ body.desktopApp #projectBlock { height: 290px; }
 #builderPreview { margin-top:12px; max-width:none; min-height:240px; box-shadow:0 12px 35px #0002; display:flex; flex-direction:column; justify-content:center; overflow-wrap:anywhere; }
 .previewProtection { margin-top:16px; font-size:12px; text-align:center; color:#a5b9d6; }
 #builderPreview.invalid { border-color:#ff9ba4; color:#ff9ba4; }
+#advancedModeHint { margin:12px 0 0; padding:12px; border:1px solid #30445e; border-radius:12px; background:#142033; color:#b9c9df; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
 #sourceSupplyField:has(input:disabled) { opacity:.45; }
 #nodeModal input:disabled { cursor:not-allowed; }
 #nodeModal .modalFooter { display:flex; flex-wrap:wrap; gap:10px; }
